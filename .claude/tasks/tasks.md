@@ -64,7 +64,7 @@ Depends on #4 + #5 + #6 all being done. Creates the export barrel files too.
 
 After #8 is done, these two are independent.
 
-- [ ] **#9 CLI entry point** — `src/cli/generate.ts` (also needs #7)
+- [x] **#9 CLI entry point** — `src/cli/generate.ts` (also needs #7)
 - [ ] **#10 Example script** — `examples/basic-edit.ts`
 
 ## Step 6 — Final verification
@@ -85,6 +85,6 @@ After #8 is done, these two are independent.
 | #6 Output store | done | 2026-02-12 |
 | #7 Config | done | 2026-02-12 |
 | #8 Pipeline | done | 2026-02-12 |
-| #9 CLI | pending | |
+| #9 CLI | done | 2026-02-12 |
 | #10 Example | pending | |
 | #11 Verify | pending | |
