@@ -39,6 +39,16 @@ describe("createScenarioFromHour", () => {
     const scenario = createScenarioFromHour(10);
     expect(scenario.timestampLocal).toBeInstanceOf(Date);
   });
+
+  it("throws for out-of-range hour", () => {
+    expect(() => createScenarioFromHour(25)).toThrow(RangeError);
+    expect(() => createScenarioFromHour(-1)).toThrow(RangeError);
+  });
+
+  it("throws for non-integer hour", () => {
+    expect(() => createScenarioFromHour(3.5)).toThrow(RangeError);
+    expect(() => createScenarioFromHour(NaN)).toThrow(RangeError);
+  });
 });
 
 describe("createScenarioFromNow", () => {

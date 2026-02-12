@@ -9,6 +9,10 @@ export function createScenarioFromHour(
   hour: number,
   isDay?: boolean,
 ): Scenario {
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) {
+    throw new RangeError(`Hour must be an integer between 0 and 23, got ${hour}`);
+  }
+
   const autoIsDay = isDay ?? (hour >= 6 && hour <= 20);
 
   return {
@@ -52,25 +56,24 @@ function getTimeOfDayDescription(hour: number): string {
   return "night, darkness, moonlight";
 }
 
+// WMO weather codes (used by Open-Meteo)
+const WEATHER_MAP: Record<number, string> = {
+  0: ", clear sky",
+  1: ", mainly clear",
+  2: ", partly cloudy",
+  3: ", overcast",
+  45: ", foggy",
+  48: ", foggy with frost",
+  51: ", light drizzle",
+  61: ", light rain",
+  63: ", moderate rain",
+  65: ", heavy rain",
+  71: ", light snow",
+  73: ", moderate snow",
+  95: ", thunderstorm",
+};
+
 function getWeatherDescription(weatherCode?: number): string {
   if (weatherCode === undefined) return "";
-
-  // WMO weather codes (used by Open-Meteo)
-  const weatherMap: Record<number, string> = {
-    0: ", clear sky",
-    1: ", mainly clear",
-    2: ", partly cloudy",
-    3: ", overcast",
-    45: ", foggy",
-    48: ", foggy with frost",
-    51: ", light drizzle",
-    61: ", light rain",
-    63: ", moderate rain",
-    65: ", heavy rain",
-    71: ", light snow",
-    73: ", moderate snow",
-    95: ", thunderstorm",
-  };
-
-  return weatherMap[weatherCode] ?? "";
+  return WEATHER_MAP[weatherCode] ?? "";
 }
