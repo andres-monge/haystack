@@ -37,7 +37,7 @@
 Must be done in order. Each unlocks the next.
 
 - [x] **#1 Scaffold project** — `package.json`, `tsconfig.json`, `vitest.config.ts`, `.env.example`, `npm install`
-- [ ] **#2 Type definitions** — `src/engine/types.ts` (Scenario, SerializedScenario, GeminiConfig, RenderMetadata, etc.)
+- [x] **#2 Type definitions** — `src/engine/types.ts` (Scenario, SerializedScenario, GeminiConfig, RenderMetadata, etc.)
 
 ## Step 2 — Core modules (parallel)
 
@@ -78,7 +78,7 @@ After #8 is done, these two are independent.
 | Task | Status | Date |
 |------|--------|------|
 | #1 Scaffold | done | 2026-02-12 |
-| #2 Types | pending | |
+| #2 Types | done | 2026-02-12 |
 | #3 Scenario | pending | |
 | #4 Prompt | pending | |
 | #5 Gemini client | pending | |
