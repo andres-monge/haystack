@@ -138,7 +138,7 @@ Fallback: If AI outpainting looks weird, just blur-extend the edges.
 
 | Model | Purpose |
 |-------|---------|
-| `Artwork` | Your source image (file path or URL) |
+| `Artwork` | Your source image (local file path) |
 | `Location` | Where you are (lat/lon/timezone) |
 | `Scenario` | Current conditions (time, weather, day/night) |
 | `PromptVersion` | The text instructions sent to AI (versioned for testing) |
@@ -267,7 +267,7 @@ A simple web app running locally in your browser. This is where you **iterate fa
 
 | Control | What It Does |
 |---------|--------------|
-| **Upload / Paste URL** | Set your base artwork |
+| **Upload Image** | Set your base artwork |
 | **Location Search** | Type "San Francisco" → gets lat/lon/timezone |
 | **Time Override** | Force "8 PM" instead of real time |
 | **Weather Override** | Force "rainy" instead of real weather |

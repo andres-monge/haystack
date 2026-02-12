@@ -697,35 +697,6 @@ export class Pipeline {
   }
 
   /**
-   * Generate from an image URL (downloads first)
-   */
-  async generateFromUrl(
-    imageUrl: string,
-    scenario: Scenario,
-    promptOverride?: string
-  ): Promise<GenerateResult> {
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.statusText}`);
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-    // Use a unique temp filename to avoid collisions between concurrent runs
-    const tempPath = path.join(this.config.outputDir, `temp_${randomUUID()}.png`);
-
-    fs.writeFileSync(tempPath, buffer);
-
-    try {
-      return await this.generate(tempPath, scenario, promptOverride);
-    } finally {
-      // Clean up temp file
-      if (fs.existsSync(tempPath)) {
-        fs.unlinkSync(tempPath);
-      }
-    }
-  }
-
-  /**
    * Get the output store for listing/querying past renders
    */
   getStore(): OutputStore {

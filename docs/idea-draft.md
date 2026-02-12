@@ -50,7 +50,7 @@
 
 ### Top user stories
 
-1. _As a user_, I can upload an image, set a folder from my laptop with multiple images or provide an image URL and start “living wallpaper” mode.
+1. _As a user_, I can upload an image or set a folder from my laptop with multiple images and start "living wallpaper" mode.
     
 2. _As a user_, I can set a location and the wallpaper changes to reflect local time and weather.
     
@@ -66,11 +66,9 @@
 ### Artwork input
 
 - Accept:
-    
+
     - File upload (local)
-        
-    - Image URL (download to local cache)
-        
+
 - Validate:
     
     - Supported formats: jpg/png/webp (others optional)
@@ -162,7 +160,7 @@
         
     - Must-have controls:
         
-        - Upload file / paste URL
+        - Upload file
             
         - Location: search city
             
@@ -270,7 +268,7 @@ Replace “Lab UI + scripts” with a friendly, installable Mac experience while
             
 2. **Settings UI**
 
-    - Artwork picker (file, URL, or folder)
+    - Artwork picker (file or folder)
 
     - Location picker (search + map optional)
 
@@ -452,7 +450,7 @@ A dedicated device connected via HDMI runs a kiosk browser that displays the cur
 
 ### Data model (suggested)
 
-- `Artwork { id, sourceType(file/url/folder), sourcePath, createdAt }`
+- `Artwork { id, sourceType(file/folder), sourcePath, createdAt }`
 
 - `ArtworkFolder { id, folderPath, selectionMode(single/rotation), rotationFrequency(daily/weekly/monthly), activeImageId, lastRotatedAt }`
 
