@@ -45,7 +45,7 @@ After #2 is done, these four have **no dependencies on each other**. Do in any o
 
 - [x] **#3 Scenario builder** — `src/engine/scenario.ts` + `tests/engine/scenario.test.ts`
 - [x] **#5 Gemini client** — `src/engine/gemini-client.ts` + `tests/engine/gemini-client.test.ts`
-- [ ] **#6 Output store** — `src/storage/output-store.ts` + `src/storage/index.ts` + `tests/storage/output-store.test.ts`
+- [x] **#6 Output store** — `src/storage/output-store.ts` + `src/storage/index.ts` + `tests/storage/output-store.test.ts`
 - [ ] **#7 Config module** — `src/config/config.ts` + `src/config/index.ts`
 
 ## Step 3 — Prompt composer
@@ -82,7 +82,7 @@ After #8 is done, these two are independent.
 | #3 Scenario | done | 2026-02-12 |
 | #4 Prompt | done | 2026-02-12 |
 | #5 Gemini client | done | 2026-02-12 |
-| #6 Output store | pending | |
+| #6 Output store | done | 2026-02-12 |
 | #7 Config | pending | |
 | #8 Pipeline | pending | |
 | #9 CLI | pending | |
