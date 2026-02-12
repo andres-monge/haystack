@@ -128,17 +128,19 @@ describe("Pipeline", () => {
     expect(result.metadata.prompt).toContain("night");
   });
 
-  it("passes seed through to metadata", async () => {
+  it("passes seed through to metadata and deep-merges geminiConfig", async () => {
     mockImageResponse();
 
+    // Only pass seed — model should inherit from DEFAULT_GEMINI_CONFIG
     const pipeline = new Pipeline(
-      { outputDir: tempDir, geminiConfig: { model: "gemini-2.5-flash-image", seed: 42 } },
+      { outputDir: tempDir, geminiConfig: { seed: 42 } },
       "fake-key",
     );
     const scenario = createScenarioFromHour(10);
     const result = await pipeline.generate(testImagePath, scenario);
 
     expect(result.metadata.seed).toBe(42);
+    expect(result.metadata.model).toBe("gemini-2.5-flash-image");
   });
 
   it("getStore returns the output store", async () => {

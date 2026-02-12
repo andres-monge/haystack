@@ -1,7 +1,6 @@
 // src/engine/pipeline.ts — Main pipeline orchestration
 
 import * as path from "node:path";
-import * as fs from "node:fs";
 import * as os from "node:os";
 import { randomUUID } from "node:crypto";
 import type {
@@ -22,13 +21,27 @@ export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
   promptConfig: DEFAULT_PROMPT_CONFIG,
 };
 
+/** Produce "YYYYMMDD_HHmmss" for human-readable, sortable render IDs. */
+function formatDate(date: Date): string {
+  return date
+    .toISOString()
+    .slice(0, 19)
+    .replace(/[-:T]/g, "")
+    .replace(/(\d{8})(\d{6})/, "$1_$2");
+}
+
 export class Pipeline {
   private config: PipelineConfig;
   private client: GeminiClient;
   private store: OutputStore;
 
   constructor(config: Partial<PipelineConfig> = {}, apiKey?: string) {
-    this.config = { ...DEFAULT_PIPELINE_CONFIG, ...config };
+    this.config = {
+      ...DEFAULT_PIPELINE_CONFIG,
+      ...config,
+      geminiConfig: { ...DEFAULT_GEMINI_CONFIG, ...config.geminiConfig },
+      promptConfig: { ...DEFAULT_PROMPT_CONFIG, ...config.promptConfig },
+    };
     this.client = new GeminiClient(apiKey);
     this.store = new OutputStore(this.config.outputDir, this.config.maxOutputs);
   }
@@ -51,15 +64,16 @@ export class Pipeline {
       this.config.geminiConfig,
     );
 
-    const renderId = `${this.formatDate(new Date())}_${randomUUID().slice(0, 8)}`;
+    const now = new Date();
+    const renderId = `${formatDate(now)}_${randomUUID().slice(0, 8)}`;
     const metadata: RenderMetadata = {
       id: renderId,
       artworkSource: imagePath,
       scenario: serializeScenario(scenario),
       prompt,
       model: this.config.geminiConfig.model,
-      createdAt: new Date().toISOString(),
-      outputPath: "", // Set by store.save
+      createdAt: now.toISOString(),
+      outputPath: "", // Updated after save
       responseText: result.responseText,
       seed: this.config.geminiConfig.seed,
       responseId: result.responseId,
@@ -79,51 +93,9 @@ export class Pipeline {
   }
 
   /**
-   * Generate from an image URL (downloads first, cleans up temp file).
-   */
-  async generateFromUrl(
-    imageUrl: string,
-    scenario: Scenario,
-    promptOverride?: string,
-  ): Promise<GenerateResult> {
-    const response = await fetch(imageUrl);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch image: ${response.statusText}`);
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-    const tempPath = path.join(
-      this.config.outputDir,
-      `temp_${randomUUID()}.png`,
-    );
-
-    fs.mkdirSync(path.dirname(tempPath), { recursive: true });
-    fs.writeFileSync(tempPath, buffer);
-
-    try {
-      return await this.generate(tempPath, scenario, promptOverride);
-    } finally {
-      try {
-        fs.unlinkSync(tempPath);
-      } catch {
-        // Best-effort cleanup
-      }
-    }
-  }
-
-  /**
    * Get the output store for listing/querying past renders.
    */
   getStore(): OutputStore {
     return this.store;
-  }
-
-  private formatDate(date: Date): string {
-    // Produce "YYYYMMDD_HHmmss" for human-readable, sortable render IDs
-    return date
-      .toISOString()
-      .slice(0, 19)
-      .replace(/[-:T]/g, "")
-      .replace(/(\d{8})(\d{6})/, "$1_$2");
   }
 }
