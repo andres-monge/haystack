@@ -52,7 +52,7 @@ After #2 is done, these four have **no dependencies on each other**. Do in any o
 
 Depends on #3 (uses `describeScenario` from scenario builder).
 
-- [ ] **#4 Prompt composer** — `src/engine/prompt.ts` + `tests/engine/prompt.test.ts`
+- [x] **#4 Prompt composer** — `src/engine/prompt.ts` + `tests/engine/prompt.test.ts`
 
 ## Step 4 — Pipeline
 
@@ -80,7 +80,7 @@ After #8 is done, these two are independent.
 | #1 Scaffold | done | 2026-02-12 |
 | #2 Types | done | 2026-02-12 |
 | #3 Scenario | done | 2026-02-12 |
-| #4 Prompt | pending | |
+| #4 Prompt | done | 2026-02-12 |
 | #5 Gemini client | done | 2026-02-12 |
 | #6 Output store | pending | |
 | #7 Config | pending | |
