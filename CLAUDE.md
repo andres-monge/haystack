@@ -6,6 +6,10 @@ AI-powered macOS wallpaper that evolves hourly based on time and weather. Uses G
 
 Early development. Only planning docs exist so far — no source code yet. See @docs/plans/2026-02-10-feat-gemini-image-editing-pipeline-plan.md for the active implementation plan (Phase A1).
 
+## Task tracking
+
+Build tasks are in `.claude/tasks/`. Read `tasks.md` for the roadmap and dependency graph, then `{1..11}.json` for full details on each task. Update the checkboxes and progress table in `tasks.md` as tasks are completed.
+
 ## Tech stack
 
 - TypeScript + Node.js (ES modules, `"type": "module"`)

@@ -1,0 +1,16 @@
+{
+  "id": "8",
+  "subject": "Create main pipeline (src/engine/pipeline.ts) + tests",
+  "description": "Create `src/engine/pipeline.ts` with `Pipeline` class:\n- `DEFAULT_PIPELINE_CONFIG` constant\n- constructor(config?, apiKey?) — merges with defaults, creates GeminiClient and OutputStore\n- `generate(imagePath, scenario, promptOverride?)` — composes prompt, calls Gemini, creates metadata with renderId (date_uuid format), saves via store, returns GenerateResult\n- `generateFromUrl(imageUrl, scenario, promptOverride?)` — downloads image to temp file, calls generate, cleans up temp file in finally block\n- `getStore()` — returns OutputStore reference\n- `formatDate(date)` — private helper for render ID formatting\n\nAlso create `src/engine/index.ts` with re-exports of all engine modules.\nCreate `src/index.ts` as main package export (re-exports engine, storage, config).\n\nCreate `tests/engine/pipeline.test.ts` with mocked @google/genai:\n- generates output and saves metadata\n- metadata contains expected fields (model, outputPath exists, observability fields)\n\nDepends on: types.ts (Task #2), gemini-client.ts (Task #5), prompt.ts (Task #4), scenario.ts (Task #3), output-store.ts (Task #6)",
+  "activeForm": "Creating main pipeline and tests",
+  "status": "pending",
+  "blocks": [
+    "9",
+    "10"
+  ],
+  "blockedBy": [
+    "4",
+    "5",
+    "6"
+  ]
+}

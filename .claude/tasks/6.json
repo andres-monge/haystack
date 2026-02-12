@@ -1,0 +1,13 @@
+{
+  "id": "6",
+  "subject": "Create output store (src/storage/output-store.ts) + tests",
+  "description": "Create `src/storage/output-store.ts` with `OutputStore` class:\n- constructor(baseDir, maxOutputs=24) — ensures directory exists\n- `save(imageBuffer, metadata)` — writes PNG + JSON sidecar, purges old outputs, returns image path\n- `getLatest()` — returns most recent RenderMetadata or null\n- `listAll()` — returns all metadata sorted newest first\n- `getMetaFilesSorted()` — private, reads dir, filters .json, sorts by mtime desc\n- `loadMetadata(filePath)` — private, reads and parses JSON\n- `purgeOldOutputs()` — private, removes oldest files beyond maxOutputs\n\nAlso create `src/storage/index.ts` with re-export.\n\nCreate `tests/storage/output-store.test.ts` with:\n- save and retrieve metadata\n- purge old outputs when exceeding max\n- getLatest returns null on empty store\n- listAll returns sorted results\n\nDepends on: types.ts (Task #2)",
+  "activeForm": "Creating output store and tests",
+  "status": "pending",
+  "blocks": [
+    "8"
+  ],
+  "blockedBy": [
+    "2"
+  ]
+}

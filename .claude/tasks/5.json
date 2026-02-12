@@ -1,0 +1,13 @@
+{
+  "id": "5",
+  "subject": "Create Gemini client wrapper (src/engine/gemini-client.ts) + tests",
+  "description": "Create `src/engine/gemini-client.ts` with:\n- `EditImageResult` interface (imageBuffer, responseText, observability fields)\n- `DEFAULT_GEMINI_CONFIG` constant (model: gemini-2.5-flash-image)\n- `GeminiClient` class:\n  - constructor(apiKey?) — creates GoogleGenAI instance, passes apiKey only when provided\n  - `editImage(imageInput, prompt, config?)` — handles Buffer or file path input, base64 encodes, calls generateContent with responseModalities [\"TEXT\", \"IMAGE\"], optional imageConfig/seed, extracts image buffer and text from response, captures observability fields (responseId, modelVersion, usageMetadata, finishReason)\n  - `detectMimeType(buffer)` — private, checks magic bytes for PNG/JPEG/WebP\n\nAlso create `tests/engine/gemini-client.test.ts` with:\n- Test detectMimeType via editImage with mocked SDK\n- Test that missing image in response throws error\n\nDepends on: types.ts (Task #2)",
+  "activeForm": "Creating Gemini client wrapper and tests",
+  "status": "pending",
+  "blocks": [
+    "8"
+  ],
+  "blockedBy": [
+    "2"
+  ]
+}

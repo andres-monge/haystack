@@ -1,0 +1,12 @@
+{
+  "id": "11",
+  "subject": "Verify: build, lint, and run all tests",
+  "description": "Final verification step:\n1. Run `npm run build` — TypeScript must compile with strict mode, no errors\n2. Run `npm run test:run` — all unit and integration tests must pass\n3. Verify the dist/ output structure matches package.json expectations (dist/index.js, dist/cli/generate.js)\n4. Verify .gitignore includes node_modules, dist, .env\n\nFix any issues found.\n\nDepends on: all previous tasks",
+  "activeForm": "Verifying build and tests",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "9",
+    "10"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "id": "2",
+  "subject": "Create type definitions (src/engine/types.ts)",
+  "description": "Create `src/engine/types.ts` with all shared type definitions from the plan:\n- `Scenario` interface (timestampLocal: Date, hour, isDay, optional weather/sun fields)\n- `SerializedScenario` interface (JSON-safe version with ISO string dates)\n- `AspectRatio` type union\n- `GeminiConfig` interface (model, optional aspectRatio, imageSize, seed)\n- `PromptConfig` interface (template, extraContext)\n- `RenderMetadata` interface (id, artworkSource, scenario as SerializedScenario, prompt, model, createdAt, outputPath, responseText, seed, observability fields)\n- `GenerateResult` interface (metadata, imagePath, imageBuffer)\n- `PipelineConfig` interface (outputDir, maxOutputs, geminiConfig, promptConfig)\n- `serializeScenario()` function\n\nThis is the foundation — all other modules depend on these types.",
+  "activeForm": "Creating type definitions",
+  "status": "pending",
+  "blocks": [
+    "3",
+    "5",
+    "6",
+    "7"
+  ],
+  "blockedBy": [
+    "1"
+  ]
+}

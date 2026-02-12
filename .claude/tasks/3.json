@@ -1,0 +1,13 @@
+{
+  "id": "3",
+  "subject": "Create scenario builder (src/engine/scenario.ts) + tests",
+  "description": "Create `src/engine/scenario.ts` with:\n- `createScenarioFromHour(hour, isDay?)` — creates Scenario from an hour value, auto-detects isDay (6-20 = day)\n- `createScenarioFromNow()` — creates Scenario from current time\n- `describeScenario(scenario)` — generates human-readable description string\n- `getTimeOfDayDescription(hour)` — private helper mapping hour ranges to descriptions (dawn, morning, midday, afternoon, evening, dusk, night)\n- `getWeatherDescription(weatherCode?)` — private helper mapping WMO weather codes to descriptions\n\nAlso create `tests/engine/scenario.test.ts` with tests from the plan:\n- createScenarioFromHour: correct hour, auto-detects day/night\n- describeScenario: morning description, night description\n\nDepends on: types.ts (Task #2)",
+  "activeForm": "Creating scenario builder and tests",
+  "status": "pending",
+  "blocks": [
+    "4"
+  ],
+  "blockedBy": [
+    "2"
+  ]
+}

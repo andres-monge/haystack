@@ -1,0 +1,13 @@
+{
+  "id": "4",
+  "subject": "Create prompt composer (src/engine/prompt.ts) + tests",
+  "description": "Create `src/engine/prompt.ts` with:\n- `DEFAULT_TEMPLATE` — the full prompt template with `{scenario}` placeholder and guidelines\n- `DEFAULT_PROMPT_CONFIG` — default PromptConfig using DEFAULT_TEMPLATE\n- `composePrompt(scenario, config?)` — replaces `{scenario}` in template with describeScenario() output, appends extraContext if provided\n\nAlso create `tests/engine/prompt.test.ts` with tests from the plan:\n- includes scenario description (evening/golden hour for hour 18)\n- appends extra context when provided\n\nDepends on: types.ts (Task #2), scenario.ts (Task #3)",
+  "activeForm": "Creating prompt composer and tests",
+  "status": "pending",
+  "blocks": [
+    "8"
+  ],
+  "blockedBy": [
+    "3"
+  ]
+}

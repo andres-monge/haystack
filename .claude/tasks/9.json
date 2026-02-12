@@ -1,0 +1,14 @@
+{
+  "id": "9",
+  "subject": "Create CLI entry point (src/cli/generate.ts)",
+  "description": "Create `src/cli/generate.ts` with shebang line:\n- Parses args: <image_path> [hour]\n- Shows usage if no args\n- Loads config via loadConfigFromEnv()\n- Validates API key is present\n- Creates Pipeline with toPipelineConfig(config) and apiKey\n- Creates scenario from hour arg or current time\n- Calls pipeline.generate(), logs output path, model, and response text\n- Handles errors with process.exit(1)\n\nDepends on: pipeline.ts (Task #8), config.ts (Task #7)",
+  "activeForm": "Creating CLI entry point",
+  "status": "pending",
+  "blocks": [
+    "11"
+  ],
+  "blockedBy": [
+    "7",
+    "8"
+  ]
+}

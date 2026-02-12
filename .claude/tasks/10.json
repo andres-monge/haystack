@@ -1,0 +1,13 @@
+{
+  "id": "10",
+  "subject": "Create example script (examples/basic-edit.ts)",
+  "description": "Create `examples/basic-edit.ts`:\n- Simple script that imports Pipeline and createScenarioFromHour from src\n- Parses args: <image_path> [hour=18]\n- Creates pipeline with defaults, generates for the given hour\n- Logs output path and prompt used\n- Include usage comment at top\n\nDepends on: pipeline.ts (Task #8)",
+  "activeForm": "Creating example script",
+  "status": "pending",
+  "blocks": [
+    "11"
+  ],
+  "blockedBy": [
+    "8"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "7",
+  "subject": "Create config module (src/config/config.ts)",
+  "description": "Create `src/config/config.ts` with:\n- `HaystackConfig` interface (googleApiKey, outputDir, baseArtworkDir, defaultModel, defaultAspectRatio?, defaultSeed?, maxStoredOutputs)\n- `loadConfigFromEnv()` — reads from process.env: GOOGLE_API_KEY/GEMINI_API_KEY, HAYSTACK_OUTPUT_DIR, HAYSTACK_ARTWORK_DIR, HAYSTACK_MODEL, HAYSTACK_ASPECT_RATIO, HAYSTACK_SEED, HAYSTACK_MAX_OUTPUTS with sensible defaults\n- `toPipelineConfig(config)` — converts HaystackConfig to Partial<PipelineConfig>\n\nAlso create `src/config/index.ts` with re-exports.\n\nDepends on: types.ts (Task #2)",
+  "activeForm": "Creating config module",
+  "status": "pending",
+  "blocks": [
+    "9"
+  ],
+  "blockedBy": [
+    "2"
+  ]
+}
