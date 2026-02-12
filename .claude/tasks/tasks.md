@@ -44,7 +44,7 @@ Must be done in order. Each unlocks the next.
 After #2 is done, these four have **no dependencies on each other**. Do in any order or all at once.
 
 - [ ] **#3 Scenario builder** — `src/engine/scenario.ts` + `tests/engine/scenario.test.ts`
-- [ ] **#5 Gemini client** — `src/engine/gemini-client.ts` + `tests/engine/gemini-client.test.ts`
+- [x] **#5 Gemini client** — `src/engine/gemini-client.ts` + `tests/engine/gemini-client.test.ts`
 - [ ] **#6 Output store** — `src/storage/output-store.ts` + `src/storage/index.ts` + `tests/storage/output-store.test.ts`
 - [ ] **#7 Config module** — `src/config/config.ts` + `src/config/index.ts`
 
@@ -81,7 +81,7 @@ After #8 is done, these two are independent.
 | #2 Types | done | 2026-02-12 |
 | #3 Scenario | pending | |
 | #4 Prompt | pending | |
-| #5 Gemini client | pending | |
+| #5 Gemini client | done | 2026-02-12 |
 | #6 Output store | pending | |
 | #7 Config | pending | |
 | #8 Pipeline | pending | |
