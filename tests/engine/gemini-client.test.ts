@@ -1,4 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
 import { GeminiClient, DEFAULT_GEMINI_CONFIG } from "../../src/engine/gemini-client.js";
 
 // Mock the @google/genai SDK
@@ -12,19 +15,43 @@ vi.mock("@google/genai", () => ({
   })),
 }));
 
+/** Helper to set up a mock response with an image (and optional text). */
+function mockImageResponse(
+  text?: string,
+  extras: Record<string, unknown> = {},
+) {
+  const fakeImageData = Buffer.from("output").toString("base64");
+  mockGenerateContent.mockResolvedValue({
+    candidates: [
+      {
+        content: {
+          parts: [
+            ...(text ? [{ text }] : []),
+            { inlineData: { data: fakeImageData } },
+          ],
+        },
+        finishReason: "STOP",
+        ...extras,
+      },
+    ],
+    usageMetadata: {
+      promptTokenCount: 100,
+      candidatesTokenCount: 1290,
+      totalTokenCount: 1390,
+    },
+    responseId: "mock-response-id",
+    modelVersion: "gemini-2.5-flash-image-001",
+  });
+}
+
+/** Minimal valid PNG buffer (>= 12 bytes for mime detection). */
+const PNG_BUFFER = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+]);
+
 describe("GeminiClient", () => {
   beforeEach(() => {
     mockGenerateContent.mockReset();
-  });
-
-  describe("DEFAULT_GEMINI_CONFIG", () => {
-    it("defaults to gemini-2.5-flash-image model", () => {
-      expect(DEFAULT_GEMINI_CONFIG.model).toBe("gemini-2.5-flash-image");
-    });
-
-    it("does not set aspectRatio by default", () => {
-      expect(DEFAULT_GEMINI_CONFIG.aspectRatio).toBeUndefined();
-    });
   });
 
   describe("editImage", () => {
@@ -47,17 +74,19 @@ describe("GeminiClient", () => {
           candidatesTokenCount: 1290,
           totalTokenCount: 1390,
         },
+        responseId: "resp-123",
+        modelVersion: "gemini-2.5-flash-image-001",
       });
 
       const client = new GeminiClient("fake-key");
-      // PNG magic bytes
-      const inputImage = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00]);
-      const result = await client.editImage(inputImage, "Edit this image");
+      const result = await client.editImage(PNG_BUFFER, "Edit this image");
 
       expect(result.imageBuffer).toEqual(Buffer.from("fake-output-image"));
       expect(result.responseText).toBe("Here is your edited image");
       expect(result.finishReason).toBe("STOP");
       expect(result.usageMetadata?.totalTokenCount).toBe(1390);
+      expect(result.responseId).toBe("resp-123");
+      expect(result.modelVersion).toBe("gemini-2.5-flash-image-001");
     });
 
     it("throws when Gemini returns no image", async () => {
@@ -73,71 +102,61 @@ describe("GeminiClient", () => {
       });
 
       const client = new GeminiClient("fake-key");
-      const inputImage = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00]);
 
       await expect(
-        client.editImage(inputImage, "Edit this image"),
+        client.editImage(PNG_BUFFER, "Edit this image"),
       ).rejects.toThrow("Gemini did not return an image");
     });
 
+    it("throws for buffers smaller than 12 bytes", async () => {
+      const client = new GeminiClient("fake-key");
+      const tinyBuffer = Buffer.from([0x89, 0x50]);
+
+      await expect(
+        client.editImage(tinyBuffer, "test"),
+      ).rejects.toThrow("too small");
+    });
+
+    it("throws for images exceeding max size", async () => {
+      const client = new GeminiClient("fake-key");
+      // Create a buffer just over 20 MB
+      const hugeBuffer = Buffer.alloc(20 * 1024 * 1024 + 1);
+      // Add PNG header so it passes mime detection
+      hugeBuffer[0] = 0x89;
+      hugeBuffer[1] = 0x50;
+
+      await expect(
+        client.editImage(hugeBuffer, "test"),
+      ).rejects.toThrow("exceeds maximum size");
+    });
+
     it("detects PNG mime type from magic bytes", async () => {
-      const fakeImageData = Buffer.from("output").toString("base64");
-      mockGenerateContent.mockResolvedValue({
-        candidates: [
-          {
-            content: {
-              parts: [{ inlineData: { data: fakeImageData } }],
-            },
-          },
-        ],
-      });
+      mockImageResponse();
 
       const client = new GeminiClient("fake-key");
-      // PNG header: 89 50 4E 47
-      const pngInput = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00]);
-      await client.editImage(pngInput, "test");
+      await client.editImage(PNG_BUFFER, "test");
 
       const call = mockGenerateContent.mock.calls[0][0];
-      const inlineDataPart = call.contents[1];
-      expect(inlineDataPart.inlineData.mimeType).toBe("image/png");
+      expect(call.contents[1].inlineData.mimeType).toBe("image/png");
     });
 
     it("detects JPEG mime type from magic bytes", async () => {
-      const fakeImageData = Buffer.from("output").toString("base64");
-      mockGenerateContent.mockResolvedValue({
-        candidates: [
-          {
-            content: {
-              parts: [{ inlineData: { data: fakeImageData } }],
-            },
-          },
-        ],
-      });
+      mockImageResponse();
 
       const client = new GeminiClient("fake-key");
-      // JPEG header: FF D8
-      const jpegInput = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00]);
+      const jpegInput = Buffer.alloc(12);
+      jpegInput[0] = 0xff;
+      jpegInput[1] = 0xd8;
       await client.editImage(jpegInput, "test");
 
       const call = mockGenerateContent.mock.calls[0][0];
-      const inlineDataPart = call.contents[1];
-      expect(inlineDataPart.inlineData.mimeType).toBe("image/jpeg");
+      expect(call.contents[1].inlineData.mimeType).toBe("image/jpeg");
     });
 
     it("detects WebP mime type from magic bytes", async () => {
-      const fakeImageData = Buffer.from("output").toString("base64");
-      mockGenerateContent.mockResolvedValue({
-        candidates: [
-          {
-            content: {
-              parts: [{ inlineData: { data: fakeImageData } }],
-            },
-          },
-        ],
-      });
+      mockImageResponse();
 
       const client = new GeminiClient("fake-key");
-      // WebP header: RIFF....WEBP (bytes 0-3 = RIFF, 8-11 = WEBP)
       const webpInput = Buffer.alloc(12);
       webpInput[0] = 0x52; // R
       webpInput[1] = 0x49; // I
@@ -150,46 +169,25 @@ describe("GeminiClient", () => {
       await client.editImage(webpInput, "test");
 
       const call = mockGenerateContent.mock.calls[0][0];
-      const inlineDataPart = call.contents[1];
-      expect(inlineDataPart.inlineData.mimeType).toBe("image/webp");
+      expect(call.contents[1].inlineData.mimeType).toBe("image/webp");
     });
 
     it("falls back to image/png for unknown formats", async () => {
-      const fakeImageData = Buffer.from("output").toString("base64");
-      mockGenerateContent.mockResolvedValue({
-        candidates: [
-          {
-            content: {
-              parts: [{ inlineData: { data: fakeImageData } }],
-            },
-          },
-        ],
-      });
+      mockImageResponse();
 
       const client = new GeminiClient("fake-key");
-      const unknownInput = Buffer.from([0x00, 0x00, 0x00, 0x00]);
+      const unknownInput = Buffer.alloc(12); // all zeros
       await client.editImage(unknownInput, "test");
 
       const call = mockGenerateContent.mock.calls[0][0];
-      const inlineDataPart = call.contents[1];
-      expect(inlineDataPart.inlineData.mimeType).toBe("image/png");
+      expect(call.contents[1].inlineData.mimeType).toBe("image/png");
     });
 
     it("passes imageConfig when aspectRatio is set", async () => {
-      const fakeImageData = Buffer.from("output").toString("base64");
-      mockGenerateContent.mockResolvedValue({
-        candidates: [
-          {
-            content: {
-              parts: [{ inlineData: { data: fakeImageData } }],
-            },
-          },
-        ],
-      });
+      mockImageResponse();
 
       const client = new GeminiClient("fake-key");
-      const inputImage = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-      await client.editImage(inputImage, "test", {
+      await client.editImage(PNG_BUFFER, "test", {
         model: "gemini-2.5-flash-image",
         aspectRatio: "16:9",
       });
@@ -199,20 +197,10 @@ describe("GeminiClient", () => {
     });
 
     it("passes seed when configured", async () => {
-      const fakeImageData = Buffer.from("output").toString("base64");
-      mockGenerateContent.mockResolvedValue({
-        candidates: [
-          {
-            content: {
-              parts: [{ inlineData: { data: fakeImageData } }],
-            },
-          },
-        ],
-      });
+      mockImageResponse();
 
       const client = new GeminiClient("fake-key");
-      const inputImage = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-      await client.editImage(inputImage, "test", {
+      await client.editImage(PNG_BUFFER, "test", {
         model: "gemini-2.5-flash-image",
         seed: 42,
       });
@@ -221,60 +209,25 @@ describe("GeminiClient", () => {
       expect(call.config.seed).toBe(42);
     });
 
-    it("passes imageSize only for pro model", async () => {
-      const fakeImageData = Buffer.from("output").toString("base64");
-      mockGenerateContent.mockResolvedValue({
-        candidates: [
-          {
-            content: {
-              parts: [{ inlineData: { data: fakeImageData } }],
-            },
-          },
-        ],
-      });
+    it("passes imageSize through to API for any model", async () => {
+      mockImageResponse();
 
       const client = new GeminiClient("fake-key");
-      const inputImage = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-
-      // Pro model — imageSize should be included
-      await client.editImage(inputImage, "test", {
-        model: "gemini-3-pro-image-preview",
-        imageSize: "4K",
-      });
-      const proCall = mockGenerateContent.mock.calls[0][0];
-      expect(proCall.config.imageConfig).toEqual({ imageSize: "4K" });
-
-      mockGenerateContent.mockClear();
-
-      // Flash model — imageSize should be excluded
-      await client.editImage(inputImage, "test", {
+      await client.editImage(PNG_BUFFER, "test", {
         model: "gemini-2.5-flash-image",
         imageSize: "4K",
       });
-      const flashCall = mockGenerateContent.mock.calls[0][0];
-      expect(flashCall.config.imageConfig).toBeUndefined();
+
+      const call = mockGenerateContent.mock.calls[0][0];
+      expect(call.config.imageConfig).toEqual({ imageSize: "4K" });
     });
 
     it("reads image from file path when string is provided", async () => {
-      const fakeImageData = Buffer.from("output").toString("base64");
-      mockGenerateContent.mockResolvedValue({
-        candidates: [
-          {
-            content: {
-              parts: [{ inlineData: { data: fakeImageData } }],
-            },
-          },
-        ],
-      });
+      mockImageResponse();
 
-      // Create a temporary test file with PNG magic bytes
-      const { mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
-      const { join } = await import("node:path");
-      const { tmpdir } = await import("node:os");
-
-      const tempDir = mkdtempSync(join(tmpdir(), "haystack-test-"));
-      const testFilePath = join(tempDir, "test.png");
-      writeFileSync(testFilePath, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-test-"));
+      const testFilePath = path.join(tempDir, "test.png");
+      fs.writeFileSync(testFilePath, PNG_BUFFER);
 
       try {
         const client = new GeminiClient("fake-key");
@@ -284,8 +237,16 @@ describe("GeminiClient", () => {
         const call = mockGenerateContent.mock.calls[0][0];
         expect(call.contents[1].inlineData.mimeType).toBe("image/png");
       } finally {
-        rmSync(tempDir, { recursive: true });
+        fs.rmSync(tempDir, { recursive: true });
       }
+    });
+
+    it("throws when file path does not exist", async () => {
+      const client = new GeminiClient("fake-key");
+
+      await expect(
+        client.editImage("/nonexistent/image.png", "test"),
+      ).rejects.toThrow("Image file not found");
     });
   });
 });

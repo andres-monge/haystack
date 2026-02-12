@@ -56,6 +56,12 @@ export interface PromptConfig {
   extraContext?: string;
 }
 
+export interface UsageMetadata {
+  promptTokenCount?: number;
+  candidatesTokenCount?: number;
+  totalTokenCount?: number;
+}
+
 export interface RenderMetadata {
   id: string;
   artworkSource: string;
@@ -70,11 +76,7 @@ export interface RenderMetadata {
   // Observability — captured from the API response
   responseId?: string;
   modelVersion?: string;
-  usageMetadata?: {
-    promptTokenCount?: number;
-    candidatesTokenCount?: number;
-    totalTokenCount?: number;
-  };
+  usageMetadata?: UsageMetadata;
   finishReason?: string;
 }
 
