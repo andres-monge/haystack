@@ -1,0 +1,11 @@
+{
+  "id": "1",
+  "subject": "Scaffold project: package.json, tsconfig.json, vitest.config.ts, .env.example",
+  "description": "Create the project scaffolding files exactly as specified in the plan:\n- `package.json` with name \"haystack\", type \"module\", dependencies (@google/genai), devDependencies (typescript, vitest, tsx, eslint, @types/node), scripts (build, dev, test, test:run, lint, example), bin (haystack-generate), engines (node >=20)\n- `tsconfig.json` with target ES2022, module NodeNext, strict true, rootDir \"src\", outDir \"dist\"\n- `vitest.config.ts` (basic config for the test runner)\n- `.env.example` with documented env vars (GOOGLE_API_KEY, HAYSTACK_OUTPUT_DIR, HAYSTACK_MODEL, HAYSTACK_ASPECT_RATIO, HAYSTACK_SEED, HAYSTACK_MAX_OUTPUTS)\n- Run `npm install` to generate lock file and install deps\n\nDo NOT create src/ files yet.",
+  "activeForm": "Scaffolding project files",
+  "status": "done",
+  "blocks": [
+    "2"
+  ],
+  "blockedBy": []
+}
