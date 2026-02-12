@@ -58,7 +58,7 @@ Depends on #3 (uses `describeScenario` from scenario builder).
 
 Depends on #4 + #5 + #6 all being done. Creates the export barrel files too.
 
-- [ ] **#8 Main pipeline** — `src/engine/pipeline.ts` + `src/engine/index.ts` + `src/index.ts` + `tests/engine/pipeline.test.ts`
+- [x] **#8 Main pipeline** — `src/engine/pipeline.ts` + `src/engine/index.ts` + `src/index.ts` + `tests/engine/pipeline.test.ts`
 
 ## Step 5 — CLI + Example (parallel)
 
@@ -84,7 +84,7 @@ After #8 is done, these two are independent.
 | #5 Gemini client | done | 2026-02-12 |
 | #6 Output store | done | 2026-02-12 |
 | #7 Config | done | 2026-02-12 |
-| #8 Pipeline | pending | |
+| #8 Pipeline | done | 2026-02-12 |
 | #9 CLI | pending | |
 | #10 Example | pending | |
 | #11 Verify | pending | |
