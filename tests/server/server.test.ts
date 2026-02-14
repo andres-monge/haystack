@@ -95,6 +95,28 @@ function createMockWeatherProvider(): WeatherProvider {
       sunrise: "2026-02-14T07:30",
       sunset: "2026-02-14T18:15",
     }),
+    getForecast: vi.fn().mockResolvedValue({
+      current: {
+        time: "2026-02-14T12:00",
+        weatherCode: 0,
+        cloudPercent: 10,
+        precipProbability: 0,
+        temperature: 15,
+        isDay: true,
+        sunrise: "2026-02-14T07:30",
+        sunset: "2026-02-14T18:15",
+      },
+      hourly: [
+        {
+          time: "2026-02-14T12:00",
+          weatherCode: 0,
+          cloudPercent: 10,
+          precipProbability: 0,
+          temperature: 15,
+          isDay: true,
+        },
+      ],
+    }),
   };
 }
 
@@ -113,12 +135,7 @@ describe("Express API Server", () => {
 
     // Write a test PNG to the output dir for output serving tests
     const pngBuffer = createTestPng();
-    const meta = makeMetadata({ outputPath: path.join(outputDir, "20260214_120000_abc12345.png") });
     fs.writeFileSync(path.join(outputDir, "20260214_120000_abc12345.png"), pngBuffer);
-    fs.writeFileSync(
-      path.join(outputDir, "20260214_120000_abc12345.json"),
-      JSON.stringify(meta),
-    );
 
     // Write a temp PNG for upload
     testPngPath = path.join(outputDir, "upload-test.png");
@@ -291,7 +308,7 @@ describe("Express API Server", () => {
         .field("hour", "12");
 
       expect(res.status).toBe(500);
-      expect(res.body.error).toBe("Gemini API error");
+      expect(res.body.error).toBe("Generation failed");
     });
 
     it("cleans up temp file after generation", async () => {
@@ -311,9 +328,53 @@ describe("Express API Server", () => {
         .attach("image", testPngPath)
         .field("hour", "12");
 
-      // The temp file should have been cleaned up
+      // Allow async unlink to settle
+      await new Promise((r) => setTimeout(r, 50));
+
       expect(uploadedPath).toBeDefined();
       expect(fs.existsSync(uploadedPath!)).toBe(false);
+    });
+
+    it("returns 400 for invalid hour (non-numeric)", async () => {
+      const app = createTestApp();
+
+      const res = await request(app)
+        .post("/api/generate")
+        .attach("image", testPngPath)
+        .field("hour", "banana");
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("hour must be an integer 0-23");
+      expect(pipeline.generate).not.toHaveBeenCalled();
+    });
+
+    it("returns 400 for out-of-range hour", async () => {
+      const app = createTestApp();
+
+      const res = await request(app)
+        .post("/api/generate")
+        .attach("image", testPngPath)
+        .field("hour", "99");
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("hour must be an integer 0-23");
+      expect(pipeline.generate).not.toHaveBeenCalled();
+    });
+
+    it("ignores non-numeric weather override values", async () => {
+      const app = createTestApp();
+
+      await request(app)
+        .post("/api/generate")
+        .attach("image", testPngPath)
+        .field("hour", "12")
+        .field("weatherCode", "abc");
+
+      const generateCall = (pipeline.generate as ReturnType<typeof vi.fn>).mock
+        .calls[0];
+      const scenario = generateCall[1];
+      // Non-numeric value should be silently ignored
+      expect(scenario.weatherCode).toBeUndefined();
     });
 
     it("cleans up temp file even when generation fails", async () => {
@@ -331,6 +392,9 @@ describe("Express API Server", () => {
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12");
+
+      // Allow async unlink to settle
+      await new Promise((r) => setTimeout(r, 50));
 
       expect(uploadedPath).toBeDefined();
       expect(fs.existsSync(uploadedPath!)).toBe(false);
@@ -478,7 +542,7 @@ describe("Express API Server", () => {
   // --- GET /api/weather ---
 
   describe("GET /api/weather", () => {
-    it("returns current and hourly conditions", async () => {
+    it("returns current and hourly conditions via single getForecast call", async () => {
       const app = createTestApp();
 
       const res = await request(app).get(
@@ -490,6 +554,13 @@ describe("Express API Server", () => {
       expect(res.body.current.sunrise).toBe("2026-02-14T07:30");
       expect(res.body.current.sunset).toBe("2026-02-14T18:15");
       expect(res.body.hourly).toHaveLength(1);
+
+      // Should use the combined getForecast method (single API call)
+      expect(weatherProvider.getForecast).toHaveBeenCalledWith(
+        40.4168,
+        -3.7038,
+        "Europe/Madrid",
+      );
     });
 
     it("returns 400 when params are missing", async () => {
@@ -514,7 +585,7 @@ describe("Express API Server", () => {
 
     it("returns 500 when weather provider throws", async () => {
       (
-        weatherProvider.getCurrentConditions as ReturnType<typeof vi.fn>
+        weatherProvider.getForecast as ReturnType<typeof vi.fn>
       ).mockRejectedValue(new Error("API down"));
 
       const app = createTestApp();
@@ -524,7 +595,7 @@ describe("Express API Server", () => {
       );
 
       expect(res.status).toBe(500);
-      expect(res.body.error).toBe("API down");
+      expect(res.body.error).toBe("Weather fetch failed");
     });
   });
 });

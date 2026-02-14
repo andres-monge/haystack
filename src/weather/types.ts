@@ -45,4 +45,11 @@ export interface WeatherProvider {
     lon: number,
     timezone: string,
   ): Promise<CurrentConditions>;
+
+  /** Get both current and hourly conditions in a single API call. */
+  getForecast(
+    lat: number,
+    lon: number,
+    timezone: string,
+  ): Promise<{ current: CurrentConditions; hourly: HourlyConditions[] }>;
 }

@@ -53,11 +53,16 @@ export function createApp(config: CreateAppConfig): Express {
         const tempFilePath = req.file.path;
 
         try {
-          // Determine hour
+          // Determine and validate hour
           const hour =
             req.body.hour !== undefined
               ? parseInt(req.body.hour, 10)
               : new Date().getHours();
+
+          if (isNaN(hour) || hour < 0 || hour > 23) {
+            res.status(400).json({ error: "hour must be an integer 0-23" });
+            return;
+          }
 
           // Build scenario
           const scenario = await buildScenario(
@@ -80,20 +85,15 @@ export function createApp(config: CreateAppConfig): Express {
             imageUrl: `/api/outputs/${result.metadata.id}`,
           });
         } finally {
-          // Clean up temp file
-          try {
-            fs.unlinkSync(tempFilePath);
-          } catch {
-            // Best-effort cleanup
-          }
+          // Clean up temp file (fire-and-forget, non-blocking)
+          fs.promises.unlink(tempFilePath).catch(() => {});
         }
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Generation failed";
         console.error(
-          `[${new Date().toISOString()}] Generate error: ${message}`,
+          `[${new Date().toISOString()}] Generate error:`,
+          err instanceof Error ? err.message : err,
         );
-        res.status(500).json({ error: message });
+        res.status(500).json({ error: "Generation failed" });
       }
     },
   );
@@ -113,41 +113,34 @@ export function createApp(config: CreateAppConfig): Express {
 
       res.json({ renders });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to list history";
       console.error(
-        `[${new Date().toISOString()}] History error: ${message}`,
+        `[${new Date().toISOString()}] History error:`,
+        err instanceof Error ? err.message : err,
       );
-      res.status(500).json({ error: message });
+      res.status(500).json({ error: "Failed to list history" });
     }
   });
 
   // --- GET /api/outputs/:id ---
   app.get("/api/outputs/:id", (req: Request, res: Response) => {
-    try {
-      const id = req.params.id as string;
+    const id = req.params.id as string;
 
-      // Validate ID to prevent directory traversal
-      if (!VALID_ID_PATTERN.test(id)) {
-        res.status(400).json({ error: "Invalid output ID" });
-        return;
-      }
-
-      const imagePath = path.join(outputDir, `${id}.png`);
-      if (!fs.existsSync(imagePath)) {
-        res.status(404).json({ error: "Output not found" });
-        return;
-      }
-
-      res.sendFile(imagePath, { headers: { "Content-Type": "image/png" } });
-    } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to serve output";
-      console.error(
-        `[${new Date().toISOString()}] Output error: ${message}`,
-      );
-      res.status(500).json({ error: message });
+    // Validate ID to prevent directory traversal
+    if (!VALID_ID_PATTERN.test(id)) {
+      res.status(400).json({ error: "Invalid output ID" });
+      return;
     }
+
+    const imagePath = path.join(outputDir, `${id}.png`);
+    res.sendFile(
+      imagePath,
+      { headers: { "Content-Type": "image/png" } },
+      (err) => {
+        if (err && !res.headersSent) {
+          res.status(404).json({ error: "Output not found" });
+        }
+      },
+    );
   });
 
   // --- POST /api/location/search ---
@@ -165,12 +158,11 @@ export function createApp(config: CreateAppConfig): Express {
         const locations = await weatherProvider.searchLocations(query);
         res.json({ locations });
       } catch (err) {
-        const message =
-          err instanceof Error ? err.message : "Location search failed";
         console.error(
-          `[${new Date().toISOString()}] Location search error: ${message}`,
+          `[${new Date().toISOString()}] Location search error:`,
+          err instanceof Error ? err.message : err,
         );
-        res.status(500).json({ error: message });
+        res.status(500).json({ error: "Location search failed" });
       }
     },
   );
@@ -187,19 +179,15 @@ export function createApp(config: CreateAppConfig): Express {
         return;
       }
 
-      const [current, hourly] = await Promise.all([
-        weatherProvider.getCurrentConditions(lat, lon, timezone),
-        weatherProvider.getHourlyConditions(lat, lon, timezone),
-      ]);
+      const forecast = await weatherProvider.getForecast(lat, lon, timezone);
 
-      res.json({ current, hourly });
+      res.json({ current: forecast.current, hourly: forecast.hourly });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Weather fetch failed";
       console.error(
-        `[${new Date().toISOString()}] Weather error: ${message}`,
+        `[${new Date().toISOString()}] Weather error:`,
+        err instanceof Error ? err.message : err,
       );
-      res.status(500).json({ error: message });
+      res.status(500).json({ error: "Weather fetch failed" });
     }
   });
 
@@ -230,15 +218,19 @@ async function buildScenario(
     body.precipProbability !== undefined;
 
   if (hasExplicitWeather) {
-    // Use explicit overrides
+    // Use explicit overrides, ignoring non-numeric values
     if (body.weatherCode !== undefined) {
-      scenario.weatherCode = parseInt(body.weatherCode, 10);
+      const val = parseInt(body.weatherCode, 10);
+      if (!isNaN(val)) scenario.weatherCode = val;
     }
     if (body.cloudPercent !== undefined) {
-      scenario.cloudPercent = parseInt(body.cloudPercent, 10);
+      const val = parseInt(body.cloudPercent, 10);
+      if (!isNaN(val)) scenario.cloudPercent = val;
     }
     if (body.precipProbability !== undefined) {
-      scenario.precipPercent = parseInt(body.precipProbability, 10);
+      const val = parseInt(body.precipProbability, 10);
+      // API field "precipProbability" maps to Scenario's "precipPercent"
+      if (!isNaN(val)) scenario.precipPercent = val;
     }
     return scenario;
   }
@@ -265,7 +257,7 @@ async function buildScenario(
       if (slot) {
         scenario.weatherCode = slot.weatherCode;
         scenario.cloudPercent = slot.cloudPercent;
-        scenario.precipPercent = slot.precipProbability;
+        scenario.precipPercent = slot.precipProbability; // HourlyConditions → Scenario field name
         scenario.isDay = slot.isDay;
       }
     } catch (err) {

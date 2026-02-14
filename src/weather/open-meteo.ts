@@ -105,6 +105,25 @@ export class OpenMeteoProvider implements WeatherProvider {
     };
   }
 
+  async getForecast(
+    lat: number,
+    lon: number,
+    timezone: string,
+  ): Promise<{ current: CurrentConditions; hourly: HourlyConditions[] }> {
+    const forecast = await this.fetchForecastDay(lat, lon, timezone);
+    const hourly = this.zipHourly(forecast);
+    const slot = this.findCurrentSlot(hourly, timezone);
+
+    return {
+      current: {
+        ...slot,
+        sunrise: forecast.daily.sunrise[0],
+        sunset: forecast.daily.sunset[0],
+      },
+      hourly,
+    };
+  }
+
   /** Single fetch for both hourly + daily data. */
   private async fetchForecastDay(
     lat: number,
