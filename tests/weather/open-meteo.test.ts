@@ -299,4 +299,69 @@ describe("OpenMeteoProvider", () => {
       ).rejects.toThrow(/forecast request failed.*500/);
     });
   });
+
+  describe("input validation", () => {
+    it("throws RangeError for invalid latitude", async () => {
+      const provider = new OpenMeteoProvider();
+
+      await expect(
+        provider.getHourlyConditions(91, 0, "UTC"),
+      ).rejects.toThrow(RangeError);
+      await expect(
+        provider.getHourlyConditions(-91, 0, "UTC"),
+      ).rejects.toThrow(RangeError);
+      await expect(
+        provider.getHourlyConditions(NaN, 0, "UTC"),
+      ).rejects.toThrow(RangeError);
+      await expect(
+        provider.getHourlyConditions(Infinity, 0, "UTC"),
+      ).rejects.toThrow(RangeError);
+    });
+
+    it("throws RangeError for invalid longitude", async () => {
+      const provider = new OpenMeteoProvider();
+
+      await expect(
+        provider.getHourlyConditions(0, 181, "UTC"),
+      ).rejects.toThrow(RangeError);
+      await expect(
+        provider.getHourlyConditions(0, -181, "UTC"),
+      ).rejects.toThrow(RangeError);
+    });
+
+    it("accepts boundary coordinate values", async () => {
+      mockFetch
+        .mockResolvedValueOnce(jsonResponse(forecastResponse()))
+        .mockResolvedValueOnce(jsonResponse(forecastResponse()));
+
+      const provider = new OpenMeteoProvider();
+      // Should not throw for boundary values
+      await provider.getHourlyConditions(90, 180, "UTC");
+      await provider.getHourlyConditions(-90, -180, "UTC");
+    });
+  });
+
+  describe("fetch options", () => {
+    it("passes abort signal timeout to fetch calls", async () => {
+      mockFetch.mockResolvedValue(jsonResponse(forecastResponse()));
+
+      const provider = new OpenMeteoProvider();
+      await provider.getHourlyConditions(40.4168, -3.7038, "Europe/Madrid");
+
+      const fetchOptions = mockFetch.mock.calls[0][1];
+      expect(fetchOptions).toBeDefined();
+      expect(fetchOptions.signal).toBeInstanceOf(AbortSignal);
+    });
+
+    it("passes abort signal timeout to geocoding fetch", async () => {
+      mockFetch.mockResolvedValue(jsonResponse(geocodingResponse()));
+
+      const provider = new OpenMeteoProvider();
+      await provider.searchLocations("Madrid");
+
+      const fetchOptions = mockFetch.mock.calls[0][1];
+      expect(fetchOptions).toBeDefined();
+      expect(fetchOptions.signal).toBeInstanceOf(AbortSignal);
+    });
+  });
 });

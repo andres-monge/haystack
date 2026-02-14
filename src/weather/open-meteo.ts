@@ -7,6 +7,8 @@ import type {
 
 const GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search";
 const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+const FETCH_TIMEOUT_MS = 10_000; // 10 seconds
+const MAX_RESPONSE_BYTES = 512 * 1024; // 512 KB sanity limit
 
 /** Raw Open-Meteo geocoding result. */
 interface GeocodingResult {
@@ -40,6 +42,8 @@ interface ForecastResponse {
  * See https://open-meteo.com/en/docs
  */
 export class OpenMeteoProvider implements WeatherProvider {
+  private formatters = new Map<string, Intl.DateTimeFormat>();
+
   async searchLocations(query: string): Promise<Location[]> {
     if (!query.trim()) {
       return [];
@@ -50,14 +54,18 @@ export class OpenMeteoProvider implements WeatherProvider {
     url.searchParams.set("count", "5");
     url.searchParams.set("language", "en");
 
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     if (!response.ok) {
       throw new Error(
         `Open-Meteo geocoding request failed: ${response.status} ${response.statusText}`,
       );
     }
 
-    const data = (await response.json()) as { results?: GeocodingResult[] };
+    const data = (await this.readJson(response)) as {
+      results?: GeocodingResult[];
+    };
     if (!data.results) {
       return [];
     }
@@ -103,6 +111,13 @@ export class OpenMeteoProvider implements WeatherProvider {
     lon: number,
     timezone: string,
   ): Promise<ForecastResponse> {
+    if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+      throw new RangeError(`Invalid latitude: ${lat}`);
+    }
+    if (!Number.isFinite(lon) || lon < -180 || lon > 180) {
+      throw new RangeError(`Invalid longitude: ${lon}`);
+    }
+
     const url = new URL(FORECAST_URL);
     url.searchParams.set("latitude", String(lat));
     url.searchParams.set("longitude", String(lon));
@@ -114,14 +129,27 @@ export class OpenMeteoProvider implements WeatherProvider {
     url.searchParams.set("daily", "sunrise,sunset");
     url.searchParams.set("forecast_days", "1");
 
-    const response = await fetch(url.toString());
+    const response = await fetch(url.toString(), {
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
     if (!response.ok) {
       throw new Error(
         `Open-Meteo forecast request failed: ${response.status} ${response.statusText}`,
       );
     }
 
-    return (await response.json()) as ForecastResponse;
+    return (await this.readJson(response)) as ForecastResponse;
+  }
+
+  /** Read and parse JSON with a size guard to prevent OOM on malformed responses. */
+  private async readJson(response: Response): Promise<unknown> {
+    const text = await response.text();
+    if (text.length > MAX_RESPONSE_BYTES) {
+      throw new Error(
+        `Open-Meteo response exceeds maximum allowed size (${text.length} bytes)`,
+      );
+    }
+    return JSON.parse(text) as unknown;
   }
 
   /** Zip parallel arrays from the hourly response into typed objects. */
@@ -141,27 +169,20 @@ export class OpenMeteoProvider implements WeatherProvider {
 
   /**
    * Find the hourly slot matching the current hour in the given timezone.
-   * Matches by parsing the local hour from the time string rather than
-   * using array index — handles DST days with 23 or 25 entries.
+   * Single-pass search: short-circuits on exact match, otherwise returns closest.
+   * Parses hours from time strings (not array index) to handle DST days.
    */
   private findCurrentSlot(
     hourly: HourlyConditions[],
     timezone: string,
   ): HourlyConditions {
-    const now = new Date();
-    const currentHour = this.getHourInTimezone(now, timezone);
-
-    // Try exact match first
-    const exact = hourly.find((h) => this.parseHour(h.time) === currentHour);
-    if (exact) {
-      return exact;
-    }
-
-    // Fallback: find closest match (handles DST edge cases)
+    const currentHour = this.getHourInTimezone(new Date(), timezone);
     let closest = hourly[0];
     let minDiff = Math.abs(this.parseHour(closest.time) - currentHour);
+
     for (const slot of hourly) {
       const diff = Math.abs(this.parseHour(slot.time) - currentHour);
+      if (diff === 0) return slot;
       if (diff < minDiff) {
         closest = slot;
         minDiff = diff;
@@ -176,14 +197,19 @@ export class OpenMeteoProvider implements WeatherProvider {
     return match ? parseInt(match[1], 10) : 0;
   }
 
-  /** Get the current hour in a given IANA timezone. */
+  /** Get the current hour in a given IANA timezone. Caches formatters. */
   private getHourInTimezone(date: Date, timezone: string): number {
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: timezone,
-      hour: "numeric",
-      hour12: false,
-    }).formatToParts(date);
+    let fmt = this.formatters.get(timezone);
+    if (!fmt) {
+      fmt = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        hour: "numeric",
+        hour12: false,
+      });
+      this.formatters.set(timezone, fmt);
+    }
 
+    const parts = fmt.formatToParts(date);
     const hourPart = parts.find((p) => p.type === "hour");
     // Intl hour12:false returns "24" for midnight in some locales
     const hour = parseInt(hourPart?.value ?? "0", 10);
