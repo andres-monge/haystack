@@ -73,3 +73,11 @@ export interface WeatherResult {
 export interface LocationSearchResult {
   locations: Location[];
 }
+
+/** A location selected by the user (composed display name from geocoding result). */
+export interface SelectedLocation {
+  lat: number;
+  lon: number;
+  timezone: string;
+  name: string;
+}

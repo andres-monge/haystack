@@ -2,7 +2,6 @@ import { useCallback, useState } from "react";
 import { getWeather, searchLocations } from "../api/client";
 import type {
   CurrentConditions,
-  HourlyConditions,
   Location,
 } from "../types";
 
@@ -33,20 +32,17 @@ export function useLocationSearch() {
 
 export function useWeather() {
   const [current, setCurrent] = useState<CurrentConditions | null>(null);
-  const [hourly, setHourly] = useState<HourlyConditions[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetch = useCallback(
+  const fetchWeather = useCallback(
     async (lat: number, lon: number, timezone: string) => {
       setIsLoading(true);
       try {
         const res = await getWeather({ lat, lon, timezone });
         setCurrent(res.current);
-        setHourly(res.hourly);
         return res;
       } catch {
         setCurrent(null);
-        setHourly([]);
         return null;
       } finally {
         setIsLoading(false);
@@ -55,10 +51,5 @@ export function useWeather() {
     [],
   );
 
-  const clear = useCallback(() => {
-    setCurrent(null);
-    setHourly([]);
-  }, []);
-
-  return { current, hourly, isLoading, fetch, clear };
+  return { current, isLoading, fetchWeather };
 }

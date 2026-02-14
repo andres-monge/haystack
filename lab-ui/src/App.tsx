@@ -10,8 +10,10 @@ import { HistoryPanel } from "./components/HistoryPanel";
 import { useGenerate } from "./hooks/useGenerate";
 import { useHistory } from "./hooks/useHistory";
 import { useLocationSearch, useWeather } from "./hooks/useWeather";
-import type { RenderMetadata } from "./types";
+import { getTimeOfDayDescription, getWeatherDescription } from "./utils/scenario";
+import type { RenderMetadata, SelectedLocation } from "./types";
 
+// Duplicated from src/engine/prompt.ts — keep in sync with server-side template.
 const DEFAULT_TEMPLATE = `Transform this artwork to reflect the current moment:
 
 Time: {scenario}
@@ -27,45 +29,10 @@ Guidelines:
 - Do not add new objects, people, or text
 - Preserve the original scale, framing, and composition exactly`;
 
-function getTimeOfDayDescription(hour: number): string {
-  if (hour >= 5 && hour < 7) return "early morning, dawn breaking";
-  if (hour >= 7 && hour < 12) return "morning, bright daylight";
-  if (hour >= 12 && hour < 14) return "midday, sun high overhead";
-  if (hour >= 14 && hour < 17) return "afternoon, warm light";
-  if (hour >= 17 && hour < 20) return "evening, golden hour, sunset";
-  if (hour >= 20 && hour < 22) return "dusk, twilight";
-  return "night, darkness, moonlight";
-}
-
-function getWeatherDescription(weatherCode?: number): string {
-  if (weatherCode === undefined) return "";
-  const map: Record<number, string> = {
-    0: ", clear sky",
-    1: ", mainly clear",
-    2: ", partly cloudy",
-    3: ", overcast",
-    45: ", foggy",
-    48: ", foggy with frost",
-    51: ", light drizzle",
-    61: ", light rain",
-    63: ", moderate rain",
-    65: ", heavy rain",
-    71: ", light snow",
-    73: ", moderate snow",
-    95: ", thunderstorm",
-  };
-  return map[weatherCode] ?? "";
-}
-
 export function App() {
   // State
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [location, setLocation] = useState<{
-    lat: number;
-    lon: number;
-    timezone: string;
-    name: string;
-  } | null>(null);
+  const [location, setLocation] = useState<SelectedLocation | null>(null);
   const [hour, setHour] = useState(() => new Date().getHours());
   const [isDay, setIsDay] = useState(() => {
     const h = new Date().getHours();
@@ -92,11 +59,11 @@ export function App() {
 
   // Handlers
   const handleLocationSelected = useCallback(
-    async (loc: { lat: number; lon: number; timezone: string; name: string }) => {
+    async (loc: SelectedLocation) => {
       setLocation(loc);
-      await weather.fetch(loc.lat, loc.lon, loc.timezone);
+      await weather.fetchWeather(loc.lat, loc.lon, loc.timezone);
     },
-    [weather],
+    [weather.fetchWeather],
   );
 
   const handleGenerate = useCallback(async () => {
@@ -123,9 +90,9 @@ export function App() {
     const result = await generate.run(params);
     if (result) {
       setSelectedResult(result);
-      history.refresh();
+      void history.refresh();
     }
-  }, [selectedImage, hour, isDay, location, promptOverride, generate, history]);
+  }, [selectedImage, hour, isDay, location, promptOverride, generate.run, history.refresh]);
 
   const handleHistorySelect = useCallback(
     (render: RenderMetadata & { imageUrl: string }) => {

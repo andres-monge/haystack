@@ -1,7 +1,17 @@
-import { useCallback, useRef, useState, type DragEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type DragEvent } from "react";
 
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
+
+function validateFile(file: File): string | null {
+  if (!ACCEPTED_TYPES.includes(file.type)) {
+    return "Only JPG, PNG, and WebP files are accepted";
+  }
+  if (file.size > MAX_SIZE) {
+    return "File must be under 20 MB";
+  }
+  return null;
+}
 
 interface Props {
   onImageSelected: (file: File) => void;
@@ -12,34 +22,34 @@ export function ImageUpload({ onImageSelected, selectedImage }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const validate = useCallback((file: File): string | null => {
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      return "Only JPG, PNG, and WebP files are accepted";
-    }
-    if (file.size > MAX_SIZE) {
-      return "File must be under 20 MB";
-    }
-    return null;
+  // Revoke Object URL on unmount to prevent memory leak
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    };
   }, []);
 
   const handleFile = useCallback(
     (file: File) => {
-      const validationError = validate(file);
+      const validationError = validateFile(file);
       if (validationError) {
         setError(validationError);
         return;
       }
       setError(null);
 
-      // Create preview URL (revoke old one)
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(URL.createObjectURL(file));
+      // Revoke old Object URL, create new one
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      const url = URL.createObjectURL(file);
+      previewUrlRef.current = url;
+      setPreviewUrl(url);
 
       onImageSelected(file);
     },
-    [validate, onImageSelected, previewUrl],
+    [onImageSelected],
   );
 
   const handleDrop = useCallback(

@@ -38,7 +38,7 @@ export async function generate(params: {
 
   const res = await fetch("/api/generate", { method: "POST", body: form });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Generation failed" }));
+    const err: { error?: string } = await res.json().catch(() => ({ error: "Generation failed" }));
     throw new Error(err.error ?? "Generation failed");
   }
   return res.json();

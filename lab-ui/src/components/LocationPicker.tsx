@@ -1,19 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Location } from "../types";
+import type { Location, SelectedLocation } from "../types";
 
 interface Props {
-  onLocationSelected: (location: {
-    lat: number;
-    lon: number;
-    timezone: string;
-    name: string;
-  }) => void;
-  selectedLocation: {
-    lat: number;
-    lon: number;
-    timezone: string;
-    name: string;
-  } | null;
+  onLocationSelected: (location: SelectedLocation) => void;
+  selectedLocation: SelectedLocation | null;
   locations: Location[];
   isSearching: boolean;
   onSearch: (query: string) => void;
@@ -61,6 +51,13 @@ export function LocationPicker({
     },
     [onLocationSelected, onClearResults],
   );
+
+  // Clean up debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current !== null) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   // Close dropdown on outside click
   useEffect(() => {

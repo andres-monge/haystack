@@ -1,25 +1,10 @@
 import type { CurrentConditions } from "../types";
+import { WMO_DESCRIPTIONS } from "../utils/scenario";
 
 interface Props {
   current: CurrentConditions | null;
   isLoading: boolean;
 }
-
-const WMO_DESCRIPTIONS: Record<number, string> = {
-  0: "Clear sky",
-  1: "Mainly clear",
-  2: "Partly cloudy",
-  3: "Overcast",
-  45: "Foggy",
-  48: "Foggy with frost",
-  51: "Light drizzle",
-  61: "Light rain",
-  63: "Moderate rain",
-  65: "Heavy rain",
-  71: "Light snow",
-  73: "Moderate snow",
-  95: "Thunderstorm",
-};
 
 export function WeatherDisplay({ current, isLoading }: Props) {
   if (isLoading) {
