@@ -14,14 +14,24 @@
     "test": "vitest",
     "test:run": "vitest run",
     "lint": "eslint src tests",
-    "example": "tsx examples/basic-edit.ts"
+    "example": "tsx examples/basic-edit.ts",
+    "lab": "concurrently \"npm run lab:server\" \"npm run lab:ui\"",
+    "lab:server": "tsx src/server/start.ts",
+    "lab:ui": "cd lab-ui && npm run dev"
   },
   "dependencies": {
-    "@google/genai": "^1.0.0"
+    "@google/genai": "^1.0.0",
+    "express": "^5.2.1",
+    "multer": "^2.0.2"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.0.0",
+    "@types/supertest": "^6.0.3",
+    "concurrently": "^9.2.1",
     "eslint": "^9.0.0",
+    "supertest": "^7.2.2",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.0.0",

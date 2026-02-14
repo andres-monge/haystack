@@ -559,11 +559,11 @@ app.listen(port, () => {
 - [x] Weather provider searches cities and returns locations with lat/lon/timezone (`src/weather/open-meteo.ts`)
 - [x] Weather provider fetches hourly conditions including weatherCode, cloudPercent, precipProbability, isDay (`src/weather/open-meteo.ts`)
 - [x] Weather provider fetches current conditions with sunrise/sunset (`src/weather/open-meteo.ts`)
-- [ ] Express server accepts image upload + scenario overrides and returns generated image + metadata (`src/server/server.ts`)
-- [ ] Express server serves generated images by ID (`src/server/server.ts`)
-- [ ] Express server returns generation history sorted newest-first (`src/server/server.ts`)
-- [ ] Express server proxies location search to Open-Meteo (`src/server/server.ts`)
-- [ ] Express server returns weather data for a given location (`src/server/server.ts`)
+- [x] Express server accepts image upload + scenario overrides and returns generated image + metadata (`src/server/server.ts`)
+- [x] Express server serves generated images by ID (`src/server/server.ts`)
+- [x] Express server returns generation history sorted newest-first (`src/server/server.ts`)
+- [x] Express server proxies location search to Open-Meteo (`src/server/server.ts`)
+- [x] Express server returns weather data for a given location (`src/server/server.ts`)
 - [ ] Lab UI allows image upload via drag & drop or file picker (`lab-ui/`)
 - [ ] Lab UI allows city search and location selection (`lab-ui/`)
 - [ ] Lab UI allows hour override via slider (0-23) (`lab-ui/`)
@@ -572,21 +572,21 @@ app.listen(port, () => {
 - [ ] Lab UI generates and previews result with metadata (`lab-ui/`)
 - [ ] Lab UI shows history panel with clickable thumbnails (`lab-ui/`)
 - [ ] Weather data flows into Scenario → prompt → Gemini (end-to-end)
-- [ ] If weather fetch fails during generation, falls back to time-only scenario
+- [x] If weather fetch fails during generation, falls back to time-only scenario
 - [ ] Open-Meteo attribution displayed in Lab UI (CC BY 4.0)
 
 ### Non-Functional Requirements
 
 - [ ] Weather API calls complete in under 2 seconds
 - [ ] Server handles concurrent requests without crashing (at least 2 simultaneous)
-- [ ] Image upload limited to 20MB (matches engine's `MAX_IMAGE_SIZE`)
-- [ ] Server validates all inputs and returns structured error responses
-- [ ] Temp files from image uploads are cleaned up after generation
+- [x] Image upload limited to 20MB (matches engine's `MAX_IMAGE_SIZE`)
+- [x] Server validates all inputs and returns structured error responses
+- [x] Temp files from image uploads are cleaned up after generation
 
 ### Quality Gates
 
 - [x] Unit tests for weather provider with mocked HTTP responses
-- [ ] API tests for Express server with mocked Pipeline and WeatherProvider (supertest)
+- [x] API tests for Express server with mocked Pipeline and WeatherProvider (supertest)
 - [ ] TypeScript compiles with strict mode (both root and lab-ui)
 - [ ] `npm run lab` starts both server and frontend from a single command
 - [x] All existing A1 tests continue to pass
