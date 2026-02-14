@@ -522,7 +522,7 @@ Add to root `package.json`:
 {
   "scripts": {
     "lab": "concurrently \"npm run lab:server\" \"npm run lab:ui\"",
-    "lab:server": "tsx src/server/index.ts",
+    "lab:server": "tsx src/server/start.ts",
     "lab:ui": "cd lab-ui && npm run dev"
   }
 }
@@ -530,7 +530,7 @@ Add to root `package.json`:
 
 **New devDependency:** `concurrently` (runs server + Vite in parallel from one command).
 
-#### Server Entry Point (`src/server/index.ts`)
+#### Server Entry Point (`src/server/start.ts`)
 
 ```typescript
 import { createApp } from "./server.js";
@@ -577,8 +577,8 @@ app.listen(port, () => {
 
 ### Non-Functional Requirements
 
-- [ ] Weather API calls complete in under 2 seconds
-- [ ] Server handles concurrent requests without crashing (at least 2 simultaneous)
+- [x] Weather API calls complete in under 2 seconds
+- [x] Server handles concurrent requests without crashing (at least 2 simultaneous)
 - [x] Image upload limited to 20MB (matches engine's `MAX_IMAGE_SIZE`)
 - [x] Server validates all inputs and returns structured error responses
 - [x] Temp files from image uploads are cleaned up after generation
@@ -652,7 +652,7 @@ devDependencies:
 | `src/weather/open-meteo.ts` | Open-Meteo API implementation of WeatherProvider |
 | `src/weather/index.ts` | Barrel exports |
 | `src/server/server.ts` | Express app factory with all routes |
-| `src/server/index.ts` | Server entry point (instantiates Pipeline + WeatherProvider, starts listening) |
+| `src/server/start.ts` | Server entry point (instantiates Pipeline + WeatherProvider, starts listening) |
 | `tests/weather/open-meteo.test.ts` | Weather provider unit tests with mocked fetch |
 | `tests/server/server.test.ts` | API integration tests with supertest |
 

@@ -6,7 +6,7 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "http://localhost:4321",
+        target: "http://localhost:4321", // Must match HAYSTACK_LAB_PORT
         changeOrigin: true,
       },
     },
