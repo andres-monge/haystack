@@ -564,16 +564,16 @@ app.listen(port, () => {
 - [x] Express server returns generation history sorted newest-first (`src/server/server.ts`)
 - [x] Express server proxies location search to Open-Meteo (`src/server/server.ts`)
 - [x] Express server returns weather data for a given location (`src/server/server.ts`)
-- [ ] Lab UI allows image upload via drag & drop or file picker (`lab-ui/`)
-- [ ] Lab UI allows city search and location selection (`lab-ui/`)
-- [ ] Lab UI allows hour override via slider (0-23) (`lab-ui/`)
-- [ ] Lab UI displays current weather conditions for selected location (`lab-ui/`)
-- [ ] Lab UI provides editable prompt textarea with default template (`lab-ui/`)
-- [ ] Lab UI generates and previews result with metadata (`lab-ui/`)
-- [ ] Lab UI shows history panel with clickable thumbnails (`lab-ui/`)
-- [ ] Weather data flows into Scenario → prompt → Gemini (end-to-end)
+- [x] Lab UI allows image upload via drag & drop or file picker (`lab-ui/`)
+- [x] Lab UI allows city search and location selection (`lab-ui/`)
+- [x] Lab UI allows hour override via slider (0-23) (`lab-ui/`)
+- [x] Lab UI displays current weather conditions for selected location (`lab-ui/`)
+- [x] Lab UI provides editable prompt textarea with default template (`lab-ui/`)
+- [x] Lab UI generates and previews result with metadata (`lab-ui/`)
+- [x] Lab UI shows history panel with clickable thumbnails (`lab-ui/`)
+- [x] Weather data flows into Scenario → prompt → Gemini (end-to-end)
 - [x] If weather fetch fails during generation, falls back to time-only scenario
-- [ ] Open-Meteo attribution displayed in Lab UI (CC BY 4.0)
+- [x] Open-Meteo attribution displayed in Lab UI (CC BY 4.0)
 
 ### Non-Functional Requirements
 
@@ -587,8 +587,8 @@ app.listen(port, () => {
 
 - [x] Unit tests for weather provider with mocked HTTP responses
 - [x] API tests for Express server with mocked Pipeline and WeatherProvider (supertest)
-- [ ] TypeScript compiles with strict mode (both root and lab-ui)
-- [ ] `npm run lab` starts both server and frontend from a single command
+- [x] TypeScript compiles with strict mode (both root and lab-ui)
+- [x] `npm run lab` starts both server and frontend from a single command
 - [x] All existing A1 tests continue to pass
 
 ---
