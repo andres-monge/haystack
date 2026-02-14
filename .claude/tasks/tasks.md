@@ -69,7 +69,7 @@ After #8 is done, these two are independent.
 
 ## Step 6 — Final verification
 
-- [ ] **#11 Verify build + tests** — `npm run build`, `npm run test:run`, check `dist/` structure, `.gitignore`
+- [x] **#11 Verify build + tests** — `npm run build`, `npm run test:run`, check `dist/` structure, `.gitignore`
 
 ---
 
@@ -87,4 +87,4 @@ After #8 is done, these two are independent.
 | #8 Pipeline | done | 2026-02-12 |
 | #9 CLI | done | 2026-02-12 |
 | #10 Example | done | 2026-02-12 |
-| #11 Verify | pending | |
+| #11 Verify | done | 2026-02-12 |

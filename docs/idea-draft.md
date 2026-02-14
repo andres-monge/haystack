@@ -134,113 +134,164 @@
 
 ---
 
-## 6) Phase A PRD: Engine + Lab UI + `launchd` Runner
+## 6) Phase A PRD: Engine + Lab UI + Wallpaper + Scheduler
 
-### A1. Deliverables
+### A1. Core engine + pipeline + CLI *(Done)*
+
+Gemini API client, scenario builder, prompt composer, output store, environment-based configuration, CLI entry point, and tests.
 
 1. **Engine (shared library / module)**
-    
+
     - Inputs: base image, scenario (time/weather/location), prompt config, model config
-        
+
     - Outputs: generated image file + metadata JSON (scenario, prompt version, timestamps, model, seed if available)
-        
+
     - Responsibilities:
-        
-        - Fetch scenario (real or overridden)
-            
-        - Call Gemini image editing
-            
-        - Write artifacts and logs
-            
-2. **Lab UI (localhost)**
-    
-    - Simple local web app (runs at `http://localhost:<port>`)
-        
-    - Purpose: rapid prompt testing + scenario simulation
-        
-    - Must-have controls:
-        
-        - Upload file
-            
-        - Location: search city
-            
-        - System prompt editor (textbox) + “save prompt version”
-            
-        - Generate button (“Generate & preview”)
-            
-        - Apply button (“Apply as wallpaper now”)
-            
-        - History list: last N generations with thumbnails + metadata
-            
-3. **Scheduled runner (`launchd`)**
-    
-    - A background job scheduled hourly using `launchd` (preferred macOS approach; cron is supported but Apple documents `launchd` for scheduled jobs). ([Apple Developer](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/ScheduledJobs.html?utm_source=chatgpt.com "Scheduling Timed Jobs - Apple Developer"))
-        
-    - Runs the engine with “real scenario” (no overrides)
-        
-    - Logs success/failure, keeps last applied wallpaper path.
-        
 
-### A2. macOS wallpaper setting (Phase A)
+        - Build scenario from time/weather data (real or overridden)
 
-Use `desktoppr` CLI (external dependency, but simple and proven). ([GitHub](https://github.com/scriptingosx/desktoppr?utm_source=chatgpt.com "GitHub - scriptingosx/desktoppr: Simple command line tool to set the ..."))
-    
-**Requirement:** primary display only.
+        - Compose prompt from scenario + template
 
-### A3. Weather/Time providers (Phase A)
+        - Call Gemini image editing API
+
+        - Write image + metadata JSON sidecar to output store
+
+2. **CLI entry point** (`haystack-generate`)
+
+    - Accepts image path + optional hour override
+
+    - Loads configuration from environment variables
+
+    - Runs the engine pipeline and outputs result path
+
+    - Designed for `launchd` compatibility (A4)
+
+### A2. Lab UI + Weather integration
+
+Express API server + React (Vite) frontend. Open-Meteo weather provider. City search, time/weather controls, prompt editor, generate & preview, history panel.
+
+1. **Open-Meteo weather provider module** (`src/weather/`)
+
+    - `resolveLocation(query)` — city search via Open-Meteo geocoding API
+
+    - `getHourlyConditions(lat, lon, timezone)` — current weather conditions
+
+    - Provider interface for future swapping (see provider interface below)
+
+    - Unit tests with mocked HTTP responses
+
+2. **Express API server** (`src/server/`)
+
+    - POST `/api/generate` — accepts image + scenario overrides + prompt config, returns image + metadata
+
+    - GET `/api/history` — returns last N generations
+
+    - GET `/api/outputs/:id.png` — serves generated images
+
+    - POST `/api/location/search` — proxies city search to Open-Meteo
+
+    - GET `/api/weather` — gets current conditions for configured location
+
+    - Static file serving for React frontend
+
+3. **React frontend** (`lab-ui/`)
+
+    - Vite + React + TypeScript
+
+    - File upload control (drag & drop or file picker)
+
+    - Location picker (city search → lat/lon)
+
+    - Time override (hour slider or dropdown)
+
+    - Weather display (current conditions from location)
+
+    - Prompt editor (editable textarea with template)
+
+    - "Generate & Preview" button → shows result
+
+    - History panel with thumbnails + metadata
+
+4. **Integration wiring**
+
+    - `npm run lab` script to start server + Vite dev server
+
+    - Proxy config so Vite dev server forwards API calls to Express
+
+**Note:** The "Apply as Wallpaper" button is added in A3, not here. Lab UI in A2 focuses purely on prompt iteration.
+
+**Weather provider interface**
+
+- `resolveLocation(query) -> {lat, lon, timezone, displayName}`
+
+- `getHourlyConditions(lat, lon, timezone, timeRange) -> hourly[]`
 
 Support _at least one_ provider + a clean interface for swapping providers.
 
-**Provider interface**
-
-- `resolveLocation(query) -> {lat, lon, timezone, displayName}`
-    
-- `getHourlyConditions(lat, lon, timezone, timeRange) -> hourly[]`
-    
-
 **Top 3 candidate APIs**
 
-1. **Open-Meteo**: no key required; hourly variables; timezone support; includes “is day or night”. ([Open Meteo](https://open-meteo.com/en/docs "️ Docs | Open-Meteo.com"))
-    
+1. **Open-Meteo**: no key required; hourly variables; timezone support; includes "is day or night". ([Open Meteo](https://open-meteo.com/en/docs "️ Docs | Open-Meteo.com"))
+
 2. **WeatherAPI.com**: free tier shows **$0/month** with **1M calls/month** and includes **Astronomy API**. ([WeatherAPI](https://www.weatherapi.com/pricing.aspx "Pricing - WeatherAPI.com"))
-    
+
 3. **Visual Crossing**: 1,000 free records/day, with metered pricing beyond. ([Visual Crossing](https://www.visualcrossing.com/resources/blog/how-do-i-get-free-weather-api-access/ "How do I get free weather API access? | Visual Crossing"))
-    
 
-**MVP recommendation:** start with Open-Meteo for minimal friction; add WeatherAPI.com next if you need a more integrated “one vendor” experience.
+**MVP recommendation:** start with Open-Meteo for minimal friction; add WeatherAPI.com next if you need a more integrated "one vendor" experience.
 
-### A4. Drift control requirements
+### A3. Wallpaper apply
 
-- Always generate each hour from the **original base** (or “base + smart-extend”) rather than from the last output.
-    
+`desktoppr` CLI integration. Apply generated image as macOS wallpaper (primary display only).
+
+- Use `desktoppr` CLI (external dependency, but simple and proven). ([GitHub](https://github.com/scriptingosx/desktoppr?utm_source=chatgpt.com "GitHub - scriptingosx/desktoppr: Simple command line tool to set the ..."))
+
+- **Requirement:** primary display only.
+
+- Adds "Apply as Wallpaper" button to Lab UI.
+
+### A4. launchd hourly scheduler
+
+`.plist` file for hourly generation. Runs CLI with real scenario (no overrides). Quiet hours support (00:00–05:00).
+
+- A background job scheduled hourly using `launchd` (preferred macOS approach; cron is supported but Apple documents `launchd` for scheduled jobs). ([Apple Developer](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/ScheduledJobs.html?utm_source=chatgpt.com "Scheduling Timed Jobs - Apple Developer"))
+
+- Runs the engine with "real scenario" (no overrides)
+
+- Logs success/failure, keeps last applied wallpaper path.
+
+- Optional quiet window: 00:00–05:00 (skip generation/apply)
+
+### Phase A: General requirements
+
+**Drift control**
+
+- Always generate each hour from the **original base** (or "base + smart-extend") rather than from the last output.
+
 - Store prompt versions and scenario metadata to reproduce outputs.
-    
 
-### A5. Error handling (Phase A)
+**Error handling**
 
 - If generation fails:
-    
-    - Keep current wallpaper unchanged
-        
-    - Log the failure and surface in Lab UI
-        
-    - Retry policy (simple): 1 retry after 2 minutes
-        
-- If weather fetch fails:
-    
-    - Fall back to “time-only” scenario
-        
-    - Mark scenario as degraded in metadata
-        
 
-### A6. Privacy & security (Phase A)
+    - Keep current wallpaper unchanged
+
+    - Log the failure and surface in Lab UI
+
+    - Retry policy (simple): 1 retry after 2 minutes
+
+- If weather fetch fails:
+
+    - Fall back to "time-only" scenario
+
+    - Mark scenario as degraded in metadata
+
+**Privacy & security**
 
 - Store Gemini API key locally:
-    
+
     - MVP: environment variable acceptable for dev
-        
+
     - Recommended: macOS Keychain once Phase B begins
-        
+
 - Art and generated images remain local and ephemeral (purge policy).
     
 
@@ -248,92 +299,92 @@ Support _at least one_ provider + a clean interface for swapping providers.
 
 ## 7) Phase B PRD: macOS Menu Bar App
 
-### B1. Goal
+### Goal
 
-Replace “Lab UI + scripts” with a friendly, installable Mac experience while reusing the Phase A Engine.
+Replace "Lab UI + scripts" with a friendly, installable Mac experience while reusing the Phase A Engine.
 
-### B2. Deliverables
+### B1. Electron shell + menu bar
 
-1. **Menu bar app shell**
-    
-    - Status icon with quick actions:
-        
-        - Start/Stop living wallpaper
-            
-        - Generate now
-            
-        - Open “Lab/Settings” window
-            
-        - View last output
-            
-2. **Settings UI**
+Status icon with quick actions. Bundles the Phase A engine.
 
-    - Artwork picker (file or folder)
+- Start/Stop living wallpaper
 
-    - Location picker (search + map optional)
+- Generate now
 
-    - Schedule settings:
+- Open "Lab/Settings" window
 
-        - hourly cadence
+- View last output
 
-        - quiet hours toggle + range
+### B2. Settings UI
 
-    - Model settings:
+- Artwork picker (file or folder)
 
-        - default model (Nano Banana Pro) with override via advanced settings
+- Location picker (search + map optional)
 
-3. **Folder-based artwork management**
+- Schedule settings:
 
-    - Users can designate a local folder as an "artwork source"
+    - hourly cadence
 
-    - The app watches the folder for new/removed images
+    - quiet hours toggle + range
 
-    - Selection modes:
+- Model settings:
 
-        - **Single image:** User picks one image from the folder to use as the active base
+    - default model (Nano Banana Pro) with override via advanced settings
 
-        - **Rotation:** All images in the folder rotate automatically
+### B3. Prompt editor + preview
 
-    - Rotation frequency options:
+Port Lab UI prompt editor into Electron. In-app preview before applying.
 
-        - Daily (change base image once per day)
+### B4. Folder-based artwork management
 
-        - Weekly (change base image once per week)
+- Users can designate a local folder as an "artwork source"
 
-        - Monthly (change base image once per month)
+- The app watches the folder for new/removed images
 
-    - Folder requirements:
+- Selection modes:
 
-        - Supports jpg/png/webp files
+    - **Single image:** User picks one image from the folder to use as the active base
 
-        - Ignores hidden files and non-image files
+    - **Rotation:** All images in the folder rotate automatically
 
-        - Shows thumbnail grid for easy selection
+- Rotation frequency options:
 
-4. **Local preview + apply**
+    - Daily (change base image once per day)
 
-    - Preview output in-app before applying
+    - Weekly (change base image once per week)
 
-5. **Background scheduling**
-    
-    - Use `launchd` or app-managed scheduling (Timer) as appropriate
-        
-    - Ensure it works after reboot/login
-        
+    - Monthly (change base image once per month)
 
-### B3. UX requirements
+- Folder requirements:
+
+    - Supports jpg/png/webp files
+
+    - Ignores hidden files and non-image files
+
+    - Shows thumbnail grid for easy selection
+
+### B5. Keychain integration
+
+Store API key in macOS Keychain instead of environment variable.
+
+### B6. Scheduling hardening
+
+- App-managed scheduling + `launchd` for persistence
+
+- Ensure it works after reboot/login
+
+### UX requirements
 
 - Minimal friction onboarding:
-    
+
     1. Add art → 2) Set location → 3) Start
-        
-- Fast “Generate now” loop for prompt iteration (no need to open a browser).
-    
 
-### B4. Technical requirements
+- Fast "Generate now" loop for prompt iteration (no need to open a browser).
 
-- Use desktopper or `NSWorkspace.setDesktopImageURL` directly from the app for wallpaper setting. ([Apple Developer](https://developer.apple.com/documentation/appkit/nsworkspace/setdesktopimageurl%28_%3Afor%3Aoptions%3A%29?utm_source=chatgpt.com "setDesktopImageURL(_:for:options:) | Apple Developer Documentation"))
-    
+### Technical requirements
+
+- Use desktoppr or `NSWorkspace.setDesktopImageURL` directly from the app for wallpaper setting. ([Apple Developer](https://developer.apple.com/documentation/appkit/nsworkspace/setdesktopimageurl%28_%3Afor%3Aoptions%3A%29?utm_source=chatgpt.com "setDesktopImageURL(_:for:options:) | Apple Developer Documentation"))
+
 - Store API key and sensitive config in Keychain (recommended for packaged app).
     
 
@@ -341,78 +392,81 @@ Replace “Lab UI + scripts” with a friendly, installable Mac experience while
 
 ## 8) Phase C PRD: Always-On TV Track (Raspberry Pi / Tiny HDMI Kiosk)
 
-### C1. Goal
+### Goal
 
-Provide an “ambient art display” that can run on a TV continuously without depending on a Mac being awake.
+Provide an "ambient art display" that can run on a TV continuously without depending on a Mac being awake.
 
-### C2. Concept
+### Concept
 
-A dedicated device connected via HDMI runs a kiosk browser that displays the current “living art” and updates automatically.
+A dedicated device connected via HDMI runs a kiosk browser that displays the current "living art" and updates automatically.
 
-### C3. Deliverables
+### C1. Kiosk display page
 
-1. **Kiosk display page**
-    
-    - Fullscreen image view
-        
-    - Smooth transitions:
-        
-        - Crossfade built into the page (CSS fade)
-            
-    - Update mechanism:
-        
-        - Poll every X minutes for “latest image manifest” (simple)
-            
-        - Or WebSocket push (phase 2)
-            
-2. **Image distribution**
-    
-    - Option A (local network, simplest): Mac runs a tiny HTTP server that serves:
-        
-        - `/latest.json` (manifest)
-            
-        - `/images/<id>.jpg`
-            
-    - Option B (more robust): upload to a cloud bucket (deferred; not MVP unless needed)
-        
-3. **Pairing / configuration**
+Fullscreen image view with CSS crossfade transitions. Polls for updates.
 
-    - "Hardcore mode": user inputs Mac's local IP/URL into Pi once
+- Fullscreen image view
 
-    - Optional: QR code pairing shown by the Mac app
+- Smooth transitions:
 
-4. **Folder-based artwork management (synced from Mac)**
+    - Crossfade built into the page (CSS fade)
 
-    - Reuses folder settings from Phase B menu bar app
+- Update mechanism:
 
-    - Mac serves images from the designated folder to the kiosk
+    - Poll every X minutes for "latest image manifest" (simple)
 
-    - Selection modes (configured on Mac, applied to kiosk):
+    - Or WebSocket push (phase 2)
 
-        - **Single image:** Kiosk displays the same active base as Mac
+### C2. Mac-side "serve latest" endpoint
 
-        - **Rotation:** Kiosk rotates through folder images on configured schedule
+Tiny HTTP server on Mac serving `/latest.json` manifest + `/images/:id.png`.
 
-    - Rotation frequency options:
+- Option A (local network, simplest): Mac runs a tiny HTTP server that serves:
 
-        - Daily / Weekly / Monthly (synced with Mac settings)
+    - `/latest.json` (manifest)
 
-    - Manifest includes:
+    - `/images/<id>.jpg`
 
-        - Current active image
+- Option B (more robust): upload to a cloud bucket (deferred; not MVP unless needed)
 
-        - Full image list for rotation mode
+### C3. Pairing + configuration
 
-        - Next rotation timestamp
+- "Hardcore mode": user inputs Mac's local IP/URL into Pi once
 
+- Optional: QR code pairing shown by the Mac app
 
-### C4. Requirements
+### C4. Folder sync + rotation
+
+Kiosk reuses folder settings from Phase B. Manifest includes rotation schedule.
+
+- Reuses folder settings from Phase B menu bar app
+
+- Mac serves images from the designated folder to the kiosk
+
+- Selection modes (configured on Mac, applied to kiosk):
+
+    - **Single image:** Kiosk displays the same active base as Mac
+
+    - **Rotation:** Kiosk rotates through folder images on configured schedule
+
+- Rotation frequency options:
+
+    - Daily / Weekly / Monthly (synced with Mac settings)
+
+- Manifest includes:
+
+    - Current active image
+
+    - Full image list for rotation mode
+
+    - Next rotation timestamp
+
+### C5. Autostart + recovery
 
 - Runs headless, auto-start on boot
-    
+
 - Recovers from power loss
-    
-- Doesn’t require constant user interaction
+
+- Doesn't require constant user interaction
     
 
 ---
@@ -517,43 +571,43 @@ A dedicated device connected via HDMI runs a kiosk browser that displays the cur
 
 ---
 
-## 12) Milestones (Suggested)
+## 12) Milestones
 
-### Phase A (Engine + Lab + runner)
+### Phase A (Engine + Lab + Wallpaper + Scheduler)
 
-- A0: Repo + basic engine skeleton + local output store
-    
-- A1: Gemini edit pipeline (base → output)
-    
-- A2: Wallpaper apply via helper
-    
-- A3: Lab UI with manual time/weather + prompt editor
-    
-- A4: `launchd` hourly runner + logs
-    
-- A5: Location + weather integration (Open-Meteo)
-    
+- A1: Core engine + pipeline + CLI *(Done)*
+
+- A2: Lab UI + Weather integration (Open-Meteo)
+
+- A3: Wallpaper apply via `desktoppr`
+
+- A4: `launchd` hourly scheduler + quiet hours
 
 ### Phase B (Menu bar app)
 
-- B1: Shell app + settings + start/stop
+- B1: Electron shell + menu bar
 
-- B2: Prompt editor + preview
+- B2: Settings UI
 
-- B3: Folder-based artwork management + rotation scheduling
+- B3: Prompt editor + preview
 
-- B4: Keychain integration
+- B4: Folder-based artwork management + rotation scheduling
 
-- B5: Harden scheduling + reliability
-    
+- B5: Keychain integration
+
+- B6: Scheduling hardening + reliability
 
 ### Phase C (TV kiosk)
 
 - C1: Kiosk display page + manifest polling
-    
-- C2: Mac-side “serve latest” endpoint
-    
-- C3: Autostart kiosk on boot + recovery
+
+- C2: Mac-side "serve latest" endpoint
+
+- C3: Pairing + configuration
+
+- C4: Folder sync + rotation
+
+- C5: Autostart kiosk on boot + recovery
     
 
 ---

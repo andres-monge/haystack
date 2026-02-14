@@ -157,7 +157,7 @@ Fallback: If AI outpainting looks weird, just blur-extend the edges.
 
 ---
 
-# Phase A: Engine + Lab UI + launchd Runner
+# Phase A: Engine + Lab UI + Wallpaper + Scheduler
 
 Phase A is the **developer MVP** - a working system you can use, but it requires some technical comfort. No fancy app yet, just the core machinery.
 
@@ -165,7 +165,7 @@ Phase A is the **developer MVP** - a working system you can use, but it requires
 
 ## What Phase A Delivers
 
-Three main pieces:
+Four milestones, built in order:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -175,8 +175,9 @@ Three main pieces:
 │   ┌──────────────┐    ┌──────────────┐                  │
 │   │   Lab UI     │───▶│    ENGINE    │                  │
 │   │  (browser)   │    │   (library)  │                  │
-│   └──────────────┘    └──────┬───────┘                  │
-│                              │                           │
+│   │  + Weather   │    └──────┬───────┘                  │
+│   └──────────────┘           │                          │
+│                              │                          │
 │   ┌──────────────┐           │                          │
 │   │   launchd    │───────────┘                          │
 │   │  (scheduler) │    (both trigger the engine)         │
@@ -185,11 +186,12 @@ Three main pieces:
 └─────────────────────────────────────────────────────────┘
 ```
 
-| Deliverable | What It Is | When You Use It |
-|-------------|------------|-----------------|
-| **Engine** | Shared code library that does the actual work | Always running behind the scenes |
-| **Lab UI** | Web page at `localhost:xxxx` for testing | When tweaking prompts, testing scenarios |
-| **launchd Runner** | Background job that runs hourly | Automatic updates while you work/sleep |
+| Milestone | What It Is | When You Use It |
+|-----------|------------|-----------------|
+| **A1: Engine + CLI** *(Done)* | Core pipeline + CLI entry point | Always running behind the scenes |
+| **A2: Lab UI + Weather** | Web page at `localhost` + Open-Meteo weather | When tweaking prompts, testing scenarios |
+| **A3: Wallpaper apply** | `desktoppr` integration | Applying generated images as wallpaper |
+| **A4: launchd scheduler** | Background job that runs hourly | Automatic updates while you work/sleep |
 
 ---
 
@@ -273,7 +275,7 @@ A simple web app running locally in your browser. This is where you **iterate fa
 | **Weather Override** | Force "rainy" instead of real weather |
 | **Prompt Editor** | Edit the system prompt sent to Gemini |
 | **Generate Button** | Run the engine NOW, see result |
-| **Apply Button** | Set the generated image as wallpaper |
+| **Apply Button** | Set the generated image as wallpaper *(added in A3)* |
 | **History List** | Thumbnails of last N generations |
 
 ### Why Lab UI Matters
@@ -497,20 +499,18 @@ The prompt adjusts: "Modify for 8 PM, nighttime" (no weather mention)
 
 | Milestone | What You Build | Dependencies |
 |-----------|----------------|--------------|
-| **A0** | Repo + engine skeleton + output storage | None |
-| **A1** | Gemini edit pipeline (image in → image out) | A0 |
-| **A2** | Wallpaper apply via desktoppr | A1 |
-| **A3** | Lab UI with overrides + prompt editor | A1 |
-| **A4** | launchd hourly runner + logging | A2 |
-| **A5** | Location + weather integration | A3, A4 |
+| **A1** | Core engine + pipeline + CLI *(Done)* | None |
+| **A2** | Lab UI + Weather integration (Open-Meteo) | A1 |
+| **A3** | Wallpaper apply via desktoppr | A2 |
+| **A4** | launchd hourly scheduler + quiet hours | A3 |
 
 ---
 
 ## Key Takeaways for Phase A
 
-1. **Engine is the core** - Everything else just calls it
-2. **Lab UI is for iteration** - Don't wait an hour to test prompts
-3. **launchd runs unattended** - Works even when you're not at your computer
+1. **Engine is the core** - Everything else just calls it (A1, done)
+2. **Lab UI + Weather come together** - Weather context improves prompts; iterate on quality before automating (A2)
+3. **Wallpaper + scheduling are last** - Get the images right first, then automate (A3, A4)
 4. **Always from original base** - Never chain edits together
 5. **Weather is optional** - System degrades gracefully without it
 6. **Logs everything** - Metadata JSON helps you debug and improve
