@@ -110,12 +110,12 @@ export function getImageForToday(imageDir: string): string | null
 
 **Acceptance criteria:**
 
-- [ ] `loadConfigFromEnv()` parses all new env vars — `config.ts`
-- [ ] `bindHost` defaults to `"127.0.0.1"` when `HAYSTACK_BIND_HOST` is unset
-- [ ] `schedulerLocation` is only populated when all three of `HAYSTACK_LAT`, `HAYSTACK_LON`, `HAYSTACK_TIMEZONE` are set
-- [ ] `getImageForToday()` returns a different image each day, cycling through the folder
-- [ ] Hidden files and non-image files are ignored
-- [ ] Returns `null` for empty or missing directory
+- [x] `loadConfigFromEnv()` parses all new env vars — `config.ts`
+- [x] `bindHost` defaults to `"127.0.0.1"` when `HAYSTACK_BIND_HOST` is unset
+- [x] `schedulerLocation` is only populated when all three of `HAYSTACK_LAT`, `HAYSTACK_LON`, `HAYSTACK_TIMEZONE` are set
+- [x] `getImageForToday()` returns a different image each day, cycling through the folder
+- [x] Hidden files and non-image files are ignored
+- [x] Returns `null` for empty or missing directory
 
 #### Phase 2: Scheduler
 

@@ -20,6 +20,14 @@ export interface HaystackConfig {
   defaultAspectRatio?: GeminiConfig["aspectRatio"];
   defaultSeed?: number;
   maxStoredOutputs: number;
+  // Phase C: Kiosk scheduling
+  bindHost: string;
+  imageDir?: string;
+  schedulerLocation?: {
+    lat: number;
+    lon: number;
+    timezone: string;
+  };
 }
 
 function parseIntStrict(raw: string | undefined, fallback: number, name: string): number {
@@ -39,6 +47,27 @@ function parseModel(raw: string | undefined): GeminiConfig["model"] {
     );
   }
   return raw as GeminiConfig["model"];
+}
+
+function parseFloat64(raw: string | undefined, name: string): number | undefined {
+  if (!raw) return undefined;
+  const parsed = parseFloat(raw);
+  if (Number.isNaN(parsed)) {
+    throw new Error(`Invalid ${name}: "${raw}" is not a valid number`);
+  }
+  return parsed;
+}
+
+function parseSchedulerLocation(env: NodeJS.ProcessEnv): HaystackConfig["schedulerLocation"] {
+  const lat = parseFloat64(env.HAYSTACK_LAT, "HAYSTACK_LAT");
+  const lon = parseFloat64(env.HAYSTACK_LON, "HAYSTACK_LON");
+  const timezone = env.HAYSTACK_TIMEZONE;
+
+  // Only populate when all three are set
+  if (lat !== undefined && lon !== undefined && timezone) {
+    return { lat, lon, timezone };
+  }
+  return undefined;
 }
 
 function parseAspectRatio(raw: string | undefined): AspectRatio | undefined {
@@ -71,6 +100,9 @@ export function loadConfigFromEnv(): HaystackConfig {
       24,
       "HAYSTACK_MAX_OUTPUTS",
     ),
+    bindHost: process.env.HAYSTACK_BIND_HOST ?? "127.0.0.1",
+    imageDir: process.env.HAYSTACK_IMAGE_DIR || undefined,
+    schedulerLocation: parseSchedulerLocation(process.env),
   };
 }
 

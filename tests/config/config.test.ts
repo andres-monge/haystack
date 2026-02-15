@@ -13,6 +13,11 @@ describe("loadConfigFromEnv", () => {
     delete process.env.HAYSTACK_ASPECT_RATIO;
     delete process.env.HAYSTACK_SEED;
     delete process.env.HAYSTACK_MAX_OUTPUTS;
+    delete process.env.HAYSTACK_BIND_HOST;
+    delete process.env.HAYSTACK_IMAGE_DIR;
+    delete process.env.HAYSTACK_LAT;
+    delete process.env.HAYSTACK_LON;
+    delete process.env.HAYSTACK_TIMEZONE;
   });
 
   afterEach(() => {
@@ -28,6 +33,9 @@ describe("loadConfigFromEnv", () => {
     expect(config.defaultAspectRatio).toBeUndefined();
     expect(config.defaultSeed).toBeUndefined();
     expect(config.maxStoredOutputs).toBe(24);
+    expect(config.bindHost).toBe("127.0.0.1");
+    expect(config.imageDir).toBeUndefined();
+    expect(config.schedulerLocation).toBeUndefined();
   });
 
   it("prefers GOOGLE_API_KEY over GEMINI_API_KEY", () => {
@@ -92,6 +100,69 @@ describe("loadConfigFromEnv", () => {
     process.env.HAYSTACK_MAX_OUTPUTS = "xyz";
     expect(() => loadConfigFromEnv()).toThrow(/Invalid HAYSTACK_MAX_OUTPUTS.*not a valid integer/);
   });
+
+  it("reads custom bind host", () => {
+    process.env.HAYSTACK_BIND_HOST = "0.0.0.0";
+    const config = loadConfigFromEnv();
+    expect(config.bindHost).toBe("0.0.0.0");
+  });
+
+  it("reads image directory", () => {
+    process.env.HAYSTACK_IMAGE_DIR = "/tmp/artworks";
+    const config = loadConfigFromEnv();
+    expect(config.imageDir).toBe("/tmp/artworks");
+  });
+
+  it("treats empty HAYSTACK_IMAGE_DIR as undefined", () => {
+    process.env.HAYSTACK_IMAGE_DIR = "";
+    const config = loadConfigFromEnv();
+    expect(config.imageDir).toBeUndefined();
+  });
+
+  it("populates schedulerLocation when all three vars are set", () => {
+    process.env.HAYSTACK_LAT = "34.05";
+    process.env.HAYSTACK_LON = "-118.25";
+    process.env.HAYSTACK_TIMEZONE = "America/Los_Angeles";
+    const config = loadConfigFromEnv();
+    expect(config.schedulerLocation).toEqual({
+      lat: 34.05,
+      lon: -118.25,
+      timezone: "America/Los_Angeles",
+    });
+  });
+
+  it("leaves schedulerLocation undefined when only lat is set", () => {
+    process.env.HAYSTACK_LAT = "34.05";
+    const config = loadConfigFromEnv();
+    expect(config.schedulerLocation).toBeUndefined();
+  });
+
+  it("leaves schedulerLocation undefined when only lat and lon are set", () => {
+    process.env.HAYSTACK_LAT = "34.05";
+    process.env.HAYSTACK_LON = "-118.25";
+    const config = loadConfigFromEnv();
+    expect(config.schedulerLocation).toBeUndefined();
+  });
+
+  it("leaves schedulerLocation undefined when only timezone is set", () => {
+    process.env.HAYSTACK_TIMEZONE = "America/Los_Angeles";
+    const config = loadConfigFromEnv();
+    expect(config.schedulerLocation).toBeUndefined();
+  });
+
+  it("throws on non-numeric latitude", () => {
+    process.env.HAYSTACK_LAT = "north";
+    process.env.HAYSTACK_LON = "-118.25";
+    process.env.HAYSTACK_TIMEZONE = "America/Los_Angeles";
+    expect(() => loadConfigFromEnv()).toThrow(/Invalid HAYSTACK_LAT.*not a valid number/);
+  });
+
+  it("throws on non-numeric longitude", () => {
+    process.env.HAYSTACK_LAT = "34.05";
+    process.env.HAYSTACK_LON = "west";
+    process.env.HAYSTACK_TIMEZONE = "America/Los_Angeles";
+    expect(() => loadConfigFromEnv()).toThrow(/Invalid HAYSTACK_LON.*not a valid number/);
+  });
 });
 
 describe("toPipelineConfig", () => {
@@ -101,6 +172,7 @@ describe("toPipelineConfig", () => {
       outputDir: "/out",
       defaultModel: "gemini-2.5-flash-image",
       maxStoredOutputs: 10,
+      bindHost: "127.0.0.1",
     });
 
     expect(result.outputDir).toBe("/out");
@@ -116,6 +188,7 @@ describe("toPipelineConfig", () => {
       defaultAspectRatio: "16:9",
       defaultSeed: 42,
       maxStoredOutputs: 24,
+      bindHost: "127.0.0.1",
     });
 
     expect(result.geminiConfig?.aspectRatio).toBe("16:9");
@@ -128,6 +201,7 @@ describe("toPipelineConfig", () => {
       outputDir: "/out",
       defaultModel: "gemini-2.5-flash-image",
       maxStoredOutputs: 24,
+      bindHost: "127.0.0.1",
     });
 
     expect(result.geminiConfig?.aspectRatio).toBeUndefined();
@@ -140,6 +214,7 @@ describe("toPipelineConfig", () => {
       outputDir: "/out",
       defaultModel: "gemini-2.5-flash-image",
       maxStoredOutputs: 24,
+      bindHost: "127.0.0.1",
     });
 
     expect(JSON.stringify(result)).not.toContain("secret-key");
