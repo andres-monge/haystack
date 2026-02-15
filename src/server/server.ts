@@ -279,6 +279,11 @@ export function createApp(config: CreateAppConfig): Express {
     }
   });
 
+  // --- GET /kiosk ---
+  app.get("/kiosk", (_req: Request, res: Response) => {
+    res.sendFile(path.resolve("public/kiosk.html"));
+  });
+
   // --- POST /api/override ---
   app.post("/api/override", async (req: Request, res: Response) => {
     try {

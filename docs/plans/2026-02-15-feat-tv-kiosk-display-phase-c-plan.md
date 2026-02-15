@@ -294,13 +294,13 @@ app.get("/kiosk", (req, res) => {
 
 **Acceptance criteria:**
 
-- [ ] `/kiosk` serves a fullscreen HTML page — `server.ts`
-- [ ] Page displays the latest generated image covering the full viewport — `kiosk.html`
-- [ ] Page polls `/api/latest` every 60 seconds — `kiosk.html`
-- [ ] When a new image is detected (different `id`), it crossfades smoothly — `kiosk.html`
-- [ ] Black background when no image is available — `kiosk.html`
-- [ ] Page works in Chromium on Raspberry Pi (no fancy APIs, keep it simple) — `kiosk.html`
-- [ ] No visible cursor, scrollbars, or browser chrome needed (kiosk mode handles this)
+- [x] `/kiosk` serves a fullscreen HTML page — `server.ts`
+- [x] Page displays the latest generated image covering the full viewport — `kiosk.html`
+- [x] Page polls `/api/latest` every 60 seconds — `kiosk.html`
+- [x] When a new image is detected (different `id`), it crossfades smoothly — `kiosk.html`
+- [x] Black background when no image is available — `kiosk.html`
+- [x] Page works in Chromium on Raspberry Pi (no fancy APIs, keep it simple) — `kiosk.html`
+- [x] No visible cursor, scrollbars, or browser chrome needed (kiosk mode handles this)
 
 #### Pi Setup Notes (no Haystack code — just configuration)
 
