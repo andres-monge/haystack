@@ -186,11 +186,15 @@ Express API server + React (Vite) frontend. Open-Meteo weather provider. City se
 
     - GET `/api/history` — returns last N generations
 
-    - GET `/api/outputs/:id.png` — serves generated images
+    - GET `/api/outputs/:id` — serves generated images (no file extension in URL)
 
     - POST `/api/location/search` — proxies city search to Open-Meteo
 
     - GET `/api/weather` — gets current conditions for configured location
+
+    - GET `/api/config/default-template` — returns the default prompt template
+
+    - POST `/api/scenario-preview` — returns a human-readable scenario description for given hour/weather/location
 
     - Static file serving for React frontend
 
@@ -222,9 +226,13 @@ Express API server + React (Vite) frontend. Open-Meteo weather provider. City se
 
 **Weather provider interface**
 
-- `resolveLocation(query) -> {lat, lon, timezone, displayName}`
+- `searchLocations(query) -> Location[]` — city search returning `{ name, country, lat, lon, timezone, admin1? }`
 
-- `getHourlyConditions(lat, lon, timezone, timeRange) -> hourly[]`
+- `getHourlyConditions(lat, lon, timezone) -> HourlyConditions[]` — hourly weather slots for current day
+
+- `getCurrentConditions(lat, lon, timezone) -> CurrentConditions` — the hourly slot matching "now", includes sunrise/sunset
+
+- `getForecast(lat, lon, timezone) -> { current, hourly }` — both current and hourly in a single call
 
 Support _at least one_ provider + a clean interface for swapping providers.
 
@@ -510,7 +518,7 @@ Kiosk reuses folder settings from Phase B. Manifest includes rotation schedule.
 
 - `Location { name, lat, lon, timezone }`
     
-- `Scenario { timestampLocal, hour, weatherCode, cloudPct, precipPct, isDay, sunrise, sunset }`
+- `Scenario { timestampLocal, hour, isDay, weatherCode?, cloudPercent?, precipProbability?, temperature?, humidity?, windSpeed?, windGusts?, visibility?, precipitation?, rain?, snowfall?, snowDepth?, directRadiation?, diffuseRadiation?, sunElevation?, sunAzimuth?, moonFraction?, moonAltitude?, sunrise?, sunset? }`
     
 - `PromptVersion { id, text, createdAt, notes }`
     
@@ -621,6 +629,8 @@ Kiosk reuses folder settings from Phase B. Manifest includes rotation schedule.
 - **macOS scheduling:** `launchd` recommended for recurring jobs. ([Apple Developer](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/ScheduledJobs.html?utm_source=chatgpt.com "Scheduling Timed Jobs - Apple Developer"))
     
 - **Weather APIs:** Open-Meteo, WeatherAPI.com, Visual Crossing. ([Open Meteo](https://open-meteo.com/en/docs "️ Docs | Open-Meteo.com"))
+
+- **Sun/moon position:** `suncalc` npm package for computing sun elevation/azimuth, moon fraction, and moon altitude from coordinates and time.
     
 
 ---

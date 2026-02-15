@@ -125,10 +125,12 @@ Fallback: If AI outpainting looks weird, just blur-extend the edges.
 1. Scheduler triggers → "It's time to update!"
 2. Engine fetches scenario:
    - Current local time (e.g., 8 PM)
-   - Weather conditions (e.g., cloudy, 70% clouds)
+   - Weather conditions (WMO code, cloud %, precipitation, temperature, etc.)
+   - Sun/moon position (elevation, azimuth, moon illumination %)
    - Is it day or night? (night)
 3. Engine builds a prompt:
-   "Modify this street scene for evening, cloudy weather..."
+   "Using the provided artwork, reimagine this scene..."
+   with a detailed scenario description injected into the template
 4. Gemini AI receives: image + prompt → returns edited image
 5. Image saved locally
 6. Wallpaper setter applies it to your desktop
@@ -140,7 +142,7 @@ Fallback: If AI outpainting looks weird, just blur-extend the edges.
 |-------|---------|
 | `Artwork` | Your source image (local file path) |
 | `Location` | Where you are (lat/lon/timezone) |
-| `Scenario` | Current conditions (time, weather, day/night) |
+| `Scenario` | Current conditions (time, weather, sun/moon position, day/night) |
 | `PromptVersion` | The text instructions sent to AI (versioned for testing) |
 | `Render` | Each generated output with metadata |
 
@@ -206,12 +208,18 @@ Engine.generate({
   baseImage: "/path/to/artwork.jpg",
   scenario: {
     hour: 20,              // 8 PM
-    weatherCode: "cloudy",
-    cloudPct: 70,
-    isDay: false
+    weatherCode: 3,        // WMO code (3 = overcast)
+    cloudPercent: 70,
+    precipProbability: 20,
+    temperature: 15,       // Celsius
+    humidity: 65,
+    windSpeed: 12,         // km/h
+    isDay: false,
+    sunElevation: -8.3,    // degrees below horizon
+    moonFraction: 0.75     // 75% illuminated
   },
-  promptConfig: "Make the scene feel like evening...",
-  modelConfig: "gemini-2.0-flash-exp"  // or other model
+  promptConfig: { template: "..." },
+  modelConfig: "gemini-2.5-flash-image"  // or "gemini-3-pro-image-preview"
 })
 ```
 
@@ -241,19 +249,25 @@ Every generation saves a JSON file alongside the image:
 
 ```json
 {
-  "artworkId": "street-scene-001",
+  "id": "2024-01-15T20-00-00_abc123",
+  "artworkSource": "/path/to/artwork.jpg",
   "scenario": {
-    "timestampLocal": "2024-01-15T20:00:00",
+    "timestampLocal": "2024-01-15T20:00:00.000Z",
     "hour": 20,
-    "weatherCode": "cloudy",
-    "cloudPct": 70,
-    "isDay": false
+    "isDay": false,
+    "weatherCode": 3,
+    "cloudPercent": 70,
+    "precipProbability": 20,
+    "temperature": 15,
+    "humidity": 65,
+    "windSpeed": 12,
+    "sunElevation": -8.3,
+    "moonFraction": 0.75
   },
-  "promptVersionId": "v3",
-  "model": "gemini-2.0-flash-exp",
-  "outputPath": "/outputs/output-2024-01-15-20-00.jpg",
-  "createdAt": "2024-01-15T20:00:12Z",
-  "status": "success"
+  "prompt": "Using the provided artwork, reimagine this scene as if...",
+  "model": "gemini-2.5-flash-image",
+  "outputPath": "/outputs/2024-01-15T20-00-00_abc123.png",
+  "createdAt": "2024-01-15T20:00:12Z"
 }
 ```
 
@@ -408,25 +422,35 @@ desktoppr /path/to/generated-image.jpg
 A clean abstraction so you can swap weather APIs easily:
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│              WeatherProvider Interface                   │
-├─────────────────────────────────────────────────────────┤
-│                                                          │
-│  resolveLocation(query)                                 │
-│    Input:  "San Francisco"                              │
-│    Output: { lat: 37.77, lon: -122.41,                 │
-│              timezone: "America/Los_Angeles",           │
-│              displayName: "San Francisco, CA" }         │
-│                                                          │
-│  getHourlyConditions(lat, lon, timezone, timeRange)     │
-│    Input:  coordinates + time range                     │
-│    Output: [                                            │
-│      { hour: 14, weatherCode: "sunny", cloudPct: 10 }, │
-│      { hour: 15, weatherCode: "cloudy", cloudPct: 45 },│
-│      ...                                                │
-│    ]                                                    │
-│                                                          │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│              WeatherProvider Interface                        │
+├──────────────────────────────────────────────────────────────┤
+│                                                               │
+│  searchLocations(query)                                      │
+│    Input:  "San Francisco"                                   │
+│    Output: [{ name: "San Francisco", country: "US",          │
+│               lat: 37.77, lon: -122.41,                      │
+│               timezone: "America/Los_Angeles",               │
+│               admin1: "California" }]                        │
+│                                                               │
+│  getHourlyConditions(lat, lon, timezone)                     │
+│    Input:  coordinates + timezone                            │
+│    Output: [                                                 │
+│      { time: "2024-01-15T14:00", weatherCode: 1,            │
+│        cloudPercent: 10, precipProbability: 0,               │
+│        temperature: 18, humidity: 55, ... },                 │
+│      { time: "2024-01-15T15:00", weatherCode: 3,            │
+│        cloudPercent: 45, precipProbability: 10, ... },       │
+│      ...                                                     │
+│    ]                                                         │
+│                                                               │
+│  getCurrentConditions(lat, lon, timezone)                     │
+│    Returns: the hourly slot matching "now" + sunrise/sunset  │
+│                                                               │
+│  getForecast(lat, lon, timezone)                             │
+│    Returns: { current, hourly } in a single API call         │
+│                                                               │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### Open-Meteo (Recommended for Phase A)
@@ -475,12 +499,14 @@ Example API call:
 
 ```
 Normal scenario:
-  { hour: 20, weatherCode: "rainy", cloudPct: 90, isDay: false }
+  { hour: 20, weatherCode: 61, cloudPercent: 90, precipProbability: 80,
+    temperature: 12, isDay: false, sunElevation: -10.5, moonFraction: 0.3 }
 
 Degraded scenario (weather unavailable):
-  { hour: 20, weatherCode: null, cloudPct: null, isDay: false, degraded: true }
+  { hour: 20, isDay: false }
+  (weather fields simply absent — no special "degraded" flag)
 
-The prompt adjusts: "Modify for 8 PM, nighttime" (no weather mention)
+The prompt adjusts: "8 PM, Night" (no weather mention)
 ```
 
 ---
