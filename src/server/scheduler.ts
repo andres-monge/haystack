@@ -25,7 +25,7 @@ export interface SchedulerConfig {
 export class HourlyScheduler {
   private config: SchedulerConfig;
   private timerId: ReturnType<typeof setTimeout> | null = null;
-  private generating = false; // mutex to serialize generation calls
+  private mutex: Promise<void> = Promise.resolve();
 
   constructor(config: SchedulerConfig) {
     this.config = config;
@@ -58,16 +58,19 @@ export class HourlyScheduler {
    *   passed directly as the prompt scenario slot.
    */
   async runNow(scenarioOverride?: string): Promise<GenerateResult> {
-    // Simple mutex: wait if a generation is already running
-    while (this.generating) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
+    // Promise-chain mutex: each call waits for the previous to finish,
+    // guaranteeing serial execution without race conditions.
+    let release: () => void;
+    const prev = this.mutex;
+    this.mutex = new Promise((resolve) => {
+      release = resolve;
+    });
+    await prev;
 
-    this.generating = true;
     try {
       return await this.tick(scenarioOverride);
     } finally {
-      this.generating = false;
+      release!();
     }
   }
 
@@ -90,13 +93,13 @@ export class HourlyScheduler {
   private async onTick(): Promise<void> {
     this.timerId = null;
 
-    if (this.generating) {
-      // Another generation (e.g., override) is in progress — skip this tick
-      this.scheduleNext();
-      return;
-    }
+    let release: () => void;
+    const prev = this.mutex;
+    this.mutex = new Promise((resolve) => {
+      release = resolve;
+    });
+    await prev;
 
-    this.generating = true;
     try {
       const result = await this.tick();
       console.log(
@@ -107,7 +110,7 @@ export class HourlyScheduler {
         `[${new Date().toISOString()}] Scheduled generation failed: ${err instanceof Error ? err.message : err}`,
       );
     } finally {
-      this.generating = false;
+      release!();
       this.scheduleNext();
     }
   }

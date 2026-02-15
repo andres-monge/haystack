@@ -6,12 +6,10 @@ import * as path from "node:path";
 import express, { type Express, type Request, type Response } from "express";
 import multer from "multer";
 import type { Pipeline } from "../engine/pipeline.js";
-import type { Scenario } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
 import { createScenarioFromHour, describeScenario } from "../engine/scenario.js";
 import { DEFAULT_TEMPLATE } from "../engine/prompt.js";
-import { buildScenario } from "./scenario-builder.js";
-import SunCalc from "suncalc";
+import { buildScenario, computeSunMoon } from "./scenario-builder.js";
 
 const VALID_ID_PATTERN = /^[a-zA-Z0-9_\-]+$/;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -244,22 +242,7 @@ export function createApp(config: CreateAppConfig): Express {
 
         // Compute sun/moon position if location provided
         if (lat !== undefined && lon !== undefined && timezone) {
-          const dateForHour = new Date(
-            new Date().toLocaleDateString("en-CA", { timeZone: timezone }) +
-              `T${String(hour).padStart(2, "0")}:00:00`,
-          );
-          const sunPos = SunCalc.getPosition(dateForHour, lat, lon);
-          scenario.sunElevation =
-            Math.round(sunPos.altitude * (180 / Math.PI) * 10) / 10;
-          scenario.sunAzimuth =
-            Math.round(((sunPos.azimuth * (180 / Math.PI)) + 180) * 10) / 10;
-
-          const moonIllum = SunCalc.getMoonIllumination(dateForHour);
-          scenario.moonFraction = Math.round(moonIllum.fraction * 100) / 100;
-
-          const moonPos = SunCalc.getMoonPosition(dateForHour, lat, lon);
-          scenario.moonAltitude =
-            Math.round(moonPos.altitude * (180 / Math.PI) * 10) / 10;
+          computeSunMoon(scenario, hour, lat, lon, timezone);
         }
 
         res.json({ description: describeScenario(scenario) });

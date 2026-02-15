@@ -136,7 +136,7 @@ async function enrichWithWeather(
 /**
  * Compute sun/moon position and apply to the scenario.
  */
-function computeSunMoon(
+export function computeSunMoon(
   scenario: Scenario,
   hour: number,
   lat: number,
