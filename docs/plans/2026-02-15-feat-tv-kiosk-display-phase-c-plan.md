@@ -244,13 +244,13 @@ Implementation detail: The override doesn't store any state. It triggers a one-o
 
 **Acceptance criteria:**
 
-- [ ] `GET /api/latest` returns latest render with `metadata` and `imageUrl` — `server.ts`
-- [ ] `GET /api/latest` returns 404 when no renders exist — `server.ts`
-- [ ] `POST /api/override` validates `scenario` is a non-empty string — `server.ts`
-- [ ] `POST /api/override` triggers generation with override scenario text — `server.ts`
-- [ ] `POST /api/override` uses the day's base image from `getImageForToday()` — `server.ts`
-- [ ] `POST /api/override` returns the generated result (metadata + imageUrl) — `server.ts`
-- [ ] `POST /api/override` returns 400 if scheduler is not configured (no imageDir/location) — `server.ts`
+- [x] `GET /api/latest` returns latest render with `metadata` and `imageUrl` — `server.ts`
+- [x] `GET /api/latest` returns 404 when no renders exist — `server.ts`
+- [x] `POST /api/override` validates `scenario` is a non-empty string — `server.ts`
+- [x] `POST /api/override` triggers generation with override scenario text — `server.ts`
+- [x] `POST /api/override` uses the day's base image from `getImageForToday()` — `server.ts`
+- [x] `POST /api/override` returns the generated result (metadata + imageUrl) — `server.ts`
+- [x] `POST /api/override` returns 400 if scheduler is not configured (no imageDir/location) — `server.ts`
 
 #### Phase 4: Kiosk Page
 

@@ -7,6 +7,7 @@ import express, { type Express, type Request, type Response } from "express";
 import multer from "multer";
 import type { Pipeline } from "../engine/pipeline.js";
 import type { WeatherProvider } from "../weather/types.js";
+import type { HourlyScheduler } from "./scheduler.js";
 import { createScenarioFromHour, describeScenario } from "../engine/scenario.js";
 import { DEFAULT_TEMPLATE } from "../engine/prompt.js";
 import { buildScenario, computeSunMoon } from "./scenario-builder.js";
@@ -18,10 +19,12 @@ export interface CreateAppConfig {
   pipeline: Pipeline;
   weatherProvider: WeatherProvider;
   outputDir: string;
+  scheduler?: HourlyScheduler;
+  imageDir?: string;
 }
 
 export function createApp(config: CreateAppConfig): Express {
-  const { pipeline, weatherProvider, outputDir } = config;
+  const { pipeline, weatherProvider, outputDir, scheduler, imageDir } = config;
   const app = express();
 
   app.use(express.json());
@@ -255,6 +258,50 @@ export function createApp(config: CreateAppConfig): Express {
       }
     },
   );
+
+  // --- GET /api/latest ---
+  app.get("/api/latest", (_req: Request, res: Response) => {
+    const latest = pipeline.getStore().getLatest();
+    if (!latest) {
+      res.status(404).json({ error: "No renders available" });
+      return;
+    }
+    res.json({
+      metadata: latest,
+      imageUrl: `/api/outputs/${latest.id}`,
+    });
+  });
+
+  // --- POST /api/override ---
+  app.post("/api/override", async (req: Request, res: Response) => {
+    try {
+      const { scenario } = req.body;
+      if (!scenario || typeof scenario !== "string") {
+        res.status(400).json({ error: "scenario string is required" });
+        return;
+      }
+
+      if (!scheduler || !imageDir) {
+        res.status(400).json({
+          error:
+            "Override requires scheduler configuration (HAYSTACK_IMAGE_DIR + location)",
+        });
+        return;
+      }
+
+      const result = await scheduler.runNow(scenario);
+      res.json({
+        metadata: result.metadata,
+        imageUrl: `/api/outputs/${result.metadata.id}`,
+      });
+    } catch (err) {
+      console.error(
+        `[${new Date().toISOString()}] Override error:`,
+        err instanceof Error ? err.message : err,
+      );
+      res.status(500).json({ error: "Override generation failed" });
+    }
+  });
 
   return app;
 }

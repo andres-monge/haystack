@@ -13,19 +13,7 @@ const pipeline = new Pipeline(toPipelineConfig(config), config.googleApiKey);
 const weatherProvider = new OpenMeteoProvider();
 const port = parseInt(process.env.HAYSTACK_LAB_PORT ?? "4321", 10);
 
-const app = createApp({
-  pipeline,
-  weatherProvider,
-  outputDir: config.outputDir,
-});
-
-const server = app.listen(port, config.bindHost, () => {
-  console.log(
-    `Haystack Lab server running at http://${config.bindHost}:${port}`,
-  );
-});
-
-// Start hourly scheduler when both imageDir and schedulerLocation are configured
+// Create scheduler when both imageDir and schedulerLocation are configured
 let scheduler: HourlyScheduler | undefined;
 if (config.imageDir && config.schedulerLocation) {
   scheduler = new HourlyScheduler({
@@ -34,9 +22,27 @@ if (config.imageDir && config.schedulerLocation) {
     imageDir: config.imageDir,
     location: config.schedulerLocation,
   });
+}
+
+const app = createApp({
+  pipeline,
+  weatherProvider,
+  outputDir: config.outputDir,
+  scheduler,
+  imageDir: config.imageDir,
+});
+
+const server = app.listen(port, config.bindHost, () => {
+  console.log(
+    `Haystack Lab server running at http://${config.bindHost}:${port}`,
+  );
+});
+
+// Start scheduler after server is listening
+if (scheduler) {
   scheduler.start();
   console.log(
-    `Hourly scheduler started (location: ${config.schedulerLocation.lat}, ${config.schedulerLocation.lon})`,
+    `Hourly scheduler started (location: ${config.schedulerLocation!.lat}, ${config.schedulerLocation!.lon})`,
   );
 }
 
