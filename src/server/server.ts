@@ -281,7 +281,16 @@ export function createApp(config: CreateAppConfig): Express {
 
   // --- GET /kiosk ---
   app.get("/kiosk", (_req: Request, res: Response) => {
-    res.sendFile(path.resolve("public/kiosk.html"));
+    const kioskPath = path.resolve("public/kiosk.html");
+    res.sendFile(kioskPath, (err) => {
+      if (err && !res.headersSent) {
+        console.error(
+          `[${new Date().toISOString()}] Kiosk error:`,
+          err instanceof Error ? err.message : err,
+        );
+        res.status(404).json({ error: "Kiosk page not found" });
+      }
+    });
   });
 
   // --- POST /api/override ---

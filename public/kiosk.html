@@ -55,8 +55,10 @@
           outgoing.style.zIndex = "0";
           swapped = !swapped;
         };
-        // Cache-bust to ensure fresh image
-        incoming.src = url + "?t=" + Date.now();
+        incoming.onerror = function () {
+          // Keep current image visible, retry on next poll
+        };
+        incoming.src = url;
       }
 
       function poll() {
