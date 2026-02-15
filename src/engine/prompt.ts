@@ -3,20 +3,28 @@
 import type { Scenario, PromptConfig } from "./types.js";
 import { describeScenario } from "./scenario.js";
 
-export const DEFAULT_TEMPLATE = `Transform this artwork to reflect the current moment:
+export const DEFAULT_TEMPLATE = `Using the provided artwork, reimagine this scene as if viewed through a window at the current moment in time.
 
 Time: {scenario}
 
-Guidelines:
-- Adjust lighting naturally (sun position, shadows, ambient light)
-- If the scene has artificial light sources (lamps, candles), light them appropriately for the time
-- Maintain the original composition and subjects
-- Preserve the artistic style of the original
-- Make changes subtle and atmospheric, not dramatic
-- If night: add moonlight, starlight, or warm indoor lighting
-- If day: adjust sun position and shadow direction
-- Do not add new objects, people, or text
-- Preserve the original scale, framing, and composition exactly`;
+The setting, architecture, and environment are permanent — but the scene is alive. People and animals go about their day naturally for this time and weather. Consider who would be here now, what they would be doing, how the light falls at this hour, and how people would be dressed for the current conditions.
+
+Reading the weather data:
+- Sun elevation: negative = below horizon, 0° = at horizon (sunrise/sunset), 90° = directly overhead. Low positive angles produce long shadows and warm golden light.
+- Direct radiation (W/m²): 0 = no direct sunlight (night or dense clouds), high values = crisp hard shadows.
+- Diffuse radiation (W/m²): high relative to direct = soft, even, shadowless overcast light.
+- Moon illuminated %: 0% = new moon (very dark night), 100% = full moon (bright silvery nightscape). Only relevant at night.
+- Visibility (meters): below 1000 = dense fog, 1000-5000 = haze/mist, above 10000 = clear air.
+
+Rules:
+- Preserve the EXACT artistic style, medium, and rendering technique of the original
+- Keep the architecture, signage, furniture, and environment layout identical
+- Characters may change position, appear, or leave — but must match the original art style exactly
+- Lighting must be physically consistent with the time of day and weather
+- Weather should affect the scene naturally (wet surfaces, fog, snow, etc.)
+- Do NOT change the camera angle, framing, scale, or composition
+- Do NOT add modern or anachronistic elements
+- Do NOT add text, watermarks, or UI elements`;
 
 export const DEFAULT_PROMPT_CONFIG: PromptConfig = {
   template: DEFAULT_TEMPLATE,

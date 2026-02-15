@@ -435,8 +435,13 @@ body {
   max-height: 600px;
 }
 
-.btn-details-toggle {
+.preview-actions {
+  display: flex;
+  gap: 8px;
   margin-top: 8px;
+}
+
+.btn-details-toggle {
   background: none;
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -444,10 +449,21 @@ body {
   color: var(--text-muted);
   font-size: 0.75rem;
   cursor: pointer;
-  align-self: flex-start;
 }
 
-.btn-details-toggle:hover {
+.btn-download {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 4px 12px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-details-toggle:hover,
+.btn-download:hover {
   border-color: var(--accent);
   color: var(--text);
 }

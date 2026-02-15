@@ -35,14 +35,9 @@ export const WMO_SHORT: Record<number, string> = {
   95: "Storm",
 };
 
-export function getTimeOfDayDescription(hour: number): string {
-  if (hour >= 5 && hour < 7) return "Early morning, dawn breaking";
-  if (hour >= 7 && hour < 12) return "Morning, bright daylight";
-  if (hour >= 12 && hour < 14) return "Midday, sun high overhead";
-  if (hour >= 14 && hour < 17) return "Afternoon, warm light";
-  if (hour >= 17 && hour < 20) return "Evening, golden hour, sunset";
-  if (hour >= 20 && hour < 22) return "Dusk, twilight";
-  return "Night, darkness, moonlight";
+export function getTimeOfDayDescription(hour: number, isDay: boolean): string {
+  const h = hour === 0 ? "12 AM" : hour === 12 ? "12 PM" : hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
+  return `${h}, ${isDay ? "Day" : "Night"}`;
 }
 
 export function getWeatherDescription(weatherCode?: number): string {

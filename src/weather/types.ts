@@ -16,6 +16,16 @@ export interface HourlyConditions {
   precipProbability: number; // 0-100
   temperature: number; // Celsius
   isDay: boolean;
+  humidity: number; // 0-100 %
+  windSpeed: number; // km/h
+  windGusts: number; // km/h
+  visibility: number; // meters
+  precipitation: number; // mm (preceding hour sum)
+  rain: number; // mm (preceding hour sum)
+  snowfall: number; // cm (preceding hour sum)
+  snowDepth: number; // meters
+  directRadiation: number; // W/m² (preceding hour mean)
+  diffuseRadiation: number; // W/m² (preceding hour mean)
 }
 
 /** Current conditions = the hourly slot matching "now" in the location's timezone. */

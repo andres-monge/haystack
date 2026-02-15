@@ -2,6 +2,9 @@
 
 // src/cli/generate.ts — CLI entry point for scheduled generation (launchd)
 
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
+
 import * as fs from "node:fs";
 import {
   Pipeline,

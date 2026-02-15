@@ -1,5 +1,7 @@
 // src/server/start.ts — Lab server entry point
 
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
 import { createApp } from "./server.js";
 import { Pipeline } from "../engine/pipeline.js";
 import { OpenMeteoProvider } from "../weather/open-meteo.js";

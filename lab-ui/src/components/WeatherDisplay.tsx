@@ -34,13 +34,26 @@ export function WeatherDisplay({ current, isLoading }: Props) {
       <div className="weather-conditions">
         <div className="weather-main">
           <span className="weather-description">{description}</span>
-          <span className="weather-temp">{Math.round(current.temperature)}°C</span>
-        </div>
-        <div className="weather-details">
-          <span>Clouds: {current.cloudPercent}%</span>
-          <span>Precip: {current.precipProbability}%</span>
+          <span className="weather-temp">{current.temperature}°C</span>
           <span>{current.isDay ? "Day" : "Night"}</span>
         </div>
+        <div className="weather-details">
+          <span>Humidity: {current.humidity}%</span>
+          <span>Wind: {current.windSpeed} km/h (gusts {current.windGusts})</span>
+          <span>Visibility: {current.visibility}m</span>
+          <span>Clouds: {current.cloudPercent}%</span>
+        </div>
+        <div className="weather-details">
+          <span>Direct: {current.directRadiation} W/m²</span>
+          <span>Diffuse: {current.diffuseRadiation} W/m²</span>
+        </div>
+        {(current.precipitation > 0 || current.snowfall > 0 || current.snowDepth > 0) && (
+          <div className="weather-details">
+            {current.precipitation > 0 && <span>Rain: {current.precipitation}mm/h</span>}
+            {current.snowfall > 0 && <span>Snow: {current.snowfall}cm/h</span>}
+            {current.snowDepth > 0 && <span>Snow depth: {current.snowDepth}m</span>}
+          </div>
+        )}
       </div>
       <div className="weather-attribution">
         Weather data by{" "}

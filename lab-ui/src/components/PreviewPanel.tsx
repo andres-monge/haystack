@@ -33,12 +33,21 @@ export function PreviewPanel({ metadata, imageUrl, error }: Props) {
         src={imageUrl}
         alt={`Generated at ${metadata.scenario.hour}:00`}
       />
-      <button
-        className="btn-details-toggle"
-        onClick={() => setShowDetails(!showDetails)}
-      >
-        {showDetails ? "Hide details" : "Show details"}
-      </button>
+      <div className="preview-actions">
+        <button
+          className="btn-details-toggle"
+          onClick={() => setShowDetails(!showDetails)}
+        >
+          {showDetails ? "Hide details" : "Show details"}
+        </button>
+        <a
+          className="btn-download"
+          href={imageUrl}
+          download={`haystack-${metadata.id}.png`}
+        >
+          Download
+        </a>
+      </div>
       {showDetails && (
         <div className="preview-metadata">
           <dl>

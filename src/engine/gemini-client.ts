@@ -126,7 +126,11 @@ export class GeminiClient implements ImageEditClient {
     }
 
     if (!resultBuffer) {
-      throw new Error("Gemini did not return an image");
+      const detail = resultText ? `: ${resultText}` : "";
+      const reason = candidate?.finishReason
+        ? ` (finishReason: ${candidate.finishReason})`
+        : "";
+      throw new Error(`Gemini did not return an image${reason}${detail}`);
     }
 
     return {

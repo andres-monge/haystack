@@ -12,6 +12,7 @@ import type {
 import { serializeScenario } from "./types.js";
 import { GeminiClient, DEFAULT_GEMINI_CONFIG } from "./gemini-client.js";
 import { composePrompt, DEFAULT_PROMPT_CONFIG } from "./prompt.js";
+import { describeScenario } from "./scenario.js";
 import { OutputStore } from "../storage/output-store.js";
 
 export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
@@ -55,8 +56,9 @@ export class Pipeline {
     scenario: Scenario,
     promptOverride?: string,
   ): Promise<GenerateResult> {
-    const prompt =
-      promptOverride ?? composePrompt(scenario, this.config.promptConfig);
+    const prompt = promptOverride
+      ? promptOverride.replace("{scenario}", describeScenario(scenario))
+      : composePrompt(scenario, this.config.promptConfig);
 
     const result = await this.client.editImage(
       imagePath,

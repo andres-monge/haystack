@@ -5,12 +5,29 @@ export interface Scenario {
   hour: number; // 0-23
   isDay: boolean;
 
-  // Weather (optional, from A5)
+  // Weather (optional — populated from weather provider)
   weatherCode?: number;
   cloudPercent?: number;
   precipPercent?: number;
+  temperature?: number; // Celsius
+  humidity?: number; // 0-100 %
+  windSpeed?: number; // km/h
+  windGusts?: number; // km/h
+  visibility?: number; // meters
+  precipitation?: number; // mm (preceding hour sum)
+  rain?: number; // mm (preceding hour sum)
+  snowfall?: number; // cm (preceding hour sum)
+  snowDepth?: number; // meters
+  directRadiation?: number; // W/m² (preceding hour mean)
+  diffuseRadiation?: number; // W/m² (preceding hour mean)
 
-  // Sun position (optional)
+  // Sun/moon position (optional — computed via suncalc)
+  sunElevation?: number; // degrees (negative = below horizon)
+  sunAzimuth?: number; // degrees
+  moonFraction?: number; // 0-1 illuminated fraction
+  moonAltitude?: number; // degrees
+
+  // Sun times (optional)
   sunrise?: Date;
   sunset?: Date;
 }
@@ -26,6 +43,21 @@ export interface SerializedScenario {
   weatherCode?: number;
   cloudPercent?: number;
   precipPercent?: number;
+  temperature?: number;
+  humidity?: number;
+  windSpeed?: number;
+  windGusts?: number;
+  visibility?: number;
+  precipitation?: number;
+  rain?: number;
+  snowfall?: number;
+  snowDepth?: number;
+  directRadiation?: number;
+  diffuseRadiation?: number;
+  sunElevation?: number;
+  sunAzimuth?: number;
+  moonFraction?: number;
+  moonAltitude?: number;
   sunrise?: string; // ISO 8601
   sunset?: string; // ISO 8601
 }

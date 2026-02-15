@@ -29,17 +29,12 @@ export function TimeControls({
           min={0}
           max={23}
           value={hour}
-          onChange={(e) => {
-            const h = parseInt(e.target.value, 10);
-            onHourChange(h);
-            // Auto-calculate isDay
-            onIsDayChange(h >= 6 && h <= 20);
-          }}
+          onChange={(e) => onHourChange(parseInt(e.target.value, 10))}
         />
         <div className="hour-label">
           <span className="hour-value">{formatHour(hour)}</span>
           <span className="hour-description">
-            {getTimeOfDayDescription(hour)}
+            {getTimeOfDayDescription(hour, isDay)}
           </span>
         </div>
       </div>

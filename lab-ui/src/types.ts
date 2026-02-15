@@ -7,6 +7,21 @@ export interface SerializedScenario {
   weatherCode?: number;
   cloudPercent?: number;
   precipPercent?: number;
+  temperature?: number;
+  humidity?: number;
+  windSpeed?: number;
+  windGusts?: number;
+  visibility?: number;
+  precipitation?: number;
+  rain?: number;
+  snowfall?: number;
+  snowDepth?: number;
+  directRadiation?: number;
+  diffuseRadiation?: number;
+  sunElevation?: number;
+  sunAzimuth?: number;
+  moonFraction?: number;
+  moonAltitude?: number;
   sunrise?: string;
   sunset?: string;
 }
@@ -49,6 +64,16 @@ export interface HourlyConditions {
   precipProbability: number;
   temperature: number;
   isDay: boolean;
+  humidity: number;
+  windSpeed: number;
+  windGusts: number;
+  visibility: number;
+  precipitation: number;
+  rain: number;
+  snowfall: number;
+  snowDepth: number;
+  directRadiation: number;
+  diffuseRadiation: number;
 }
 
 export interface CurrentConditions extends HourlyConditions {

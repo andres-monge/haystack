@@ -29,6 +29,16 @@ interface ForecastResponse {
     precipitation_probability: number[];
     temperature_2m: number[];
     is_day: number[];
+    relative_humidity_2m: number[];
+    wind_speed_10m: number[];
+    wind_gusts_10m: number[];
+    visibility: number[];
+    precipitation: number[];
+    rain: number[];
+    snowfall: number[];
+    snow_depth: number[];
+    direct_radiation: number[];
+    diffuse_radiation: number[];
   };
   daily: {
     sunrise: string[];
@@ -143,7 +153,7 @@ export class OpenMeteoProvider implements WeatherProvider {
     url.searchParams.set("timezone", timezone);
     url.searchParams.set(
       "hourly",
-      "weather_code,cloud_cover,precipitation_probability,temperature_2m,is_day",
+      "weather_code,cloud_cover,precipitation_probability,temperature_2m,is_day,relative_humidity_2m,wind_speed_10m,wind_gusts_10m,visibility,precipitation,rain,snowfall,snow_depth,direct_radiation,diffuse_radiation",
     );
     url.searchParams.set("daily", "sunrise,sunset");
     url.searchParams.set("forecast_days", "1");
@@ -173,16 +183,25 @@ export class OpenMeteoProvider implements WeatherProvider {
 
   /** Zip parallel arrays from the hourly response into typed objects. */
   private zipHourly(forecast: ForecastResponse): HourlyConditions[] {
-    const { time, weather_code, cloud_cover, precipitation_probability, temperature_2m, is_day } =
-      forecast.hourly;
+    const h = forecast.hourly;
 
-    return time.map((t, i) => ({
+    return h.time.map((t, i) => ({
       time: t,
-      weatherCode: weather_code[i],
-      cloudPercent: cloud_cover[i],
-      precipProbability: precipitation_probability[i],
-      temperature: temperature_2m[i],
-      isDay: is_day[i] === 1,
+      weatherCode: h.weather_code[i],
+      cloudPercent: h.cloud_cover[i],
+      precipProbability: h.precipitation_probability[i],
+      temperature: h.temperature_2m[i],
+      isDay: h.is_day[i] === 1,
+      humidity: h.relative_humidity_2m[i],
+      windSpeed: h.wind_speed_10m[i],
+      windGusts: h.wind_gusts_10m[i],
+      visibility: h.visibility[i],
+      precipitation: h.precipitation[i],
+      rain: h.rain[i],
+      snowfall: h.snowfall[i],
+      snowDepth: h.snow_depth[i],
+      directRadiation: h.direct_radiation[i],
+      diffuseRadiation: h.diffuse_radiation[i],
     }));
   }
 

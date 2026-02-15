@@ -9,6 +9,7 @@ import type { Pipeline } from "../engine/pipeline.js";
 import type { Scenario } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
 import { createScenarioFromHour } from "../engine/scenario.js";
+import SunCalc from "suncalc";
 
 const VALID_ID_PATTERN = /^[a-zA-Z0-9_\-]+$/;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -122,7 +123,7 @@ export function createApp(config: CreateAppConfig): Express {
   });
 
   // --- GET /api/outputs/:id ---
-  app.get("/api/outputs/:id", (req: Request, res: Response) => {
+  app.get("/api/outputs/:id", async (req: Request, res: Response) => {
     const id = req.params.id as string;
 
     // Validate ID to prevent directory traversal
@@ -132,15 +133,13 @@ export function createApp(config: CreateAppConfig): Express {
     }
 
     const imagePath = path.join(outputDir, `${id}.png`);
-    res.sendFile(
-      imagePath,
-      { headers: { "Content-Type": "image/png" } },
-      (err) => {
-        if (err && !res.headersSent) {
-          res.status(404).json({ error: "Output not found" });
-        }
-      },
-    );
+    try {
+      const data = await fs.promises.readFile(imagePath);
+      res.setHeader("Content-Type", "image/png");
+      res.send(data);
+    } catch {
+      res.status(404).json({ error: "Output not found" });
+    }
   });
 
   // --- POST /api/location/search ---
@@ -257,8 +256,19 @@ async function buildScenario(
       if (slot) {
         scenario.weatherCode = slot.weatherCode;
         scenario.cloudPercent = slot.cloudPercent;
-        scenario.precipPercent = slot.precipProbability; // HourlyConditions → Scenario field name
+        scenario.precipPercent = slot.precipProbability;
         scenario.isDay = slot.isDay;
+        scenario.temperature = slot.temperature;
+        scenario.humidity = slot.humidity;
+        scenario.windSpeed = slot.windSpeed;
+        scenario.windGusts = slot.windGusts;
+        scenario.visibility = slot.visibility;
+        scenario.precipitation = slot.precipitation;
+        scenario.rain = slot.rain;
+        scenario.snowfall = slot.snowfall;
+        scenario.snowDepth = slot.snowDepth;
+        scenario.directRadiation = slot.directRadiation;
+        scenario.diffuseRadiation = slot.diffuseRadiation;
       }
     } catch (err) {
       // Weather fetch failed — fall back to time-only scenario
@@ -266,6 +276,20 @@ async function buildScenario(
         `[${new Date().toISOString()}] Weather fetch failed during generate, using time-only scenario: ${err instanceof Error ? err.message : err}`,
       );
     }
+
+    // Compute sun/moon position from lat/lon + hour
+    const dateForHour = new Date(
+      new Date().toLocaleDateString("en-CA", { timeZone: timezone }) + `T${String(hour).padStart(2, "0")}:00:00`,
+    );
+    const sunPos = SunCalc.getPosition(dateForHour, lat, lon);
+    scenario.sunElevation = Math.round(sunPos.altitude * (180 / Math.PI) * 10) / 10;
+    scenario.sunAzimuth = Math.round(((sunPos.azimuth * (180 / Math.PI)) + 180) * 10) / 10; // suncalc measures from south, convert to 0-360 from north
+
+    const moonIllum = SunCalc.getMoonIllumination(dateForHour);
+    scenario.moonFraction = Math.round(moonIllum.fraction * 100) / 100;
+
+    const moonPos = SunCalc.getMoonPosition(dateForHour, lat, lon);
+    scenario.moonAltitude = Math.round(moonPos.altitude * (180 / Math.PI) * 10) / 10;
   }
 
   return scenario;

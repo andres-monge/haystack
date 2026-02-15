@@ -10,24 +10,33 @@ import { HistoryPanel } from "./components/HistoryPanel";
 import { useGenerate } from "./hooks/useGenerate";
 import { useHistory } from "./hooks/useHistory";
 import { useLocationSearch, useWeather } from "./hooks/useWeather";
-import { getTimeOfDayDescription, getWeatherDescription } from "./utils/scenario";
+import { getTimeOfDayDescription, WMO_DESCRIPTIONS } from "./utils/scenario";
 import type { RenderMetadata, SelectedLocation } from "./types";
+import SunCalc from "suncalc";
 
 // Duplicated from src/engine/prompt.ts — keep in sync with server-side template.
-const DEFAULT_TEMPLATE = `Transform this artwork to reflect the current moment:
+const DEFAULT_TEMPLATE = `Using the provided artwork, reimagine this scene as if viewed through a window at the current moment in time.
 
 Time: {scenario}
 
-Guidelines:
-- Adjust lighting naturally (sun position, shadows, ambient light)
-- If the scene has artificial light sources (lamps, candles), light them appropriately for the time
-- Maintain the original composition and subjects
-- Preserve the artistic style of the original
-- Make changes subtle and atmospheric, not dramatic
-- If night: add moonlight, starlight, or warm indoor lighting
-- If day: adjust sun position and shadow direction
-- Do not add new objects, people, or text
-- Preserve the original scale, framing, and composition exactly`;
+The setting, architecture, and environment are permanent — but the scene is alive. People and animals go about their day naturally for this time and weather. Consider who would be here now, what they would be doing, how the light falls at this hour, and how people would be dressed for the current conditions.
+
+Reading the weather data:
+- Sun elevation: negative = below horizon, 0° = at horizon (sunrise/sunset), 90° = directly overhead. Low positive angles produce long shadows and warm golden light.
+- Direct radiation (W/m²): 0 = no direct sunlight (night or dense clouds), high values = crisp hard shadows.
+- Diffuse radiation (W/m²): high relative to direct = soft, even, shadowless overcast light.
+- Moon illuminated %: 0% = new moon (very dark night), 100% = full moon (bright silvery nightscape). Only relevant at night.
+- Visibility (meters): below 1000 = dense fog, 1000-5000 = haze/mist, above 10000 = clear air.
+
+Rules:
+- Preserve the EXACT artistic style, medium, and rendering technique of the original
+- Keep the architecture, signage, furniture, and environment layout identical
+- Characters may change position, appear, or leave — but must match the original art style exactly
+- Lighting must be physically consistent with the time of day and weather
+- Weather should affect the scene naturally (wet surfaces, fog, snow, etc.)
+- Do NOT change the camera angle, framing, scale, or composition
+- Do NOT add modern or anachronistic elements
+- Do NOT add text, watermarks, or UI elements`;
 
 export function App() {
   // State
@@ -52,16 +61,63 @@ export function App() {
   const locationSearch = useLocationSearch();
   const weather = useWeather();
 
-  // Derived state
-  const scenarioPreview =
-    getTimeOfDayDescription(hour) +
-    getWeatherDescription(weather.current?.weatherCode);
+  // Use weather isDay when available, otherwise fall back to local state
+  const effectiveIsDay = weather.current ? weather.current.isDay : isDay;
+
+  // Derived state — mirrors describeScenario on the server
+  const scenarioPreview = (() => {
+    const parts = [getTimeOfDayDescription(hour, effectiveIsDay)];
+    const c = weather.current;
+    if (c) {
+      const wmoDesc = WMO_DESCRIPTIONS[c.weatherCode];
+      if (wmoDesc) parts.push(wmoDesc.toLowerCase());
+      parts.push(`${c.temperature}°C`);
+      parts.push(`humidity ${c.humidity}%`);
+      parts.push(`wind ${c.windSpeed} km/h`);
+      parts.push(`visibility ${c.visibility}m`);
+      if (c.precipitation > 0) parts.push(`precipitation ${c.precipitation}mm/h`);
+      if (c.snowfall > 0) parts.push(`snowfall ${c.snowfall}cm/h`);
+      if (c.snowDepth > 0) parts.push(`snow depth ${c.snowDepth}m`);
+      parts.push(`direct radiation ${c.directRadiation} W/m²`);
+      parts.push(`diffuse radiation ${c.diffuseRadiation} W/m²`);
+    }
+    // Compute sun/moon from location + hour (mirrors server-side suncalc)
+    if (location) {
+      const dateStr = new Date().toLocaleDateString("en-CA", { timeZone: location.timezone });
+      const dateForHour = new Date(`${dateStr}T${String(hour).padStart(2, "0")}:00:00`);
+      const sunPos = SunCalc.getPosition(dateForHour, location.lat, location.lon);
+      const sunEl = Math.round(sunPos.altitude * (180 / Math.PI) * 10) / 10;
+      const sunAz = Math.round(((sunPos.azimuth * (180 / Math.PI)) + 180) * 10) / 10;
+      parts.push(`sun elevation ${sunEl}°`);
+      parts.push(`sun azimuth ${sunAz}°`);
+      if (!effectiveIsDay) {
+        const moonIllum = SunCalc.getMoonIllumination(dateForHour);
+        parts.push(`moon ${Math.round(moonIllum.fraction * 100)}% illuminated`);
+        const moonPos = SunCalc.getMoonPosition(dateForHour, location.lat, location.lon);
+        const moonAlt = Math.round(moonPos.altitude * (180 / Math.PI) * 10) / 10;
+        if (moonAlt > 0) parts.push(`moon altitude ${moonAlt}°`);
+      }
+    }
+    return parts.join(", ");
+  })();
 
   // Handlers
   const handleLocationSelected = useCallback(
     async (loc: SelectedLocation) => {
       setLocation(loc);
-      await weather.fetchWeather(loc.lat, loc.lon, loc.timezone);
+      // Update hour to current time in the selected timezone
+      const localHour = new Intl.DateTimeFormat("en-US", {
+        timeZone: loc.timezone,
+        hour: "numeric",
+        hour12: false,
+      }).formatToParts(new Date()).find((p) => p.type === "hour");
+      const tzHour = parseInt(localHour?.value ?? "0", 10);
+      setHour(tzHour === 24 ? 0 : tzHour);
+
+      const res = await weather.fetchWeather(loc.lat, loc.lon, loc.timezone);
+      if (res?.current) {
+        setIsDay(res.current.isDay);
+      }
     },
     [weather.fetchWeather],
   );
@@ -101,8 +157,9 @@ export function App() {
     [],
   );
 
-  // Active result: latest generation or selected history item
-  const activeResult = generate.result ?? selectedResult;
+  // Active result: selected history item takes priority (for comparison),
+  // falls back to latest generation
+  const activeResult = selectedResult ?? generate.result;
 
   return (
     <div className="app">
@@ -125,7 +182,7 @@ export function App() {
           />
           <TimeControls
             hour={hour}
-            isDay={isDay}
+            isDay={effectiveIsDay}
             onHourChange={setHour}
             onIsDayChange={setIsDay}
           />

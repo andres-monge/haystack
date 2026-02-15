@@ -1,0 +1,2 @@
+fix system prompt lives in 2 locations: There it is — a duplicate in App.tsx:17-30. The comment even says "keep in sync with server-side template" but it wasn't updated.
+- add an option to manually add or replace the prompt so you can change what you're seeing from the sofa
