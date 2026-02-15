@@ -10,6 +10,7 @@ import type { Scenario } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
 import { createScenarioFromHour, describeScenario } from "../engine/scenario.js";
 import { DEFAULT_TEMPLATE } from "../engine/prompt.js";
+import { buildScenario } from "./scenario-builder.js";
 import SunCalc from "suncalc";
 
 const VALID_ID_PATTERN = /^[a-zA-Z0-9_\-]+$/;
@@ -275,103 +276,3 @@ export function createApp(config: CreateAppConfig): Express {
   return app;
 }
 
-/**
- * Build a Scenario from request body fields + optional weather fetch.
- *
- * Priority:
- * 1. If explicit weather overrides provided (weatherCode, etc.) → use those
- * 2. If lat/lon/timezone provided → fetch from weather provider for the given hour
- * 3. Otherwise → time-only scenario
- */
-async function buildScenario(
-  hour: number,
-  body: Record<string, string | undefined>,
-  weatherProvider: WeatherProvider,
-): Promise<Scenario> {
-  const scenario = createScenarioFromHour(
-    hour,
-    body.isDay !== undefined ? body.isDay === "true" : undefined,
-  );
-
-  const hasExplicitWeather =
-    body.weatherCode !== undefined ||
-    body.cloudPercent !== undefined ||
-    body.precipProbability !== undefined;
-
-  if (hasExplicitWeather) {
-    // Use explicit overrides, ignoring non-numeric values
-    if (body.weatherCode !== undefined) {
-      const val = parseInt(body.weatherCode, 10);
-      if (!isNaN(val)) scenario.weatherCode = val;
-    }
-    if (body.cloudPercent !== undefined) {
-      const val = parseInt(body.cloudPercent, 10);
-      if (!isNaN(val)) scenario.cloudPercent = val;
-    }
-    if (body.precipProbability !== undefined) {
-      const val = parseInt(body.precipProbability, 10);
-      if (!isNaN(val)) scenario.precipProbability = val;
-    }
-    return scenario;
-  }
-
-  const lat = body.lat ? parseFloat(body.lat) : undefined;
-  const lon = body.lon ? parseFloat(body.lon) : undefined;
-  const timezone = body.timezone;
-
-  if (lat !== undefined && lon !== undefined && timezone) {
-    // Fetch weather from provider
-    try {
-      const hourly = await weatherProvider.getHourlyConditions(
-        lat,
-        lon,
-        timezone,
-      );
-
-      // Find the slot matching the requested hour
-      const slot = hourly.find((h) => {
-        const slotHour = parseInt(h.time.split("T")[1].split(":")[0], 10);
-        return slotHour === hour;
-      });
-
-      if (slot) {
-        scenario.weatherCode = slot.weatherCode;
-        scenario.cloudPercent = slot.cloudPercent;
-        scenario.precipProbability = slot.precipProbability;
-        scenario.isDay = slot.isDay;
-        scenario.temperature = slot.temperature;
-        scenario.humidity = slot.humidity;
-        scenario.windSpeed = slot.windSpeed;
-        scenario.windGusts = slot.windGusts;
-        scenario.visibility = slot.visibility;
-        scenario.precipitation = slot.precipitation;
-        scenario.rain = slot.rain;
-        scenario.snowfall = slot.snowfall;
-        scenario.snowDepth = slot.snowDepth;
-        scenario.directRadiation = slot.directRadiation;
-        scenario.diffuseRadiation = slot.diffuseRadiation;
-      }
-    } catch (err) {
-      // Weather fetch failed — fall back to time-only scenario
-      console.error(
-        `[${new Date().toISOString()}] Weather fetch failed during generate, using time-only scenario: ${err instanceof Error ? err.message : err}`,
-      );
-    }
-
-    // Compute sun/moon position from lat/lon + hour
-    const dateForHour = new Date(
-      new Date().toLocaleDateString("en-CA", { timeZone: timezone }) + `T${String(hour).padStart(2, "0")}:00:00`,
-    );
-    const sunPos = SunCalc.getPosition(dateForHour, lat, lon);
-    scenario.sunElevation = Math.round(sunPos.altitude * (180 / Math.PI) * 10) / 10;
-    scenario.sunAzimuth = Math.round(((sunPos.azimuth * (180 / Math.PI)) + 180) * 10) / 10; // suncalc measures from south, convert to 0-360 from north
-
-    const moonIllum = SunCalc.getMoonIllumination(dateForHour);
-    scenario.moonFraction = Math.round(moonIllum.fraction * 100) / 100;
-
-    const moonPos = SunCalc.getMoonPosition(dateForHour, lat, lon);
-    scenario.moonAltitude = Math.round(moonPos.altitude * (180 / Math.PI) * 10) / 10;
-  }
-
-  return scenario;
-}

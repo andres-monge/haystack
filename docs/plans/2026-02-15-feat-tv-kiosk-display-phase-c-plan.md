@@ -185,15 +185,15 @@ app.listen(port, config.bindHost, () => {
 
 **Acceptance criteria:**
 
-- [ ] Scheduler fires at the top of each hour — `scheduler.ts`
-- [ ] Each tick uses `getImageForToday()` for the base image — `scheduler.ts`
-- [ ] Each tick fetches real weather from configured location — `scheduler.ts`
-- [ ] Scheduler computes sun/moon positions via SunCalc — `scheduler.ts`
-- [ ] `stop()` cleanly clears the pending timeout — `scheduler.ts`
-- [ ] Server binds to `config.bindHost` instead of hardcoded `127.0.0.1` — `start.ts`
-- [ ] Scheduler only starts when both `imageDir` and `schedulerLocation` are configured — `start.ts`
-- [ ] Graceful shutdown clears scheduler on SIGINT/SIGTERM — `start.ts`
-- [ ] `buildScenario` is extracted from `server.ts` into a shared module both routes and scheduler can use
+- [x] Scheduler fires at the top of each hour — `scheduler.ts`
+- [x] Each tick uses `getImageForToday()` for the base image — `scheduler.ts`
+- [x] Each tick fetches real weather from configured location — `scheduler.ts`
+- [x] Scheduler computes sun/moon positions via SunCalc — `scheduler.ts`
+- [x] `stop()` cleanly clears the pending timeout — `scheduler.ts`
+- [x] Server binds to `config.bindHost` instead of hardcoded `127.0.0.1` — `start.ts`
+- [x] Scheduler only starts when both `imageDir` and `schedulerLocation` are configured — `start.ts`
+- [x] Graceful shutdown clears scheduler on SIGINT/SIGTERM — `start.ts`
+- [x] `buildScenario` is extracted from `server.ts` into a shared module both routes and scheduler can use
 
 #### Phase 3: New API Endpoints
 

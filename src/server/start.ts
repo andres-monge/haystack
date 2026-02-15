@@ -6,6 +6,7 @@ import { createApp } from "./server.js";
 import { Pipeline } from "../engine/pipeline.js";
 import { OpenMeteoProvider } from "../weather/open-meteo.js";
 import { loadConfigFromEnv, toPipelineConfig } from "../config/config.js";
+import { HourlyScheduler } from "./scheduler.js";
 
 const config = loadConfigFromEnv();
 const pipeline = new Pipeline(toPipelineConfig(config), config.googleApiKey);
@@ -18,6 +19,34 @@ const app = createApp({
   outputDir: config.outputDir,
 });
 
-app.listen(port, "127.0.0.1", () => {
-  console.log(`Haystack Lab server running at http://localhost:${port}`);
+const server = app.listen(port, config.bindHost, () => {
+  console.log(
+    `Haystack Lab server running at http://${config.bindHost}:${port}`,
+  );
 });
+
+// Start hourly scheduler when both imageDir and schedulerLocation are configured
+let scheduler: HourlyScheduler | undefined;
+if (config.imageDir && config.schedulerLocation) {
+  scheduler = new HourlyScheduler({
+    pipeline,
+    weatherProvider,
+    imageDir: config.imageDir,
+    location: config.schedulerLocation,
+  });
+  scheduler.start();
+  console.log(
+    `Hourly scheduler started (location: ${config.schedulerLocation.lat}, ${config.schedulerLocation.lon})`,
+  );
+}
+
+// Graceful shutdown
+function shutdown() {
+  if (scheduler) {
+    scheduler.stop();
+  }
+  server.close(() => process.exit(0));
+}
+
+process.on("SIGINT", shutdown);
+process.on("SIGTERM", shutdown);
