@@ -20,11 +20,10 @@ export interface CreateAppConfig {
   weatherProvider: WeatherProvider;
   outputDir: string;
   scheduler?: HourlyScheduler;
-  imageDir?: string;
 }
 
 export function createApp(config: CreateAppConfig): Express {
-  const { pipeline, weatherProvider, outputDir, scheduler, imageDir } = config;
+  const { pipeline, weatherProvider, outputDir, scheduler } = config;
   const app = express();
 
   app.use(express.json());
@@ -261,15 +260,23 @@ export function createApp(config: CreateAppConfig): Express {
 
   // --- GET /api/latest ---
   app.get("/api/latest", (_req: Request, res: Response) => {
-    const latest = pipeline.getStore().getLatest();
-    if (!latest) {
-      res.status(404).json({ error: "No renders available" });
-      return;
+    try {
+      const latest = pipeline.getStore().getLatest();
+      if (!latest) {
+        res.status(404).json({ error: "No renders available" });
+        return;
+      }
+      res.json({
+        metadata: latest,
+        imageUrl: `/api/outputs/${latest.id}`,
+      });
+    } catch (err) {
+      console.error(
+        `[${new Date().toISOString()}] Latest error:`,
+        err instanceof Error ? err.message : err,
+      );
+      res.status(500).json({ error: "Failed to get latest render" });
     }
-    res.json({
-      metadata: latest,
-      imageUrl: `/api/outputs/${latest.id}`,
-    });
   });
 
   // --- POST /api/override ---
@@ -280,9 +287,13 @@ export function createApp(config: CreateAppConfig): Express {
         res.status(400).json({ error: "scenario string is required" });
         return;
       }
+      if (scenario.length > 500) {
+        res.status(400).json({ error: "scenario must be 500 characters or fewer" });
+        return;
+      }
 
-      if (!scheduler || !imageDir) {
-        res.status(400).json({
+      if (!scheduler) {
+        res.status(503).json({
           error:
             "Override requires scheduler configuration (HAYSTACK_IMAGE_DIR + location)",
         });

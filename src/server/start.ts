@@ -29,7 +29,6 @@ const app = createApp({
   weatherProvider,
   outputDir: config.outputDir,
   scheduler,
-  imageDir: config.imageDir,
 });
 
 const server = app.listen(port, config.bindHost, () => {
@@ -39,11 +38,10 @@ const server = app.listen(port, config.bindHost, () => {
 });
 
 // Start scheduler after server is listening
-if (scheduler) {
+if (scheduler && config.schedulerLocation) {
   scheduler.start();
-  console.log(
-    `Hourly scheduler started (location: ${config.schedulerLocation!.lat}, ${config.schedulerLocation!.lon})`,
-  );
+  const { lat, lon } = config.schedulerLocation;
+  console.log(`Hourly scheduler started (location: ${lat}, ${lon})`);
 }
 
 // Graceful shutdown
