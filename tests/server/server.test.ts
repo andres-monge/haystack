@@ -83,6 +83,16 @@ function createMockWeatherProvider(): WeatherProvider {
         precipProbability: 0,
         temperature: 15,
         isDay: true,
+        humidity: 55,
+        windSpeed: 8,
+        windGusts: 15,
+        visibility: 20000,
+        precipitation: 0,
+        rain: 0,
+        snowfall: 0,
+        snowDepth: 0,
+        directRadiation: 320,
+        diffuseRadiation: 80,
       },
     ]),
     getCurrentConditions: vi.fn().mockResolvedValue({
@@ -92,6 +102,16 @@ function createMockWeatherProvider(): WeatherProvider {
       precipProbability: 0,
       temperature: 15,
       isDay: true,
+      humidity: 55,
+      windSpeed: 8,
+      windGusts: 15,
+      visibility: 20000,
+      precipitation: 0,
+      rain: 0,
+      snowfall: 0,
+      snowDepth: 0,
+      directRadiation: 320,
+      diffuseRadiation: 80,
       sunrise: "2026-02-14T07:30",
       sunset: "2026-02-14T18:15",
     }),
@@ -103,6 +123,16 @@ function createMockWeatherProvider(): WeatherProvider {
         precipProbability: 0,
         temperature: 15,
         isDay: true,
+        humidity: 55,
+        windSpeed: 8,
+        windGusts: 15,
+        visibility: 20000,
+        precipitation: 0,
+        rain: 0,
+        snowfall: 0,
+        snowDepth: 0,
+        directRadiation: 320,
+        diffuseRadiation: 80,
         sunrise: "2026-02-14T07:30",
         sunset: "2026-02-14T18:15",
       },
@@ -114,6 +144,16 @@ function createMockWeatherProvider(): WeatherProvider {
           precipProbability: 0,
           temperature: 15,
           isDay: true,
+          humidity: 55,
+          windSpeed: 8,
+          windGusts: 15,
+          visibility: 20000,
+          precipitation: 0,
+          rain: 0,
+          snowfall: 0,
+          snowDepth: 0,
+          directRadiation: 320,
+          diffuseRadiation: 80,
         },
       ],
     }),
@@ -237,7 +277,7 @@ describe("Express API Server", () => {
       const scenario = generateCall[1];
       expect(scenario.weatherCode).toBe(63);
       expect(scenario.cloudPercent).toBe(90);
-      expect(scenario.precipPercent).toBe(80);
+      expect(scenario.precipProbability).toBe(80);
     });
 
     it("treats whitespace-only promptOverride as undefined", async () => {
@@ -596,6 +636,93 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe("Weather fetch failed");
+    });
+  });
+
+  // --- GET /api/config/default-template ---
+
+  describe("GET /api/config/default-template", () => {
+    it("returns the default prompt template", async () => {
+      const app = createTestApp();
+
+      const res = await request(app).get("/api/config/default-template");
+
+      expect(res.status).toBe(200);
+      expect(res.body.template).toBeDefined();
+      expect(res.body.template).toContain("{scenario}");
+      expect(res.body.template).toContain("Using the provided artwork");
+    });
+  });
+
+  // --- POST /api/scenario-preview ---
+
+  describe("POST /api/scenario-preview", () => {
+    it("returns scenario description for time-only request", async () => {
+      const app = createTestApp();
+
+      const res = await request(app)
+        .post("/api/scenario-preview")
+        .send({ hour: 14, isDay: true });
+
+      expect(res.status).toBe(200);
+      expect(res.body.description).toBe("2 PM, day");
+    });
+
+    it("includes weather data when provided", async () => {
+      const app = createTestApp();
+
+      const res = await request(app)
+        .post("/api/scenario-preview")
+        .send({
+          hour: 12,
+          isDay: true,
+          weather: { weatherCode: 61, temperature: 15, humidity: 80 },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.description).toContain("light rain");
+      expect(res.body.description).toContain("15°C");
+      expect(res.body.description).toContain("humidity 80%");
+    });
+
+    it("includes sun/moon data when location provided", async () => {
+      const app = createTestApp();
+
+      const res = await request(app)
+        .post("/api/scenario-preview")
+        .send({
+          hour: 12,
+          isDay: true,
+          lat: 40.4168,
+          lon: -3.7038,
+          timezone: "Europe/Madrid",
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.description).toContain("sun elevation");
+      expect(res.body.description).toContain("sun azimuth");
+    });
+
+    it("returns 400 for missing hour", async () => {
+      const app = createTestApp();
+
+      const res = await request(app)
+        .post("/api/scenario-preview")
+        .send({ isDay: true });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("hour must be an integer 0-23");
+    });
+
+    it("returns 400 for invalid hour", async () => {
+      const app = createTestApp();
+
+      const res = await request(app)
+        .post("/api/scenario-preview")
+        .send({ hour: 99, isDay: true });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("hour must be an integer 0-23");
     });
   });
 });

@@ -73,3 +73,28 @@ export async function getWeather(params: {
   if (!res.ok) throw new Error("Weather fetch failed");
   return res.json();
 }
+
+export async function getDefaultTemplate(): Promise<string> {
+  const res = await fetch("/api/config/default-template");
+  if (!res.ok) throw new Error("Failed to fetch default template");
+  const data: { template: string } = await res.json();
+  return data.template;
+}
+
+export async function getScenarioPreview(params: {
+  hour: number;
+  isDay: boolean;
+  lat?: number;
+  lon?: number;
+  timezone?: string;
+  weather?: Record<string, unknown>;
+}): Promise<string> {
+  const res = await fetch("/api/scenario-preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) throw new Error("Scenario preview failed");
+  const data: { description: string } = await res.json();
+  return data.description;
+}

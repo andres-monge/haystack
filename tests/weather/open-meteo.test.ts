@@ -42,6 +42,16 @@ function forecastResponse() {
   const precipProbs: number[] = [];
   const temps: number[] = [];
   const isDays: number[] = [];
+  const humidity: number[] = [];
+  const windSpeed: number[] = [];
+  const windGusts: number[] = [];
+  const visibility: number[] = [];
+  const precipitation: number[] = [];
+  const rain: number[] = [];
+  const snowfall: number[] = [];
+  const snowDepth: number[] = [];
+  const directRadiation: number[] = [];
+  const diffuseRadiation: number[] = [];
 
   for (let h = 0; h < 24; h++) {
     times.push(`2026-02-14T${String(h).padStart(2, "0")}:00`);
@@ -50,6 +60,16 @@ function forecastResponse() {
     precipProbs.push(h < 12 ? 0 : 60);
     temps.push(5 + h); // 5°C at midnight, 29°C at midnight
     isDays.push(h >= 7 && h <= 20 ? 1 : 0);
+    humidity.push(50 + h);
+    windSpeed.push(5 + h * 0.5);
+    windGusts.push(10 + h);
+    visibility.push(h < 12 ? 20000 : 5000);
+    precipitation.push(h < 12 ? 0 : 1.5);
+    rain.push(h < 12 ? 0 : 1.2);
+    snowfall.push(0);
+    snowDepth.push(0);
+    directRadiation.push(h >= 7 && h <= 20 ? 200 + h * 10 : 0);
+    diffuseRadiation.push(h >= 7 && h <= 20 ? 50 + h * 5 : 0);
   }
 
   return {
@@ -60,6 +80,16 @@ function forecastResponse() {
       precipitation_probability: precipProbs,
       temperature_2m: temps,
       is_day: isDays,
+      relative_humidity_2m: humidity,
+      wind_speed_10m: windSpeed,
+      wind_gusts_10m: windGusts,
+      visibility,
+      precipitation,
+      rain,
+      snowfall,
+      snow_depth: snowDepth,
+      direct_radiation: directRadiation,
+      diffuse_radiation: diffuseRadiation,
     },
     daily: {
       sunrise: ["2026-02-14T07:30"],
@@ -176,6 +206,16 @@ describe("OpenMeteoProvider", () => {
         precipProbability: 0,
         temperature: 5,
         isDay: false,
+        humidity: 50,
+        windSpeed: 5,
+        windGusts: 10,
+        visibility: 20000,
+        precipitation: 0,
+        rain: 0,
+        snowfall: 0,
+        snowDepth: 0,
+        directRadiation: 0,
+        diffuseRadiation: 0,
       });
 
       // Check a daytime slot (hour 10)
@@ -186,6 +226,16 @@ describe("OpenMeteoProvider", () => {
         precipProbability: 0,
         temperature: 15,
         isDay: true,
+        humidity: 60,
+        windSpeed: 10,
+        windGusts: 20,
+        visibility: 20000,
+        precipitation: 0,
+        rain: 0,
+        snowfall: 0,
+        snowDepth: 0,
+        directRadiation: 300,
+        diffuseRadiation: 100,
       });
 
       // Check an afternoon slot with rain (hour 14)
@@ -196,6 +246,16 @@ describe("OpenMeteoProvider", () => {
         precipProbability: 60,
         temperature: 19,
         isDay: true,
+        humidity: 64,
+        windSpeed: 12,
+        windGusts: 24,
+        visibility: 5000,
+        precipitation: 1.5,
+        rain: 1.2,
+        snowfall: 0,
+        snowDepth: 0,
+        directRadiation: 340,
+        diffuseRadiation: 120,
       });
     });
 
@@ -274,6 +334,16 @@ describe("OpenMeteoProvider", () => {
       forecast.hourly.precipitation_probability.splice(idx, 1);
       forecast.hourly.temperature_2m.splice(idx, 1);
       forecast.hourly.is_day.splice(idx, 1);
+      forecast.hourly.relative_humidity_2m.splice(idx, 1);
+      forecast.hourly.wind_speed_10m.splice(idx, 1);
+      forecast.hourly.wind_gusts_10m.splice(idx, 1);
+      forecast.hourly.visibility.splice(idx, 1);
+      forecast.hourly.precipitation.splice(idx, 1);
+      forecast.hourly.rain.splice(idx, 1);
+      forecast.hourly.snowfall.splice(idx, 1);
+      forecast.hourly.snow_depth.splice(idx, 1);
+      forecast.hourly.direct_radiation.splice(idx, 1);
+      forecast.hourly.diffuse_radiation.splice(idx, 1);
 
       mockFetch.mockResolvedValue(jsonResponse(forecast));
 

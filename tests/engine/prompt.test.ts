@@ -13,22 +13,22 @@ describe("DEFAULT_TEMPLATE", () => {
 });
 
 describe("composePrompt", () => {
-  it("includes scenario description for evening", () => {
+  it("includes scenario description for daytime hour", () => {
     const scenario = createScenarioFromHour(18);
     const prompt = composePrompt(scenario);
-    expect(prompt.toLowerCase()).toMatch(/evening|golden hour/);
+    expect(prompt).toContain("6 PM, day");
   });
 
-  it("includes scenario description for morning", () => {
+  it("includes scenario description for morning hour", () => {
     const scenario = createScenarioFromHour(9);
     const prompt = composePrompt(scenario);
-    expect(prompt.toLowerCase()).toContain("morning");
+    expect(prompt).toContain("9 AM, day");
   });
 
   it("includes scenario description for night", () => {
     const scenario = createScenarioFromHour(23);
     const prompt = composePrompt(scenario);
-    expect(prompt.toLowerCase()).toContain("night");
+    expect(prompt).toContain("11 PM, night");
   });
 
   it("replaces {scenario} placeholder (no raw placeholder in output)", () => {
@@ -57,13 +57,13 @@ describe("composePrompt", () => {
     const prompt = composePrompt(scenario, {
       template: "Light the scene for: {scenario}",
     });
-    expect(prompt).toBe("Light the scene for: morning, bright daylight");
+    expect(prompt).toBe("Light the scene for: 10 AM, day");
   });
 
   it("defaults to DEFAULT_PROMPT_CONFIG when config is omitted", () => {
     const scenario = createScenarioFromHour(14);
     const prompt = composePrompt(scenario);
-    expect(prompt).toContain("Transform this artwork");
+    expect(prompt).toContain("Using the provided artwork");
   });
 
   it("includes weather in scenario description when set", () => {

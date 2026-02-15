@@ -68,39 +68,29 @@ describe("createScenarioFromNow", () => {
 });
 
 describe("describeScenario", () => {
-  it("describes early morning correctly", () => {
-    const scenario = createScenarioFromHour(5);
-    expect(describeScenario(scenario).toLowerCase()).toContain("dawn");
-  });
-
-  it("describes morning correctly", () => {
+  it("includes hour and day/night for daytime hour", () => {
     const scenario = createScenarioFromHour(9);
-    expect(describeScenario(scenario).toLowerCase()).toContain("morning");
+    expect(describeScenario(scenario)).toBe("9 AM, day");
   });
 
-  it("describes midday correctly", () => {
-    const scenario = createScenarioFromHour(12);
-    expect(describeScenario(scenario).toLowerCase()).toContain("midday");
-  });
-
-  it("describes afternoon correctly", () => {
-    const scenario = createScenarioFromHour(15);
-    expect(describeScenario(scenario).toLowerCase()).toContain("afternoon");
-  });
-
-  it("describes evening correctly", () => {
-    const scenario = createScenarioFromHour(18);
-    expect(describeScenario(scenario).toLowerCase()).toContain("evening");
-  });
-
-  it("describes dusk correctly", () => {
-    const scenario = createScenarioFromHour(21);
-    expect(describeScenario(scenario).toLowerCase()).toContain("dusk");
-  });
-
-  it("describes night correctly", () => {
+  it("includes hour and day/night for nighttime hour", () => {
     const scenario = createScenarioFromHour(23);
-    expect(describeScenario(scenario).toLowerCase()).toContain("night");
+    expect(describeScenario(scenario)).toContain("11 PM, night");
+  });
+
+  it("formats midnight correctly", () => {
+    const scenario = createScenarioFromHour(0);
+    expect(describeScenario(scenario)).toContain("12 AM");
+  });
+
+  it("formats noon correctly", () => {
+    const scenario = createScenarioFromHour(12);
+    expect(describeScenario(scenario)).toContain("12 PM");
+  });
+
+  it("respects isDay override for early morning", () => {
+    const scenario = createScenarioFromHour(5, true);
+    expect(describeScenario(scenario)).toBe("5 AM, day");
   });
 
   it("includes weather description when weatherCode is set", () => {
@@ -113,14 +103,65 @@ describe("describeScenario", () => {
   it("omits weather when weatherCode is undefined", () => {
     const scenario = createScenarioFromHour(12);
     const desc = describeScenario(scenario);
-    expect(desc).toBe("midday, sun high overhead");
+    expect(desc).toBe("12 PM, day");
   });
 
   it("handles unknown weather codes gracefully", () => {
     const scenario = createScenarioFromHour(12);
     scenario.weatherCode = 999;
     const desc = describeScenario(scenario);
-    // Unknown codes return empty string, so description is just the time
-    expect(desc).toBe("midday, sun high overhead");
+    // Unknown codes are silently omitted
+    expect(desc).toBe("12 PM, day");
+  });
+
+  it("includes all weather fields when populated", () => {
+    const scenario = createScenarioFromHour(14);
+    scenario.weatherCode = 3;
+    scenario.temperature = 22;
+    scenario.humidity = 65;
+    scenario.windSpeed = 12;
+    scenario.visibility = 10000;
+    scenario.directRadiation = 450;
+    scenario.diffuseRadiation = 120;
+    const desc = describeScenario(scenario);
+    expect(desc).toContain("overcast");
+    expect(desc).toContain("22°C");
+    expect(desc).toContain("humidity 65%");
+    expect(desc).toContain("wind 12 km/h");
+    expect(desc).toContain("visibility 10000m");
+    expect(desc).toContain("direct radiation 450 W/m²");
+    expect(desc).toContain("diffuse radiation 120 W/m²");
+  });
+
+  it("includes precipitation only when > 0", () => {
+    const scenario = createScenarioFromHour(14);
+    scenario.precipitation = 0;
+    expect(describeScenario(scenario)).not.toContain("precipitation");
+
+    scenario.precipitation = 2.5;
+    expect(describeScenario(scenario)).toContain("precipitation 2.5mm/h");
+  });
+
+  it("includes moon data only at night", () => {
+    const dayScenario = createScenarioFromHour(12);
+    dayScenario.moonFraction = 0.75;
+    dayScenario.moonAltitude = 30;
+    expect(describeScenario(dayScenario)).not.toContain("moon");
+
+    const nightScenario = createScenarioFromHour(23);
+    nightScenario.moonFraction = 0.75;
+    nightScenario.moonAltitude = 30;
+    const desc = describeScenario(nightScenario);
+    expect(desc).toContain("moon 75% illuminated");
+    expect(desc).toContain("moon altitude 30°");
+  });
+
+  it("omits moon altitude when below horizon", () => {
+    const scenario = createScenarioFromHour(23);
+    scenario.moonFraction = 0.5;
+    scenario.moonAltitude = -10;
+    const desc = describeScenario(scenario);
+    expect(desc).toContain("moon 50% illuminated");
+    expect(desc).not.toContain("moon altitude");
   });
 });

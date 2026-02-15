@@ -35,13 +35,13 @@ export const WMO_SHORT: Record<number, string> = {
   95: "Storm",
 };
 
-export function getTimeOfDayDescription(hour: number, isDay: boolean): string {
-  const h = hour === 0 ? "12 AM" : hour === 12 ? "12 PM" : hour < 12 ? `${hour} AM` : `${hour - 12} PM`;
-  return `${h}, ${isDay ? "Day" : "Night"}`;
+export function formatHour(hour: number): string {
+  if (hour === 0) return "12 AM";
+  if (hour === 12) return "12 PM";
+  if (hour < 12) return `${hour} AM`;
+  return `${hour - 12} PM`;
 }
 
-export function getWeatherDescription(weatherCode?: number): string {
-  if (weatherCode === undefined) return "";
-  const desc = WMO_DESCRIPTIONS[weatherCode];
-  return desc ? `, ${desc.toLowerCase()}` : "";
+export function getTimeOfDayDescription(hour: number, isDay: boolean): string {
+  return `${formatHour(hour)}, ${isDay ? "Day" : "Night"}`;
 }

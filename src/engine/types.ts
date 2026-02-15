@@ -8,7 +8,7 @@ export interface Scenario {
   // Weather (optional — populated from weather provider)
   weatherCode?: number;
   cloudPercent?: number;
-  precipPercent?: number;
+  precipProbability?: number;
   temperature?: number; // Celsius
   humidity?: number; // 0-100 %
   windSpeed?: number; // km/h
@@ -42,7 +42,7 @@ export interface SerializedScenario {
   isDay: boolean;
   weatherCode?: number;
   cloudPercent?: number;
-  precipPercent?: number;
+  precipProbability?: number;
   temperature?: number;
   humidity?: number;
   windSpeed?: number;

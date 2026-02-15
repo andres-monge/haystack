@@ -6,7 +6,7 @@ export interface SerializedScenario {
   isDay: boolean;
   weatherCode?: number;
   cloudPercent?: number;
-  precipPercent?: number;
+  precipProbability?: number;
   temperature?: number;
   humidity?: number;
   windSpeed?: number;

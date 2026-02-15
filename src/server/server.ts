@@ -8,7 +8,8 @@ import multer from "multer";
 import type { Pipeline } from "../engine/pipeline.js";
 import type { Scenario } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
-import { createScenarioFromHour } from "../engine/scenario.js";
+import { createScenarioFromHour, describeScenario } from "../engine/scenario.js";
+import { DEFAULT_TEMPLATE } from "../engine/prompt.js";
 import SunCalc from "suncalc";
 
 const VALID_ID_PATTERN = /^[a-zA-Z0-9_\-]+$/;
@@ -134,12 +135,19 @@ export function createApp(config: CreateAppConfig): Express {
 
     const imagePath = path.join(outputDir, `${id}.png`);
     try {
-      const data = await fs.promises.readFile(imagePath);
-      res.setHeader("Content-Type", "image/png");
-      res.send(data);
+      await fs.promises.access(imagePath);
     } catch {
       res.status(404).json({ error: "Output not found" });
+      return;
     }
+    res.setHeader("Content-Type", "image/png");
+    const stream = fs.createReadStream(imagePath);
+    stream.on("error", () => {
+      if (!res.headersSent) {
+        res.status(404).json({ error: "Output not found" });
+      }
+    });
+    stream.pipe(res);
   });
 
   // --- POST /api/location/search ---
@@ -190,6 +198,80 @@ export function createApp(config: CreateAppConfig): Express {
     }
   });
 
+  // --- GET /api/config/default-template ---
+  app.get("/api/config/default-template", (_req: Request, res: Response) => {
+    res.json({ template: DEFAULT_TEMPLATE });
+  });
+
+  // --- POST /api/scenario-preview ---
+  app.post(
+    "/api/scenario-preview",
+    async (req: Request, res: Response) => {
+      try {
+        const { hour, isDay, lat, lon, timezone, weather } = req.body;
+
+        if (hour === undefined || typeof hour !== "number" || hour < 0 || hour > 23) {
+          res.status(400).json({ error: "hour must be an integer 0-23" });
+          return;
+        }
+
+        const scenario = createScenarioFromHour(
+          hour,
+          isDay !== undefined ? Boolean(isDay) : undefined,
+        );
+
+        // Apply weather data if provided
+        if (weather) {
+          scenario.weatherCode = weather.weatherCode;
+          scenario.temperature = weather.temperature;
+          scenario.humidity = weather.humidity;
+          scenario.windSpeed = weather.windSpeed;
+          scenario.windGusts = weather.windGusts;
+          scenario.visibility = weather.visibility;
+          scenario.precipitation = weather.precipitation;
+          scenario.rain = weather.rain;
+          scenario.snowfall = weather.snowfall;
+          scenario.snowDepth = weather.snowDepth;
+          scenario.directRadiation = weather.directRadiation;
+          scenario.diffuseRadiation = weather.diffuseRadiation;
+          scenario.cloudPercent = weather.cloudPercent;
+          scenario.precipProbability = weather.precipProbability;
+          if (weather.isDay !== undefined) {
+            scenario.isDay = weather.isDay;
+          }
+        }
+
+        // Compute sun/moon position if location provided
+        if (lat !== undefined && lon !== undefined && timezone) {
+          const dateForHour = new Date(
+            new Date().toLocaleDateString("en-CA", { timeZone: timezone }) +
+              `T${String(hour).padStart(2, "0")}:00:00`,
+          );
+          const sunPos = SunCalc.getPosition(dateForHour, lat, lon);
+          scenario.sunElevation =
+            Math.round(sunPos.altitude * (180 / Math.PI) * 10) / 10;
+          scenario.sunAzimuth =
+            Math.round(((sunPos.azimuth * (180 / Math.PI)) + 180) * 10) / 10;
+
+          const moonIllum = SunCalc.getMoonIllumination(dateForHour);
+          scenario.moonFraction = Math.round(moonIllum.fraction * 100) / 100;
+
+          const moonPos = SunCalc.getMoonPosition(dateForHour, lat, lon);
+          scenario.moonAltitude =
+            Math.round(moonPos.altitude * (180 / Math.PI) * 10) / 10;
+        }
+
+        res.json({ description: describeScenario(scenario) });
+      } catch (err) {
+        console.error(
+          `[${new Date().toISOString()}] Scenario preview error:`,
+          err instanceof Error ? err.message : err,
+        );
+        res.status(500).json({ error: "Scenario preview failed" });
+      }
+    },
+  );
+
   return app;
 }
 
@@ -228,8 +310,7 @@ async function buildScenario(
     }
     if (body.precipProbability !== undefined) {
       const val = parseInt(body.precipProbability, 10);
-      // API field "precipProbability" maps to Scenario's "precipPercent"
-      if (!isNaN(val)) scenario.precipPercent = val;
+      if (!isNaN(val)) scenario.precipProbability = val;
     }
     return scenario;
   }
@@ -256,7 +337,7 @@ async function buildScenario(
       if (slot) {
         scenario.weatherCode = slot.weatherCode;
         scenario.cloudPercent = slot.cloudPercent;
-        scenario.precipPercent = slot.precipProbability;
+        scenario.precipProbability = slot.precipProbability;
         scenario.isDay = slot.isDay;
         scenario.temperature = slot.temperature;
         scenario.humidity = slot.humidity;
