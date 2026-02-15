@@ -52,7 +52,7 @@ function parseModel(raw: string | undefined): GeminiConfig["model"] {
 function parseFloat64(raw: string | undefined, name: string): number | undefined {
   if (!raw) return undefined;
   const parsed = parseFloat(raw);
-  if (Number.isNaN(parsed)) {
+  if (!Number.isFinite(parsed)) {
     throw new Error(`Invalid ${name}: "${raw}" is not a valid number`);
   }
   return parsed;
@@ -65,6 +65,16 @@ function parseSchedulerLocation(env: NodeJS.ProcessEnv): HaystackConfig["schedul
 
   // Only populate when all three are set
   if (lat !== undefined && lon !== undefined && timezone) {
+    if (lat < -90 || lat > 90) {
+      throw new Error(`Invalid HAYSTACK_LAT: ${lat} is outside range -90..90`);
+    }
+    if (lon < -180 || lon > 180) {
+      throw new Error(`Invalid HAYSTACK_LON: ${lon} is outside range -180..180`);
+    }
+    const validTimezones = Intl.supportedValuesOf("timeZone");
+    if (!validTimezones.includes(timezone)) {
+      throw new Error(`Invalid HAYSTACK_TIMEZONE: "${timezone}" is not a recognized IANA timezone`);
+    }
     return { lat, lon, timezone };
   }
   return undefined;

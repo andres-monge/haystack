@@ -163,6 +163,34 @@ describe("loadConfigFromEnv", () => {
     process.env.HAYSTACK_TIMEZONE = "America/Los_Angeles";
     expect(() => loadConfigFromEnv()).toThrow(/Invalid HAYSTACK_LON.*not a valid number/);
   });
+
+  it("throws on Infinity latitude", () => {
+    process.env.HAYSTACK_LAT = "Infinity";
+    process.env.HAYSTACK_LON = "-118.25";
+    process.env.HAYSTACK_TIMEZONE = "America/Los_Angeles";
+    expect(() => loadConfigFromEnv()).toThrow(/Invalid HAYSTACK_LAT.*not a valid number/);
+  });
+
+  it("throws on latitude out of range", () => {
+    process.env.HAYSTACK_LAT = "91";
+    process.env.HAYSTACK_LON = "-118.25";
+    process.env.HAYSTACK_TIMEZONE = "America/Los_Angeles";
+    expect(() => loadConfigFromEnv()).toThrow(/HAYSTACK_LAT.*outside range/);
+  });
+
+  it("throws on longitude out of range", () => {
+    process.env.HAYSTACK_LAT = "34.05";
+    process.env.HAYSTACK_LON = "181";
+    process.env.HAYSTACK_TIMEZONE = "America/Los_Angeles";
+    expect(() => loadConfigFromEnv()).toThrow(/HAYSTACK_LON.*outside range/);
+  });
+
+  it("throws on invalid timezone", () => {
+    process.env.HAYSTACK_LAT = "34.05";
+    process.env.HAYSTACK_LON = "-118.25";
+    process.env.HAYSTACK_TIMEZONE = "Not/A_Timezone";
+    expect(() => loadConfigFromEnv()).toThrow(/HAYSTACK_TIMEZONE.*not a recognized IANA timezone/);
+  });
 });
 
 describe("toPipelineConfig", () => {

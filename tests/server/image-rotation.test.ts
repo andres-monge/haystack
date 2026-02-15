@@ -94,4 +94,31 @@ describe("getImageForToday", () => {
     const result = getImageForToday(tmpDir);
     expect(result).toBe(path.join(tmpDir, "photo.jpeg"));
   });
+
+  it("ignores subdirectories even if named like images", () => {
+    fs.mkdirSync(path.join(tmpDir, "paintings.jpg"));
+    fs.writeFileSync(path.join(tmpDir, "real.png"), "");
+
+    const result = getImageForToday(tmpDir);
+    expect(result).toBe(path.join(tmpDir, "real.png"));
+  });
+
+  it("selects different images for different dates", () => {
+    fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
+
+    const day1 = getImageForToday(tmpDir, new Date(2026, 0, 1)); // Jan 1
+    const day2 = getImageForToday(tmpDir, new Date(2026, 0, 2)); // Jan 2
+    expect(day1).not.toBe(day2);
+  });
+
+  it("cycles back to first image after exhausting all", () => {
+    fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+
+    const day1 = getImageForToday(tmpDir, new Date(2026, 0, 1));
+    const day3 = getImageForToday(tmpDir, new Date(2026, 0, 3)); // 2 days later = same index
+    expect(day1).toBe(day3);
+  });
 });
