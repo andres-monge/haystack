@@ -4,6 +4,7 @@ import type {
   GenerateResult,
   HistoryResult,
   LocationSearchResult,
+  OverrideResult,
   WeatherResult,
 } from "../types";
 
@@ -79,6 +80,19 @@ export async function getDefaultTemplate(): Promise<string> {
   if (!res.ok) throw new Error("Failed to fetch default template");
   const data: { template: string } = await res.json();
   return data.template;
+}
+
+export async function postOverride(scenario: string): Promise<OverrideResult> {
+  const res = await fetch("/api/override", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ scenario }),
+  });
+  if (!res.ok) {
+    const err: { error?: string } = await res.json().catch(() => ({ error: "Override failed" }));
+    throw new Error(err.error ?? "Override failed");
+  }
+  return res.json();
 }
 
 export async function getScenarioPreview(params: {

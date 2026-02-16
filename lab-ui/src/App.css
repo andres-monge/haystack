@@ -577,6 +577,71 @@ body {
   padding: 0 4px;
 }
 
+/* Kiosk Override */
+
+.kiosk-override {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  padding-top: var(--gap);
+}
+
+.override-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.8rem;
+  font-family: var(--font);
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+
+.override-textarea:focus {
+  border-color: var(--accent);
+}
+
+.override-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.btn-override {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.btn-override:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn-override:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.override-success {
+  font-size: 0.8rem;
+  color: #5cb85c;
+}
+
+.override-error {
+  font-size: 0.8rem;
+  color: var(--error);
+}
+
 /* Responsive */
 
 @media (max-width: 900px) {

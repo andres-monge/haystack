@@ -338,11 +338,11 @@ Should show:
 
 **Acceptance criteria:**
 
-- [ ] Override text input and "Send Override" button in Lab UI — `App.tsx`
-- [ ] Button POSTs to `/api/override` — `api/`
-- [ ] Shows loading state during generation — `App.tsx`
-- [ ] Displays result or error after completion — `App.tsx`
-- [ ] Input clears or stays (user preference) after successful override
+- [x] Override text input and "Send Override" button in Lab UI — `App.tsx`
+- [x] Button POSTs to `/api/override` — `api/`
+- [x] Shows loading state during generation — `App.tsx`
+- [x] Displays result or error after completion — `App.tsx`
+- [x] Input clears or stays (user preference) after successful override
 
 #### Phase 6: Tests
 

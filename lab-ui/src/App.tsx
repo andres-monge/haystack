@@ -5,13 +5,14 @@ import { TimeControls } from "./components/TimeControls";
 import { WeatherDisplay } from "./components/WeatherDisplay";
 import { PromptEditor } from "./components/PromptEditor";
 import { GenerateButton } from "./components/GenerateButton";
+import { KioskOverride } from "./components/KioskOverride";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { useGenerate } from "./hooks/useGenerate";
 import { useHistory } from "./hooks/useHistory";
 import { useLocationSearch, useWeather } from "./hooks/useWeather";
 import { getDefaultTemplate, getScenarioPreview } from "./api/client";
-import type { RenderMetadata, SelectedLocation } from "./types";
+import type { OverrideResult, RenderMetadata, SelectedLocation } from "./types";
 
 export function App() {
   // State
@@ -120,6 +121,14 @@ export function App() {
     }
   }, [selectedImage, hour, isDay, location, promptOverride, defaultTemplate, generate.run, history.refresh]);
 
+  const handleOverrideResult = useCallback(
+    (result: OverrideResult) => {
+      setSelectedResult(result);
+      void history.refresh();
+    },
+    [history.refresh],
+  );
+
   const handleHistorySelect = useCallback(
     (render: RenderMetadata & { imageUrl: string }) => {
       setSelectedResult({ metadata: render, imageUrl: render.imageUrl });
@@ -171,6 +180,7 @@ export function App() {
             isGenerating={generate.isGenerating}
             onClick={handleGenerate}
           />
+          <KioskOverride onResult={handleOverrideResult} />
         </div>
         <div className="results-column">
           <PreviewPanel

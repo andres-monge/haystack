@@ -90,6 +90,11 @@ export interface HistoryResult {
   renders: Array<RenderMetadata & { imageUrl: string }>;
 }
 
+export interface OverrideResult {
+  metadata: RenderMetadata;
+  imageUrl: string;
+}
+
 export interface WeatherResult {
   current: CurrentConditions;
   hourly: HourlyConditions[];
