@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { postOverride } from "../api/client";
 import type { OverrideResult } from "../types";
 
@@ -11,11 +11,20 @@ export function KioskOverride({ onResult }: Props) {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  // Clean up success flash timer on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleSend = useCallback(async () => {
     const text = scenario.trim();
     if (!text) return;
 
+    if (timerRef.current) clearTimeout(timerRef.current);
     setIsSending(true);
     setError(null);
     setSuccess(false);
@@ -24,8 +33,7 @@ export function KioskOverride({ onResult }: Props) {
       const result = await postOverride(text);
       setSuccess(true);
       onResult(result);
-      // Clear success flash after 3 seconds
-      setTimeout(() => setSuccess(false), 3000);
+      timerRef.current = setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Override failed");
     } finally {
@@ -35,7 +43,7 @@ export function KioskOverride({ onResult }: Props) {
 
   return (
     <div className="kiosk-override">
-      <span className="section-label">Kiosk Override</span>
+      <label className="section-label">Kiosk Override</label>
       <textarea
         className="override-textarea"
         placeholder="Describe a scenario (e.g., 'A thunderstorm at sunset with dramatic lightning')"

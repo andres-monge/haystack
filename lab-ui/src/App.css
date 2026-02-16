@@ -18,6 +18,7 @@
   --accent: #4a9eff;
   --accent-hover: #3a8eef;
   --error: #ff6b6b;
+  --success: #5cb85c;
   --radius: 6px;
   --gap: 12px;
   --font: system-ui, -apple-system, sans-serif;
@@ -634,7 +635,7 @@ body {
 
 .override-success {
   font-size: 0.8rem;
-  color: #5cb85c;
+  color: var(--success);
 }
 
 .override-error {
