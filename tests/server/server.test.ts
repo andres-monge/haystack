@@ -7,6 +7,7 @@ import { createApp } from "../../src/server/server.js";
 import type { Pipeline } from "../../src/engine/pipeline.js";
 import type { OutputStore } from "../../src/storage/output-store.js";
 import type { WeatherProvider } from "../../src/weather/types.js";
+import type { HourlyScheduler } from "../../src/server/scheduler.js";
 import type { RenderMetadata, GenerateResult } from "../../src/engine/types.js";
 
 // --- Test fixtures ---
@@ -723,6 +724,177 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe("hour must be an integer 0-23");
+    });
+  });
+
+  // --- GET /api/latest ---
+
+  describe("GET /api/latest", () => {
+    it("returns latest render with metadata and imageUrl", async () => {
+      const latestMeta = makeMetadata({ id: "20260214_150000_xyz99999" });
+      (pipeline.getStore().getLatest as ReturnType<typeof vi.fn>).mockReturnValue(
+        latestMeta,
+      );
+
+      const app = createTestApp();
+      const res = await request(app).get("/api/latest");
+
+      expect(res.status).toBe(200);
+      expect(res.body.metadata).toBeDefined();
+      expect(res.body.metadata.id).toBe("20260214_150000_xyz99999");
+      expect(res.body.imageUrl).toBe("/api/outputs/20260214_150000_xyz99999");
+    });
+
+    it("returns 404 when no renders exist", async () => {
+      // getLatest already returns null by default in mock
+      const app = createTestApp();
+      const res = await request(app).get("/api/latest");
+
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe("No renders available");
+    });
+  });
+
+  // --- POST /api/override ---
+
+  describe("POST /api/override", () => {
+    function createMockScheduler(): HourlyScheduler {
+      return {
+        start: vi.fn(),
+        stop: vi.fn(),
+        runNow: vi.fn().mockResolvedValue(makeGenerateResult()),
+      } as unknown as HourlyScheduler;
+    }
+
+    it("returns 503 when scheduler is not configured", async () => {
+      const app = createTestApp(); // no scheduler passed
+      const res = await request(app)
+        .post("/api/override")
+        .send({ scenario: "A snowy winter night" });
+
+      expect(res.status).toBe(503);
+      expect(res.body.error).toContain("scheduler configuration");
+    });
+
+    it("returns 400 when scenario is missing", async () => {
+      const mockScheduler = createMockScheduler();
+      const app = createApp({
+        pipeline,
+        weatherProvider,
+        outputDir,
+        scheduler: mockScheduler,
+      });
+
+      const res = await request(app)
+        .post("/api/override")
+        .send({});
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("scenario string is required");
+    });
+
+    it("returns 400 when scenario is not a string", async () => {
+      const mockScheduler = createMockScheduler();
+      const app = createApp({
+        pipeline,
+        weatherProvider,
+        outputDir,
+        scheduler: mockScheduler,
+      });
+
+      const res = await request(app)
+        .post("/api/override")
+        .send({ scenario: 123 });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("scenario string is required");
+    });
+
+    it("returns 400 when scenario is empty string", async () => {
+      const mockScheduler = createMockScheduler();
+      const app = createApp({
+        pipeline,
+        weatherProvider,
+        outputDir,
+        scheduler: mockScheduler,
+      });
+
+      const res = await request(app)
+        .post("/api/override")
+        .send({ scenario: "" });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toBe("scenario string is required");
+    });
+
+    it("returns 400 when scenario exceeds 500 characters", async () => {
+      const mockScheduler = createMockScheduler();
+      const app = createApp({
+        pipeline,
+        weatherProvider,
+        outputDir,
+        scheduler: mockScheduler,
+      });
+
+      const longScenario = "x".repeat(501);
+      const res = await request(app)
+        .post("/api/override")
+        .send({ scenario: longScenario });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("500 characters");
+    });
+
+    it("triggers generation with valid scenario", async () => {
+      const mockScheduler = createMockScheduler();
+      const app = createApp({
+        pipeline,
+        weatherProvider,
+        outputDir,
+        scheduler: mockScheduler,
+      });
+
+      const res = await request(app)
+        .post("/api/override")
+        .send({ scenario: "A stormy night scene" });
+
+      expect(res.status).toBe(200);
+      expect(res.body.metadata).toBeDefined();
+      expect(res.body.imageUrl).toBe("/api/outputs/20260214_120000_abc12345");
+      expect(mockScheduler.runNow).toHaveBeenCalledWith("A stormy night scene");
+    });
+
+    it("returns 500 when scheduler.runNow throws", async () => {
+      const mockScheduler = createMockScheduler();
+      (mockScheduler.runNow as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error("Generation failed"),
+      );
+      const app = createApp({
+        pipeline,
+        weatherProvider,
+        outputDir,
+        scheduler: mockScheduler,
+      });
+
+      const res = await request(app)
+        .post("/api/override")
+        .send({ scenario: "A rainy day" });
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe("Override generation failed");
+    });
+  });
+
+  // --- GET /kiosk ---
+
+  describe("GET /kiosk", () => {
+    it("serves the kiosk HTML page", async () => {
+      const app = createTestApp();
+      const res = await request(app).get("/kiosk");
+
+      expect(res.status).toBe(200);
+      expect(res.headers["content-type"]).toMatch(/html/);
+      expect(res.text).toContain("<!DOCTYPE html>");
     });
   });
 });

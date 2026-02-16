@@ -363,11 +363,11 @@ Add tests for the new modules.
 
 **Acceptance criteria:**
 
-- [ ] Image rotation unit tests pass — `image-rotation.test.ts`
-- [ ] Scheduler unit tests pass (use fake timers) — `scheduler.test.ts`
-- [ ] API endpoint tests cover `/api/latest` and `/api/override` — `server.test.ts`
-- [ ] Config tests cover new env vars — `config.test.ts`
-- [ ] All existing tests continue to pass
+- [x] Image rotation unit tests pass — `image-rotation.test.ts`
+- [x] Scheduler unit tests pass (use fake timers) — `scheduler.test.ts`
+- [x] API endpoint tests cover `/api/latest` and `/api/override` — `server.test.ts`
+- [x] Config tests cover new env vars — `config.test.ts`
+- [x] All existing tests continue to pass
 
 ## Alternative Approaches Considered
 
@@ -404,9 +404,9 @@ Add tests for the new modules.
 
 ### Quality Gates
 
-- [ ] Unit tests for image rotation, scheduler, and new endpoints
-- [ ] `npm run build` passes with no TypeScript errors
-- [ ] `npm run test:run` passes
+- [x] Unit tests for image rotation, scheduler, and new endpoints
+- [x] `npm run build` passes with no TypeScript errors
+- [x] `npm run test:run` passes
 
 ## Dependencies & Prerequisites
 
