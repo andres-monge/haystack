@@ -10,83 +10,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { HourlyScheduler, type SchedulerConfig } from "../../src/server/scheduler.js";
-import type { Pipeline } from "../../src/engine/pipeline.js";
-import type { OutputStore } from "../../src/storage/output-store.js";
-import type { WeatherProvider } from "../../src/weather/types.js";
-import type { RenderMetadata, GenerateResult } from "../../src/engine/types.js";
-
-// --- Test fixtures ---
-
-function makeMetadata(overrides: Partial<RenderMetadata> = {}): RenderMetadata {
-  return {
-    id: "20260214_120000_abc12345",
-    artworkSource: "/tmp/test-image.png",
-    scenario: {
-      timestampLocal: "2026-02-14T12:00:00.000Z",
-      hour: 12,
-      isDay: true,
-    },
-    prompt: "Transform this artwork...",
-    model: "gemini-2.5-flash-image",
-    createdAt: "2026-02-14T12:00:00.000Z",
-    outputPath: "",
-    ...overrides,
-  };
-}
-
-function makeGenerateResult(
-  overrides: Partial<RenderMetadata> = {},
-): GenerateResult {
-  const metadata = makeMetadata(overrides);
-  return {
-    metadata,
-    imagePath: "/tmp/output.png",
-    imageBuffer: Buffer.from("fake-png-data"),
-  };
-}
-
-// --- Mock factories ---
-
-function createMockPipeline(): Pipeline {
-  const mockStore = {
-    listAll: vi.fn().mockReturnValue([]),
-    getLatest: vi.fn().mockReturnValue(null),
-    save: vi.fn(),
-  } as unknown as OutputStore;
-
-  return {
-    generate: vi.fn().mockResolvedValue(makeGenerateResult()),
-    getStore: vi.fn().mockReturnValue(mockStore),
-  } as unknown as Pipeline;
-}
-
-function createMockWeatherProvider(): WeatherProvider {
-  return {
-    searchLocations: vi.fn().mockResolvedValue([]),
-    getHourlyConditions: vi.fn().mockResolvedValue([
-      {
-        time: "2026-02-14T12:00",
-        weatherCode: 0,
-        cloudPercent: 10,
-        precipProbability: 0,
-        temperature: 15,
-        isDay: true,
-        humidity: 55,
-        windSpeed: 8,
-        windGusts: 15,
-        visibility: 20000,
-        precipitation: 0,
-        rain: 0,
-        snowfall: 0,
-        snowDepth: 0,
-        directRadiation: 320,
-        diffuseRadiation: 80,
-      },
-    ]),
-    getCurrentConditions: vi.fn().mockResolvedValue({}),
-    getForecast: vi.fn().mockResolvedValue({ current: {}, hourly: [] }),
-  };
-}
+import {
+  makeGenerateResult,
+  createMockPipeline,
+  createMockWeatherProvider,
+  getGenerateCallArgs,
+} from "../helpers/mock-factories.js";
 
 function createSchedulerConfig(overrides: Partial<SchedulerConfig> = {}): SchedulerConfig {
   return {
@@ -98,22 +27,26 @@ function createSchedulerConfig(overrides: Partial<SchedulerConfig> = {}): Schedu
   };
 }
 
-// --- Tests ---
-
 describe("HourlyScheduler", () => {
   let tmpDir: string;
+  let consoleLogSpy: ReturnType<typeof vi.spyOn>;
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     vi.useFakeTimers();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-sched-test-"));
-    // Create test images so getImageForToday returns a valid path
     fs.writeFileSync(path.join(tmpDir, "art1.jpg"), "fake-image-data");
     fs.writeFileSync(path.join(tmpDir, "art2.png"), "fake-image-data");
+
+    consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.useRealTimers();
     fs.rmSync(tmpDir, { recursive: true, force: true });
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
   });
 
   describe("start / stop lifecycle", () => {
@@ -122,8 +55,6 @@ describe("HourlyScheduler", () => {
       const scheduler = new HourlyScheduler(config);
 
       scheduler.start();
-
-      // Should have one pending timer
       expect(vi.getTimerCount()).toBe(1);
 
       scheduler.stop();
@@ -140,19 +71,15 @@ describe("HourlyScheduler", () => {
       expect(vi.getTimerCount()).toBe(0);
     });
 
-    it("stop() is safe to call when not started", () => {
+    it("stop() is safe to call when not started or called multiple times", () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
       const scheduler = new HourlyScheduler(config);
 
-      // Should not throw
+      // Not started — should not throw
       scheduler.stop();
       expect(vi.getTimerCount()).toBe(0);
-    });
 
-    it("stop() is safe to call multiple times", () => {
-      const config = createSchedulerConfig({ imageDir: tmpDir });
-      const scheduler = new HourlyScheduler(config);
-
+      // Start then stop twice — should not throw
       scheduler.start();
       scheduler.stop();
       scheduler.stop();
@@ -217,8 +144,7 @@ describe("HourlyScheduler", () => {
 
       await scheduler.runNow();
 
-      const generateCall = (config.pipeline.generate as ReturnType<typeof vi.fn>).mock.calls[0];
-      const imagePath = generateCall[0] as string;
+      const { imagePath } = getGenerateCallArgs(config.pipeline);
       expect(imagePath.startsWith(tmpDir)).toBe(true);
     });
 
@@ -228,9 +154,8 @@ describe("HourlyScheduler", () => {
 
       await scheduler.runNow("A stormy night scene");
 
-      const generateCall = (config.pipeline.generate as ReturnType<typeof vi.fn>).mock.calls[0];
-      const prompt = generateCall[2] as string;
-      expect(prompt).toContain("A stormy night scene");
+      const { promptOverride } = getGenerateCallArgs(config.pipeline);
+      expect(promptOverride).toContain("A stormy night scene");
     });
 
     it("builds scenario from weather provider in normal mode", async () => {
@@ -257,12 +182,14 @@ describe("HourlyScheduler", () => {
 
     it("throws when imageDir is empty", async () => {
       const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-empty-"));
-      const config = createSchedulerConfig({ imageDir: emptyDir });
-      const scheduler = new HourlyScheduler(config);
+      try {
+        const config = createSchedulerConfig({ imageDir: emptyDir });
+        const scheduler = new HourlyScheduler(config);
 
-      await expect(scheduler.runNow()).rejects.toThrow(/No images found/);
-
-      fs.rmSync(emptyDir, { recursive: true, force: true });
+        await expect(scheduler.runNow()).rejects.toThrow(/No images found/);
+      } finally {
+        fs.rmSync(emptyDir, { recursive: true, force: true });
+      }
     });
 
     it("throws when imageDir does not exist", async () => {
@@ -277,30 +204,23 @@ describe("HourlyScheduler", () => {
     it("serializes concurrent runNow() calls", async () => {
       let callCount = 0;
       const config = createSchedulerConfig({ imageDir: tmpDir });
-      (config.pipeline.generate as ReturnType<typeof vi.fn>).mockImplementation(
-        async () => {
-          callCount++;
-          const currentCall = callCount;
-          // Simulate async work
-          await new Promise((r) => setTimeout(r, 100));
-          return makeGenerateResult({ id: `result_${currentCall}` });
-        },
-      );
+      vi.mocked(config.pipeline.generate).mockImplementation(async () => {
+        callCount++;
+        const currentCall = callCount;
+        await new Promise((r) => setTimeout(r, 100));
+        return makeGenerateResult({ id: `result_${currentCall}` });
+      });
 
       const scheduler = new HourlyScheduler(config);
 
-      // Launch two concurrent calls
       const p1 = scheduler.runNow();
       const p2 = scheduler.runNow("override");
 
-      // Advance timers to let the first complete
       await vi.advanceTimersByTimeAsync(100);
-      // Advance again for the second
       await vi.advanceTimersByTimeAsync(100);
 
       const [r1, r2] = await Promise.all([p1, p2]);
 
-      // Both should complete, called sequentially
       expect(config.pipeline.generate).toHaveBeenCalledTimes(2);
       expect(r1.metadata.id).toBe("result_1");
       expect(r2.metadata.id).toBe("result_2");
@@ -310,7 +230,7 @@ describe("HourlyScheduler", () => {
   describe("error handling", () => {
     it("propagates pipeline errors in runNow()", async () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
-      (config.pipeline.generate as ReturnType<typeof vi.fn>).mockRejectedValue(
+      vi.mocked(config.pipeline.generate).mockRejectedValue(
         new Error("Gemini API error"),
       );
 
@@ -323,8 +243,7 @@ describe("HourlyScheduler", () => {
       vi.setSystemTime(new Date(2026, 1, 14, 14, 59, 59, 0));
 
       const config = createSchedulerConfig({ imageDir: tmpDir });
-      // First call fails, second succeeds
-      (config.pipeline.generate as ReturnType<typeof vi.fn>)
+      vi.mocked(config.pipeline.generate)
         .mockRejectedValueOnce(new Error("Temporary failure"))
         .mockResolvedValueOnce(makeGenerateResult());
 
@@ -347,12 +266,11 @@ describe("HourlyScheduler", () => {
 
     it("falls back to time-only scenario when weather fetch fails", async () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
-      (config.weatherProvider.getHourlyConditions as ReturnType<typeof vi.fn>)
+      vi.mocked(config.weatherProvider.getHourlyConditions)
         .mockRejectedValue(new Error("Network error"));
 
       const scheduler = new HourlyScheduler(config);
 
-      // Should not throw — falls back to time-only scenario
       const result = await scheduler.runNow();
       expect(result).toBeDefined();
       expect(config.pipeline.generate).toHaveBeenCalledOnce();
@@ -366,10 +284,7 @@ describe("HourlyScheduler", () => {
 
       await scheduler.runNow();
 
-      const generateCall = (config.pipeline.generate as ReturnType<typeof vi.fn>).mock.calls[0];
-      const scenario = generateCall[1];
-
-      // buildScheduledScenario computes sun/moon via SunCalc
+      const { scenario } = getGenerateCallArgs(config.pipeline);
       expect(scenario.sunElevation).toBeDefined();
       expect(typeof scenario.sunElevation).toBe("number");
       expect(scenario.sunAzimuth).toBeDefined();
@@ -386,10 +301,7 @@ describe("HourlyScheduler", () => {
 
       await scheduler.runNow();
 
-      const generateCall = (config.pipeline.generate as ReturnType<typeof vi.fn>).mock.calls[0];
-      const scenario = generateCall[1];
-
-      // Weather data should be applied from mock (hour 12 matches the LA local time)
+      const { scenario } = getGenerateCallArgs(config.pipeline);
       expect(scenario.weatherCode).toBe(0);
       expect(scenario.temperature).toBe(15);
       expect(scenario.cloudPercent).toBe(10);
