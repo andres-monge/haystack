@@ -74,7 +74,54 @@ HAYSTACK_ASPECT_RATIO             — Optional, omit to match input
 HAYSTACK_SEED                     — Optional, for reproducible outputs
 HAYSTACK_MAX_OUTPUTS              — Max stored outputs (default: 24)
 HAYSTACK_LAB_PORT                 — Lab UI server port (default: 4321)
+HAYSTACK_BIND_HOST                — Server bind address (default: 127.0.0.1, use 0.0.0.0 for LAN)
+HAYSTACK_IMAGE_DIR                — Folder of base artworks for daily rotation
+HAYSTACK_LAT                      — Latitude for scheduled weather fetch
+HAYSTACK_LON                      — Longitude for scheduled weather fetch
+HAYSTACK_TIMEZONE                 — IANA timezone (e.g., Europe/Madrid)
 ```
+
+## Raspberry Pi kiosk setup
+
+The Pi runs zero application code — it's Chromium in kiosk mode pointing at the Mac's Express server over LAN.
+
+**Hardware:** Raspberry Pi 4, micro-HDMI (use HDMI0 — closest to USB-C power port), ethernet.
+
+**OS:** Raspberry Pi OS (64-bit) with Desktop, flashed via Raspberry Pi Imager. Configure hostname (`haystack`), SSH, and user account in Imager settings before flashing.
+
+**SSH access from Mac:**
+```bash
+ssh-copy-id andresm@haystack.local   # one-time, then passwordless
+ssh andresm@haystack.local
+```
+
+**Kiosk configuration — two files:**
+
+System autostart (`/etc/xdg/labwc/autostart`) — strip default desktop, keep only kanshi:
+```
+/usr/bin/kanshi &
+/usr/bin/lxsession-xdg-autostart
+```
+
+User autostart (`~/.config/labwc/autostart`) — Chromium kiosk:
+```
+unclutter -idle 0 &
+chromium --kiosk --noerrdialogs --disable-infobars --no-first-run --check-for-update-interval=31536000 --disable-features=Translate --password-store=basic --ozone-platform=wayland --enable-features=OverlayScrollbar --start-fullscreen --start-maximized http://<mac-ip>:4321/kiosk &
+```
+
+**Critical flags:**
+- `--ozone-platform=wayland` — required, Chromium renders blank white without it
+- `--password-store=basic` — prevents keyring popup on first boot
+- Binary is `chromium`, not `chromium-browser` (Debian/RPi OS naming)
+- Use Mac's IP address (e.g., `192.168.0.20`), not mDNS hostname — Pi may not resolve `.local`
+
+**Other setup:**
+- Disable screen blanking: `sudo raspi-config nonint do_blanking 1`
+- Hide cursor: `sudo apt install unclutter` (already in autostart above)
+- Screen blanking must be plugged into HDMI0 before powering on
+- No green LED on boot = bad SD card flash, re-flash with Imager
+
+**Mac-side:** Run the server with `HAYSTACK_BIND_HOST=0.0.0.0` (set in `.env.local`).
 
 ## Phased roadmap
 
@@ -83,7 +130,7 @@ HAYSTACK_LAB_PORT                 — Lab UI server port (default: 4321)
 - **A3**: Wallpaper apply via `desktoppr`
 - **A4**: `launchd` hourly scheduler
 - **Phase B**: macOS Menu Bar app (Electron)
-- **Phase C**: Always-on TV kiosk (Raspberry Pi)
+- **Phase C** ✓: Always-on TV kiosk (Raspberry Pi)
 
 ## Weather API
 
