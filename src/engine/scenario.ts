@@ -82,7 +82,7 @@ export function describeScenario(scenario: Scenario): string {
     // Computed: shadow_ratio — shadow length as multiple of object height
     if (scenario.sunElevation > 0) {
       const radians = scenario.sunElevation * (Math.PI / 180);
-      const shadowRatio = Math.round((1 / Math.tan(radians)) * 10) / 10;
+      const shadowRatio = Math.min(Math.round((1 / Math.tan(radians)) * 10) / 10, 50);
       parts.push(`shadow_ratio ${shadowRatio}×`);
     }
   }

@@ -72,7 +72,7 @@ describe("buildScenario", () => {
     expect(scenario.sunElevation).toBeDefined();
   });
 
-  it("falls back to time-only when weather fetch fails after retries", async () => {
+  it("falls back to time-only when weather fetch fails (single attempt for interactive)", async () => {
     vi.mocked(weatherProvider.getHourlyConditions).mockRejectedValue(
       new Error("Network error"),
     );
@@ -86,26 +86,10 @@ describe("buildScenario", () => {
     expect(scenario.hour).toBe(12);
     expect(scenario.weatherCode).toBeUndefined();
     expect(scenario.weatherSource).toBe("none");
-    // Should retry 3 times
-    expect(weatherProvider.getHourlyConditions).toHaveBeenCalledTimes(3);
+    // Interactive path: single attempt, no retries
+    expect(weatherProvider.getHourlyConditions).toHaveBeenCalledTimes(1);
     // Sun/moon should still be computed even when weather fails
     expect(scenario.sunElevation).toBeDefined();
-  });
-
-  it("retries weather fetch on transient failure then succeeds", async () => {
-    vi.mocked(weatherProvider.getHourlyConditions)
-      .mockRejectedValueOnce(new Error("timeout"))
-      .mockResolvedValueOnce([{ ...BASE_CONDITIONS }]);
-
-    const scenario = await buildScenario(
-      12,
-      { lat: "40.4168", lon: "-3.7038", timezone: "Europe/Madrid" },
-      weatherProvider,
-    );
-
-    expect(weatherProvider.getHourlyConditions).toHaveBeenCalledTimes(2);
-    expect(scenario.weatherCode).toBe(0);
-    expect(scenario.weatherSource).toBe("live");
   });
 
   it("returns time-only when no matching weather slot exists", async () => {
@@ -217,7 +201,7 @@ describe("buildScheduledScenario", () => {
     expect(scenario.moonAltitude).toBeDefined();
   });
 
-  it("falls back gracefully when weather provider fails", async () => {
+  it("falls back gracefully when weather provider fails after retries", async () => {
     vi.mocked(weatherProvider.getHourlyConditions).mockRejectedValue(
       new Error("API down"),
     );
@@ -234,6 +218,47 @@ describe("buildScheduledScenario", () => {
     expect(scenario.sunElevation).toBeDefined();
     expect(scenario.weatherCode).toBeUndefined();
     expect(scenario.weatherSource).toBe("none");
+    // Scheduled path retries 3 times
+    expect(weatherProvider.getHourlyConditions).toHaveBeenCalledTimes(3);
+  });
+
+  it("retries on transient failure then succeeds", async () => {
+    const hour = getCurrentHourInTimezone("America/Los_Angeles");
+    const timeStr = `2026-02-26T${String(hour).padStart(2, "0")}:00`;
+    vi.mocked(weatherProvider.getHourlyConditions)
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockResolvedValueOnce([{ ...BASE_CONDITIONS, time: timeStr }]);
+
+    const scenario = await buildScheduledScenario(
+      34.05,
+      -118.25,
+      "America/Los_Angeles",
+      weatherProvider,
+    );
+
+    expect(weatherProvider.getHourlyConditions).toHaveBeenCalledTimes(2);
+    expect(scenario.weatherCode).toBe(0);
+    expect(scenario.weatherSource).toBe("live");
+  });
+
+  it("uses cached weather when fetch fails but cache is fresh", async () => {
+    // First call succeeds — populates the cache
+    mockHourlyForCurrentHour("America/Los_Angeles");
+    await buildScheduledScenario(34.05, -118.25, "America/Los_Angeles", weatherProvider);
+
+    // Second call fails — should fall back to cached data
+    vi.mocked(weatherProvider.getHourlyConditions).mockRejectedValue(
+      new Error("API down"),
+    );
+    const scenario = await buildScheduledScenario(
+      34.05,
+      -118.25,
+      "America/Los_Angeles",
+      weatherProvider,
+    );
+
+    expect(scenario.weatherCode).toBe(0);
+    expect(scenario.weatherSource).toBe("cache");
   });
 
   it("sets weatherSource to live on successful fetch", async () => {

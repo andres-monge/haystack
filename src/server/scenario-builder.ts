@@ -23,29 +23,6 @@ export function clearWeatherCache(): void {
 }
 
 /**
- * Retry an async function with exponential backoff.
- */
-async function withRetry<T>(
-  fn: () => Promise<T>,
-  maxAttempts: number,
-  baseDelayMs: number,
-): Promise<T> {
-  let lastError: unknown;
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastError = err;
-      if (attempt < maxAttempts) {
-        const delay = baseDelayMs * Math.pow(2, attempt - 1);
-        await new Promise((r) => setTimeout(r, delay));
-      }
-    }
-  }
-  throw lastError;
-}
-
-/**
  * Build a Scenario from an hour + location, fetching weather and computing
  * sun/moon positions. Used by both the /api/generate route and the scheduler.
  *
@@ -53,6 +30,8 @@ async function withRetry<T>(
  * 1. If explicit weather overrides provided (weatherCode, etc.) → use those
  * 2. If lat/lon/timezone provided → fetch from weather provider for the given hour
  * 3. Otherwise → time-only scenario
+ *
+ * Interactive path: single attempt (no retry delay for the user).
  */
 export async function buildScenario(
   hour: number,
@@ -91,7 +70,7 @@ export async function buildScenario(
   const timezone = body.timezone;
 
   if (lat !== undefined && lon !== undefined && timezone) {
-    await enrichWithWeather(scenario, hour, lat, lon, timezone, weatherProvider);
+    await enrichWithWeather(scenario, hour, lat, lon, timezone, weatherProvider, 1);
     computeSunMoon(scenario, hour, lat, lon, timezone);
   }
 
@@ -101,6 +80,8 @@ export async function buildScenario(
 /**
  * Build a scenario for the scheduler: fetches weather and computes sun/moon
  * for the current hour at the configured location.
+ *
+ * Scheduled path: 3 attempts with exponential backoff.
  */
 export async function buildScheduledScenario(
   lat: number,
@@ -112,45 +93,15 @@ export async function buildScheduledScenario(
   const hour = getCurrentHourInTimezone(timezone);
 
   const scenario = createScenarioFromHour(hour);
-  await enrichWithWeather(scenario, hour, lat, lon, timezone, weatherProvider);
+  await enrichWithWeather(scenario, hour, lat, lon, timezone, weatherProvider, 3);
   computeSunMoon(scenario, hour, lat, lon, timezone);
 
   return scenario;
 }
 
 /**
- * Apply weather data from an hourly slot to the scenario.
- */
-function applyWeatherSlot(scenario: Scenario, slot: HourlyConditions): void {
-  scenario.weatherCode = slot.weatherCode;
-  scenario.cloudPercent = slot.cloudPercent;
-  scenario.precipProbability = slot.precipProbability;
-  scenario.isDay = slot.isDay;
-  scenario.temperature = slot.temperature;
-  scenario.humidity = slot.humidity;
-  scenario.windSpeed = slot.windSpeed;
-  scenario.windGusts = slot.windGusts;
-  scenario.visibility = slot.visibility;
-  scenario.precipitation = slot.precipitation;
-  scenario.rain = slot.rain;
-  scenario.snowfall = slot.snowfall;
-  scenario.snowDepth = slot.snowDepth;
-  scenario.directRadiation = slot.directRadiation;
-  scenario.diffuseRadiation = slot.diffuseRadiation;
-}
-
-/**
- * Find the hourly slot matching the requested hour.
- */
-function findSlot(hourly: HourlyConditions[], hour: number): HourlyConditions | undefined {
-  return hourly.find((h) => {
-    const slotHour = parseInt(h.time.split("T")[1].split(":")[0], 10);
-    return slotHour === hour;
-  });
-}
-
-/**
  * Fetch hourly weather (with retry + cache fallback) and apply to the scenario.
+ * maxAttempts controls retry aggressiveness: 1 for interactive, 3 for scheduled.
  */
 async function enrichWithWeather(
   scenario: Scenario,
@@ -159,24 +110,33 @@ async function enrichWithWeather(
   lon: number,
   timezone: string,
   weatherProvider: WeatherProvider,
+  maxAttempts: number,
 ): Promise<void> {
   const cacheKey = `${lat},${lon}`;
-  let hourly: HourlyConditions[];
-  let source: WeatherSource = "none";
 
-  try {
-    hourly = await withRetry(
-      () => weatherProvider.getHourlyConditions(lat, lon, timezone),
-      3,    // 3 attempts total
-      1000, // 1s, 2s exponential backoff
-    );
+  // Try fetching with retry
+  let hourly: HourlyConditions[] | undefined;
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      hourly = await weatherProvider.getHourlyConditions(lat, lon, timezone);
+      break;
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts) {
+        await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt - 1)));
+      }
+    }
+  }
+
+  let source: WeatherSource;
+
+  if (hourly) {
     source = "live";
-
-    // Update cache on success
     weatherCache.set(cacheKey, { hourly, fetchedAt: Date.now() });
-  } catch (err) {
+  } else {
     console.error(
-      `[${new Date().toISOString()}] Weather fetch failed after retries: ${err instanceof Error ? err.message : err}`,
+      `[${new Date().toISOString()}] Weather fetch failed after ${maxAttempts} attempt(s): ${lastError instanceof Error ? lastError.message : lastError}`,
     );
 
     // Try cache fallback
@@ -194,13 +154,31 @@ async function enrichWithWeather(
     }
   }
 
-  const slot = findSlot(hourly!, hour);
+  // Find the slot matching the requested hour
+  const slot = hourly.find((h) => {
+    const slotHour = parseInt(h.time.split("T")[1].split(":")[0], 10);
+    return slotHour === hour;
+  });
 
   if (slot) {
-    applyWeatherSlot(scenario, slot);
+    scenario.weatherCode = slot.weatherCode;
+    scenario.cloudPercent = slot.cloudPercent;
+    scenario.precipProbability = slot.precipProbability;
+    scenario.isDay = slot.isDay;
+    scenario.temperature = slot.temperature;
+    scenario.humidity = slot.humidity;
+    scenario.windSpeed = slot.windSpeed;
+    scenario.windGusts = slot.windGusts;
+    scenario.visibility = slot.visibility;
+    scenario.precipitation = slot.precipitation;
+    scenario.rain = slot.rain;
+    scenario.snowfall = slot.snowfall;
+    scenario.snowDepth = slot.snowDepth;
+    scenario.directRadiation = slot.directRadiation;
+    scenario.diffuseRadiation = slot.diffuseRadiation;
     scenario.weatherSource = source;
   } else {
-    const availableHours = hourly!.map((h) =>
+    const availableHours = hourly.map((h) =>
       parseInt(h.time.split("T")[1].split(":")[0], 10),
     );
     console.warn(
