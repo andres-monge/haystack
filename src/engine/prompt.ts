@@ -3,7 +3,7 @@
 import type { Scenario, PromptConfig } from "./types.js";
 import { describeScenario } from "./scenario.js";
 
-export const DEFAULT_TEMPLATE = `Using the provided artwork, reimagine this scene as if viewed through a window at the current moment in time.
+export const DEFAULT_TEMPLATE = `Using the provided artwork, reimagine this scene at the current moment in time — as if the painting were a living world that changes with the hour and weather.
 
 Time: {scenario}
 
