@@ -634,6 +634,7 @@ describe("Express API Server", () => {
         start: vi.fn(),
         stop: vi.fn(),
         runNow: vi.fn().mockResolvedValue(makeGenerateResult()),
+        isRunning: vi.fn().mockReturnValue(true),
       } as unknown as HourlyScheduler;
     }
 
@@ -733,6 +734,95 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe("scenario string is required");
+    });
+  });
+
+  // --- Scheduler pause/resume/status ---
+
+  describe("scheduler endpoints", () => {
+    function createMockSchedulerWithState(): HourlyScheduler {
+      let running = false;
+      return {
+        start: vi.fn(() => { running = true; }),
+        stop: vi.fn(() => { running = false; }),
+        runNow: vi.fn().mockResolvedValue(makeGenerateResult()),
+        isRunning: vi.fn(() => running),
+      } as unknown as HourlyScheduler;
+    }
+
+    function createAppWithScheduler() {
+      const mockScheduler = createMockSchedulerWithState();
+      const app = createApp({
+        pipeline,
+        weatherProvider,
+        outputDir,
+        scheduler: mockScheduler,
+      });
+      return { app, mockScheduler };
+    }
+
+    describe("GET /api/scheduler/status", () => {
+      it("returns running: false when no scheduler configured", async () => {
+        const app = createTestApp();
+        const res = await request(app).get("/api/scheduler/status");
+
+        expect(res.status).toBe(200);
+        expect(res.body.running).toBe(false);
+      });
+
+      it("returns current running state from scheduler", async () => {
+        const { app, mockScheduler } = createAppWithScheduler();
+
+        // Initially not running
+        let res = await request(app).get("/api/scheduler/status");
+        expect(res.body.running).toBe(false);
+
+        // Start it
+        mockScheduler.start();
+        res = await request(app).get("/api/scheduler/status");
+        expect(res.body.running).toBe(true);
+      });
+    });
+
+    describe("POST /api/scheduler/pause", () => {
+      it("returns 503 when no scheduler configured", async () => {
+        const app = createTestApp();
+        const res = await request(app).post("/api/scheduler/pause");
+
+        expect(res.status).toBe(503);
+        expect(res.body.error).toBe("Scheduler not configured");
+      });
+
+      it("stops the scheduler and returns running: false", async () => {
+        const { app, mockScheduler } = createAppWithScheduler();
+        mockScheduler.start();
+
+        const res = await request(app).post("/api/scheduler/pause");
+
+        expect(res.status).toBe(200);
+        expect(res.body.running).toBe(false);
+        expect(mockScheduler.stop).toHaveBeenCalled();
+      });
+    });
+
+    describe("POST /api/scheduler/resume", () => {
+      it("returns 503 when no scheduler configured", async () => {
+        const app = createTestApp();
+        const res = await request(app).post("/api/scheduler/resume");
+
+        expect(res.status).toBe(503);
+        expect(res.body.error).toBe("Scheduler not configured");
+      });
+
+      it("starts the scheduler and returns running: true", async () => {
+        const { app, mockScheduler } = createAppWithScheduler();
+
+        const res = await request(app).post("/api/scheduler/resume");
+
+        expect(res.status).toBe(200);
+        expect(res.body.running).toBe(true);
+        expect(mockScheduler.start).toHaveBeenCalled();
+      });
     });
   });
 

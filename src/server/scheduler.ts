@@ -6,12 +6,17 @@ import type { WeatherProvider } from "../weather/types.js";
 import { describeScenario } from "../engine/scenario.js";
 import { getImageForToday } from "./image-rotation.js";
 import { buildScheduledScenario } from "./scenario-builder.js";
+import { getCurrentHourInTimezone } from "./timezone.js";
 
 export interface SchedulerConfig {
   pipeline: Pipeline;
   weatherProvider: WeatherProvider;
   imageDir: string;
   location: { lat: number; lon: number; timezone: string };
+  /** Hour (0–23) when scheduled generation starts (inclusive). */
+  activeStart?: number;
+  /** Hour (0–23) when scheduled generation stops (exclusive). */
+  activeEnd?: number;
 }
 
 /**
@@ -26,15 +31,23 @@ export class HourlyScheduler {
   private config: SchedulerConfig;
   private timerId: ReturnType<typeof setTimeout> | null = null;
   private mutex: Promise<void> = Promise.resolve();
+  private running = false;
 
   constructor(config: SchedulerConfig) {
     this.config = config;
+  }
+
+  /** Whether the scheduler is actively running (has a pending timer). */
+  isRunning(): boolean {
+    return this.running;
   }
 
   /**
    * Start scheduling. Schedules the first tick at the next top-of-hour.
    */
   start(): void {
+    if (this.running) return;
+    this.running = true;
     this.scheduleNext();
   }
 
@@ -42,6 +55,7 @@ export class HourlyScheduler {
    * Stop the scheduler and clear any pending timeout.
    */
   stop(): void {
+    this.running = false;
     if (this.timerId !== null) {
       clearTimeout(this.timerId);
       this.timerId = null;
@@ -89,9 +103,23 @@ export class HourlyScheduler {
 
   /**
    * Called when the timer fires. Runs generation, then reschedules.
+   * Skips generation if the current hour is outside the active window.
    */
   private async onTick(): Promise<void> {
     this.timerId = null;
+
+    // Check active hours before acquiring the mutex
+    const { activeStart, activeEnd, location } = this.config;
+    if (activeStart != null && activeEnd != null) {
+      const hour = getCurrentHourInTimezone(location.timezone);
+      if (hour < activeStart || hour >= activeEnd) {
+        console.log(
+          `[${new Date().toISOString()}] Skipping generation: hour ${hour} outside active window ${activeStart}–${activeEnd}`,
+        );
+        this.scheduleNext();
+        return;
+      }
+    }
 
     let release: () => void;
     const prev = this.mutex;
@@ -121,8 +149,8 @@ export class HourlyScheduler {
   private async tick(scenarioOverride?: string): Promise<GenerateResult> {
     const { pipeline, weatherProvider, imageDir, location } = this.config;
 
-    // Get today's base image
-    const imagePath = getImageForToday(imageDir);
+    // Get today's base image (timezone-aware day boundary)
+    const imagePath = getImageForToday(imageDir, location.timezone);
     if (!imagePath) {
       throw new Error(
         `No images found in "${imageDir}" — cannot generate`,

@@ -10,6 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { HourlyScheduler, type SchedulerConfig } from "../../src/server/scheduler.js";
+import { resetImageCache } from "../../src/server/image-rotation.js";
 import {
   makeGenerateResult,
   createMockPipeline,
@@ -34,6 +35,7 @@ describe("HourlyScheduler", () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+    resetImageCache();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-sched-test-"));
     fs.writeFileSync(path.join(tmpDir, "art1.jpg"), "fake-image-data");
     fs.writeFileSync(path.join(tmpDir, "art2.png"), "fake-image-data");
@@ -305,6 +307,133 @@ describe("HourlyScheduler", () => {
       expect(scenario.weatherCode).toBe(0);
       expect(scenario.temperature).toBe(15);
       expect(scenario.cloudPercent).toBe(10);
+    });
+  });
+
+  describe("isRunning()", () => {
+    it("returns false before start()", () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      const scheduler = new HourlyScheduler(config);
+
+      expect(scheduler.isRunning()).toBe(false);
+    });
+
+    it("returns true after start()", () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      const scheduler = new HourlyScheduler(config);
+
+      scheduler.start();
+      expect(scheduler.isRunning()).toBe(true);
+
+      scheduler.stop();
+    });
+
+    it("returns false after stop()", () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      const scheduler = new HourlyScheduler(config);
+
+      scheduler.start();
+      scheduler.stop();
+      expect(scheduler.isRunning()).toBe(false);
+    });
+  });
+
+  describe("active hours", () => {
+    it("skips generation when current hour is before active window", async () => {
+      // 3 AM in America/Los_Angeles
+      vi.setSystemTime(new Date("2026-02-15T11:00:00Z")); // 3 AM PST
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        activeStart: 9,
+        activeEnd: 21,
+      });
+      const scheduler = new HourlyScheduler(config);
+      scheduler.start();
+
+      // Advance to trigger the tick
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+      expect(config.pipeline.generate).not.toHaveBeenCalled();
+      expect(consoleLogSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Skipping generation"),
+      );
+
+      scheduler.stop();
+    });
+
+    it("skips generation when current hour is at or after active end", async () => {
+      // 22:00 in America/Los_Angeles (UTC-8 → 06:00 UTC next day)
+      vi.setSystemTime(new Date("2026-02-15T05:59:59Z")); // just before 10 PM PST
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        activeStart: 9,
+        activeEnd: 21,
+      });
+      const scheduler = new HourlyScheduler(config);
+      scheduler.start();
+
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+
+      expect(config.pipeline.generate).not.toHaveBeenCalled();
+
+      scheduler.stop();
+    });
+
+    it("generates within active hours", async () => {
+      // 10 AM in America/Los_Angeles (UTC-8 → 18:00 UTC)
+      vi.setSystemTime(new Date("2026-02-15T17:59:59Z"));
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        activeStart: 9,
+        activeEnd: 21,
+      });
+      const scheduler = new HourlyScheduler(config);
+      scheduler.start();
+
+      await vi.advanceTimersByTimeAsync(1001);
+
+      expect(config.pipeline.generate).toHaveBeenCalledOnce();
+
+      scheduler.stop();
+    });
+
+    it("runNow() bypasses active hours check", async () => {
+      // 3 AM in America/Los_Angeles — outside active window
+      vi.setSystemTime(new Date("2026-02-15T11:00:00Z"));
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        activeStart: 9,
+        activeEnd: 21,
+      });
+      const scheduler = new HourlyScheduler(config);
+
+      const result = await scheduler.runNow();
+
+      expect(config.pipeline.generate).toHaveBeenCalledOnce();
+      expect(result).toBeDefined();
+    });
+
+    it("generates normally when no active hours configured", async () => {
+      // 3 AM — but no active hours set
+      vi.setSystemTime(new Date("2026-02-15T10:59:59Z"));
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        activeStart: undefined,
+        activeEnd: undefined,
+      });
+      const scheduler = new HourlyScheduler(config);
+      scheduler.start();
+
+      await vi.advanceTimersByTimeAsync(1001);
+
+      expect(config.pipeline.generate).toHaveBeenCalledOnce();
+
+      scheduler.stop();
     });
   });
 });

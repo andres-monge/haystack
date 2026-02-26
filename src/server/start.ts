@@ -21,6 +21,8 @@ if (config.imageDir && config.schedulerLocation) {
     weatherProvider,
     imageDir: config.imageDir,
     location: config.schedulerLocation,
+    activeStart: config.activeStart,
+    activeEnd: config.activeEnd,
   });
 }
 

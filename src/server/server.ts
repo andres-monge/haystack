@@ -293,6 +293,33 @@ export function createApp(config: CreateAppConfig): Express {
     });
   });
 
+  // --- GET /api/scheduler/status ---
+  app.get("/api/scheduler/status", (_req: Request, res: Response) => {
+    res.json({ running: scheduler?.isRunning() ?? false });
+  });
+
+  // --- POST /api/scheduler/pause ---
+  app.post("/api/scheduler/pause", (_req: Request, res: Response) => {
+    if (!scheduler) {
+      res.status(503).json({ error: "Scheduler not configured" });
+      return;
+    }
+    scheduler.stop();
+    console.log(`[${new Date().toISOString()}] Scheduler paused via API`);
+    res.json({ running: false });
+  });
+
+  // --- POST /api/scheduler/resume ---
+  app.post("/api/scheduler/resume", (_req: Request, res: Response) => {
+    if (!scheduler) {
+      res.status(503).json({ error: "Scheduler not configured" });
+      return;
+    }
+    scheduler.start();
+    console.log(`[${new Date().toISOString()}] Scheduler resumed via API`);
+    res.json({ running: true });
+  });
+
   // --- POST /api/override ---
   app.post("/api/override", async (req: Request, res: Response) => {
     try {

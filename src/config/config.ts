@@ -28,6 +28,10 @@ export interface HaystackConfig {
     lon: number;
     timezone: string;
   };
+  /** Hour (0–23) when scheduled generation starts (inclusive). */
+  activeStart?: number;
+  /** Hour (0–23) when scheduled generation stops (exclusive). */
+  activeEnd?: number;
 }
 
 function parseIntStrict(raw: string | undefined, fallback: number, name: string): number {
@@ -80,6 +84,40 @@ function parseSchedulerLocation(env: NodeJS.ProcessEnv): HaystackConfig["schedul
   return undefined;
 }
 
+function parseActiveHours(env: NodeJS.ProcessEnv): { activeStart?: number; activeEnd?: number } {
+  const startRaw = env.HAYSTACK_ACTIVE_START;
+  const endRaw = env.HAYSTACK_ACTIVE_END;
+
+  // Both unset → no active hours restriction (24/7 generation)
+  if (!startRaw && !endRaw) {
+    return { activeStart: undefined, activeEnd: undefined };
+  }
+
+  // Both must be set together
+  if (!startRaw || !endRaw) {
+    throw new Error(
+      "HAYSTACK_ACTIVE_START and HAYSTACK_ACTIVE_END must both be set or both be omitted",
+    );
+  }
+
+  const start = parseIntStrict(startRaw, 0, "HAYSTACK_ACTIVE_START");
+  const end = parseIntStrict(endRaw, 0, "HAYSTACK_ACTIVE_END");
+
+  if (start < 0 || start > 23) {
+    throw new Error(`Invalid HAYSTACK_ACTIVE_START: ${start} is outside range 0..23`);
+  }
+  if (end < 0 || end > 23) {
+    throw new Error(`Invalid HAYSTACK_ACTIVE_END: ${end} is outside range 0..23`);
+  }
+  if (start >= end) {
+    throw new Error(
+      `Invalid active hours: HAYSTACK_ACTIVE_START (${start}) must be less than HAYSTACK_ACTIVE_END (${end})`,
+    );
+  }
+
+  return { activeStart: start, activeEnd: end };
+}
+
 function parseAspectRatio(raw: string | undefined): AspectRatio | undefined {
   if (!raw) return undefined;
   if (!VALID_ASPECT_RATIOS.has(raw as AspectRatio)) {
@@ -94,6 +132,7 @@ function parseAspectRatio(raw: string | undefined): AspectRatio | undefined {
  * Load configuration from environment variables.
  */
 export function loadConfigFromEnv(): HaystackConfig {
+  const { activeStart, activeEnd } = parseActiveHours(process.env);
   return {
     googleApiKey:
       process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY ?? "",
@@ -113,6 +152,8 @@ export function loadConfigFromEnv(): HaystackConfig {
     bindHost: process.env.HAYSTACK_BIND_HOST ?? "127.0.0.1",
     imageDir: process.env.HAYSTACK_IMAGE_DIR || undefined,
     schedulerLocation: parseSchedulerLocation(process.env),
+    activeStart,
+    activeEnd,
   };
 }
 

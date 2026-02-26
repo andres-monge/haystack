@@ -18,6 +18,8 @@ describe("loadConfigFromEnv", () => {
     delete process.env.HAYSTACK_LAT;
     delete process.env.HAYSTACK_LON;
     delete process.env.HAYSTACK_TIMEZONE;
+    delete process.env.HAYSTACK_ACTIVE_START;
+    delete process.env.HAYSTACK_ACTIVE_END;
   });
 
   afterEach(() => {
@@ -36,6 +38,8 @@ describe("loadConfigFromEnv", () => {
     expect(config.bindHost).toBe("127.0.0.1");
     expect(config.imageDir).toBeUndefined();
     expect(config.schedulerLocation).toBeUndefined();
+    expect(config.activeStart).toBeUndefined();
+    expect(config.activeEnd).toBeUndefined();
   });
 
   it("prefers GOOGLE_API_KEY over GEMINI_API_KEY", () => {
@@ -190,6 +194,70 @@ describe("loadConfigFromEnv", () => {
     process.env.HAYSTACK_LON = "-118.25";
     process.env.HAYSTACK_TIMEZONE = "Not/A_Timezone";
     expect(() => loadConfigFromEnv()).toThrow(/HAYSTACK_TIMEZONE.*not a recognized IANA timezone/);
+  });
+
+  // --- Active hours ---
+
+  it("defaults to no active hours when env vars are unset", () => {
+    const config = loadConfigFromEnv();
+    expect(config.activeStart).toBeUndefined();
+    expect(config.activeEnd).toBeUndefined();
+  });
+
+  it("parses valid active hours", () => {
+    process.env.HAYSTACK_ACTIVE_START = "9";
+    process.env.HAYSTACK_ACTIVE_END = "21";
+    const config = loadConfigFromEnv();
+    expect(config.activeStart).toBe(9);
+    expect(config.activeEnd).toBe(21);
+  });
+
+  it("accepts boundary values 0 and 23", () => {
+    process.env.HAYSTACK_ACTIVE_START = "0";
+    process.env.HAYSTACK_ACTIVE_END = "23";
+    const config = loadConfigFromEnv();
+    expect(config.activeStart).toBe(0);
+    expect(config.activeEnd).toBe(23);
+  });
+
+  it("throws when only HAYSTACK_ACTIVE_START is set", () => {
+    process.env.HAYSTACK_ACTIVE_START = "9";
+    expect(() => loadConfigFromEnv()).toThrow(/must both be set or both be omitted/);
+  });
+
+  it("throws when only HAYSTACK_ACTIVE_END is set", () => {
+    process.env.HAYSTACK_ACTIVE_END = "21";
+    expect(() => loadConfigFromEnv()).toThrow(/must both be set or both be omitted/);
+  });
+
+  it("throws when HAYSTACK_ACTIVE_START is out of range", () => {
+    process.env.HAYSTACK_ACTIVE_START = "25";
+    process.env.HAYSTACK_ACTIVE_END = "21";
+    expect(() => loadConfigFromEnv()).toThrow(/HAYSTACK_ACTIVE_START.*outside range/);
+  });
+
+  it("throws when HAYSTACK_ACTIVE_END is out of range", () => {
+    process.env.HAYSTACK_ACTIVE_START = "9";
+    process.env.HAYSTACK_ACTIVE_END = "-1";
+    expect(() => loadConfigFromEnv()).toThrow(/HAYSTACK_ACTIVE_END.*outside range/);
+  });
+
+  it("throws when start >= end", () => {
+    process.env.HAYSTACK_ACTIVE_START = "21";
+    process.env.HAYSTACK_ACTIVE_END = "9";
+    expect(() => loadConfigFromEnv()).toThrow(/must be less than/);
+  });
+
+  it("throws when start equals end", () => {
+    process.env.HAYSTACK_ACTIVE_START = "12";
+    process.env.HAYSTACK_ACTIVE_END = "12";
+    expect(() => loadConfigFromEnv()).toThrow(/must be less than/);
+  });
+
+  it("throws on non-numeric active hour values", () => {
+    process.env.HAYSTACK_ACTIVE_START = "nine";
+    process.env.HAYSTACK_ACTIVE_END = "21";
+    expect(() => loadConfigFromEnv()).toThrow(/HAYSTACK_ACTIVE_START.*not a valid integer/);
   });
 });
 

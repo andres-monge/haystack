@@ -4,6 +4,7 @@ import SunCalc from "suncalc";
 import type { Scenario } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
 import { createScenarioFromHour } from "../engine/scenario.js";
+import { getCurrentHourInTimezone } from "./timezone.js";
 
 /**
  * Build a Scenario from an hour + location, fetching weather and computing
@@ -69,13 +70,7 @@ export async function buildScheduledScenario(
   weatherProvider: WeatherProvider,
 ): Promise<Scenario> {
   // Get the current hour in the configured timezone
-  const now = new Date();
-  const hourStr = now.toLocaleString("en-US", {
-    hour: "numeric",
-    hour12: false,
-    timeZone: timezone,
-  });
-  const hour = parseInt(hourStr, 10);
+  const hour = getCurrentHourInTimezone(timezone);
 
   const scenario = createScenarioFromHour(hour);
   await enrichWithWeather(scenario, hour, lat, lon, timezone, weatherProvider);

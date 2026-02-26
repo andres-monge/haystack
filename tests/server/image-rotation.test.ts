@@ -2,12 +2,13 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { getImageForToday } from "../../src/server/image-rotation.js";
+import { getImageForToday, resetImageCache, getDayOfYear } from "../../src/server/image-rotation.js";
 
 describe("getImageForToday", () => {
   let tmpDir: string;
 
   beforeEach(() => {
+    resetImageCache();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-img-test-"));
   });
 
@@ -108,8 +109,9 @@ describe("getImageForToday", () => {
     fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
     fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
 
-    const day1 = getImageForToday(tmpDir, new Date(2026, 0, 1)); // Jan 1
-    const day2 = getImageForToday(tmpDir, new Date(2026, 0, 2)); // Jan 2
+    const day1 = getImageForToday(tmpDir, undefined, new Date(2026, 0, 1)); // Jan 1
+    resetImageCache();
+    const day2 = getImageForToday(tmpDir, undefined, new Date(2026, 0, 2)); // Jan 2
     expect(day1).not.toBe(day2);
   });
 
@@ -117,8 +119,100 @@ describe("getImageForToday", () => {
     fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
     fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
 
-    const day1 = getImageForToday(tmpDir, new Date(2026, 0, 1));
-    const day3 = getImageForToday(tmpDir, new Date(2026, 0, 3)); // 2 days later = same index
+    const day1 = getImageForToday(tmpDir, undefined, new Date(2026, 0, 1));
+    resetImageCache();
+    const day3 = getImageForToday(tmpDir, undefined, new Date(2026, 0, 3)); // 2 days later = same index
     expect(day1).toBe(day3);
+  });
+
+  describe("cache stability", () => {
+    it("returns the same image even if folder changes between calls", () => {
+      fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+      fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+
+      const now = new Date(2026, 1, 26);
+      const first = getImageForToday(tmpDir, undefined, now);
+
+      // Add more images — would normally change the modulus
+      fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
+      fs.writeFileSync(path.join(tmpDir, "d.jpg"), "");
+      fs.writeFileSync(path.join(tmpDir, "e.jpg"), "");
+
+      const second = getImageForToday(tmpDir, undefined, now);
+      expect(second).toBe(first);
+    });
+
+    it("invalidates cache when cached file is deleted", () => {
+      fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+      fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+
+      const now = new Date(2026, 1, 26);
+      const first = getImageForToday(tmpDir, undefined, now);
+      expect(first).not.toBeNull();
+
+      // Delete the cached file
+      fs.unlinkSync(first!);
+
+      // Should re-read and return the remaining image
+      const second = getImageForToday(tmpDir, undefined, now);
+      expect(second).not.toBeNull();
+      expect(second).not.toBe(first);
+    });
+
+    it("invalidates cache on day rollover", () => {
+      fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+      fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+      fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
+
+      const day1 = new Date(2026, 1, 26);
+      const day2 = new Date(2026, 1, 27);
+
+      const first = getImageForToday(tmpDir, undefined, day1);
+      // Don't reset cache — the day change should invalidate it
+      const second = getImageForToday(tmpDir, undefined, day2);
+
+      // With 3 images: day 57 % 3 = 0, day 58 % 3 = 1 → different
+      expect(first).not.toBe(second);
+    });
+  });
+
+  describe("timezone-aware day boundary", () => {
+    it("uses configured timezone for day boundary", () => {
+      fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+      fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+      fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
+
+      // Feb 26 at 23:30 UTC = Feb 27 at 00:30 in Europe/Madrid (CET = UTC+1)
+      const utcLateNight = new Date("2026-02-26T23:30:00Z");
+
+      const resultUTC = getImageForToday(tmpDir, "UTC", utcLateNight);
+      resetImageCache();
+      const resultMadrid = getImageForToday(tmpDir, "Europe/Madrid", utcLateNight);
+
+      // UTC sees day 57 (Feb 26), Madrid sees day 58 (Feb 27)
+      // With 3 images: 57 % 3 = 0, 58 % 3 = 1 → different images
+      expect(resultUTC).not.toBe(resultMadrid);
+    });
+  });
+});
+
+describe("getDayOfYear", () => {
+  it("returns 1 for January 1", () => {
+    expect(getDayOfYear(new Date(2026, 0, 1))).toBe(1);
+  });
+
+  it("returns 365 for December 31 (non-leap year)", () => {
+    expect(getDayOfYear(new Date(2026, 11, 31))).toBe(365);
+  });
+
+  it("respects timezone when provided", () => {
+    // Feb 26 at 23:30 UTC = Feb 27 at 00:30 in Europe/Madrid
+    const utcLateNight = new Date("2026-02-26T23:30:00Z");
+
+    const dayUTC = getDayOfYear(utcLateNight, "UTC");
+    const dayMadrid = getDayOfYear(utcLateNight, "Europe/Madrid");
+
+    expect(dayUTC).toBe(57);   // Feb 26
+    expect(dayMadrid).toBe(58); // Feb 27
   });
 });
