@@ -6,6 +6,7 @@ import { WeatherDisplay } from "./components/WeatherDisplay";
 import { PromptEditor } from "./components/PromptEditor";
 import { GenerateButton } from "./components/GenerateButton";
 import { KioskOverride } from "./components/KioskOverride";
+import { SchedulerPause } from "./components/SchedulerPause";
 import { PreviewPanel } from "./components/PreviewPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { useGenerate } from "./hooks/useGenerate";
@@ -180,6 +181,7 @@ export function App() {
             isGenerating={generate.isGenerating}
             onClick={handleGenerate}
           />
+          <SchedulerPause />
           <KioskOverride onResult={handleOverrideResult} />
         </div>
         <div className="results-column">

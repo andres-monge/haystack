@@ -405,6 +405,64 @@ body {
   cursor: not-allowed;
 }
 
+/* Scheduler Pause */
+
+.scheduler-pause {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-scheduler-toggle {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.btn-scheduler-toggle:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.btn-scheduler-toggle.is-running:hover:not(:disabled) {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.btn-scheduler-toggle.is-paused {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.btn-scheduler-toggle.is-paused:hover:not(:disabled) {
+  background: var(--success);
+  color: #fff;
+}
+
+.btn-scheduler-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.scheduler-status {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.scheduler-error {
+  font-size: 0.7rem;
+  color: var(--error);
+  white-space: nowrap;
+}
+
 /* Preview Panel */
 
 .preview-panel {

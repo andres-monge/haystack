@@ -112,3 +112,21 @@ export async function getScenarioPreview(params: {
   const data: { description: string } = await res.json();
   return data.description;
 }
+
+export async function getSchedulerStatus(): Promise<{ running: boolean }> {
+  const res = await fetch("/api/scheduler/status");
+  if (!res.ok) throw new Error("Failed to fetch scheduler status");
+  return res.json();
+}
+
+export async function pauseScheduler(): Promise<{ running: boolean }> {
+  const res = await fetch("/api/scheduler/pause", { method: "POST" });
+  if (!res.ok) throw new Error("Failed to pause scheduler");
+  return res.json();
+}
+
+export async function resumeScheduler(): Promise<{ running: boolean }> {
+  const res = await fetch("/api/scheduler/resume", { method: "POST" });
+  if (!res.ok) throw new Error("Failed to resume scheduler");
+  return res.json();
+}
