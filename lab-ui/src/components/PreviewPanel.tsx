@@ -63,6 +63,16 @@ export function PreviewPanel({ metadata, imageUrl, error }: Props) {
                 <dd>{metadata.scenario.weatherCode}</dd>
               </>
             )}
+            {metadata.scenario.weatherSource && metadata.scenario.weatherSource !== "live" && (
+              <>
+                <dt>Weather</dt>
+                <dd style={{ color: metadata.scenario.weatherSource === "none" ? "#e74c3c" : "#f39c12" }}>
+                  {metadata.scenario.weatherSource === "cache"
+                    ? "Cached (fetch failed)"
+                    : "Missing (time-only scenario)"}
+                </dd>
+              </>
+            )}
             {metadata.usageMetadata && (
               <>
                 <dt>Tokens</dt>

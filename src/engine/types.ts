@@ -1,9 +1,14 @@
 // src/engine/types.ts — Shared type definitions for the Haystack engine
 
+export type WeatherSource = "live" | "cache" | "none";
+
 export interface Scenario {
   timestampLocal: Date;
   hour: number; // 0-23
   isDay: boolean;
+
+  // Weather source tracking
+  weatherSource?: WeatherSource;
 
   // Weather (optional — populated from weather provider)
   weatherCode?: number;
@@ -40,6 +45,7 @@ export interface SerializedScenario {
   timestampLocal: string; // ISO 8601
   hour: number;
   isDay: boolean;
+  weatherSource?: WeatherSource;
   weatherCode?: number;
   cloudPercent?: number;
   precipProbability?: number;

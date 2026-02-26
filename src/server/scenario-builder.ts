@@ -1,10 +1,49 @@
 // src/server/scenario-builder.ts — Shared scenario builder for routes and scheduler
 
 import SunCalc from "suncalc";
-import type { Scenario } from "../engine/types.js";
-import type { WeatherProvider } from "../weather/types.js";
+import type { Scenario, WeatherSource } from "../engine/types.js";
+import type { WeatherProvider, HourlyConditions } from "../weather/types.js";
 import { createScenarioFromHour } from "../engine/scenario.js";
 import { getCurrentHourInTimezone } from "./timezone.js";
+
+/** In-memory cache of last successful weather response, keyed by "lat,lon". */
+interface WeatherCacheEntry {
+  hourly: HourlyConditions[];
+  fetchedAt: number; // Date.now() timestamp
+}
+
+const weatherCache = new Map<string, WeatherCacheEntry>();
+
+/** Max age before cached weather is considered too stale (3 hours). */
+const CACHE_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+
+/** Clear the weather cache (for testing). */
+export function clearWeatherCache(): void {
+  weatherCache.clear();
+}
+
+/**
+ * Retry an async function with exponential backoff.
+ */
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  maxAttempts: number,
+  baseDelayMs: number,
+): Promise<T> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxAttempts) {
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastError;
+}
 
 /**
  * Build a Scenario from an hour + location, fetching weather and computing
@@ -80,7 +119,38 @@ export async function buildScheduledScenario(
 }
 
 /**
- * Fetch hourly weather and apply the matching slot to the scenario.
+ * Apply weather data from an hourly slot to the scenario.
+ */
+function applyWeatherSlot(scenario: Scenario, slot: HourlyConditions): void {
+  scenario.weatherCode = slot.weatherCode;
+  scenario.cloudPercent = slot.cloudPercent;
+  scenario.precipProbability = slot.precipProbability;
+  scenario.isDay = slot.isDay;
+  scenario.temperature = slot.temperature;
+  scenario.humidity = slot.humidity;
+  scenario.windSpeed = slot.windSpeed;
+  scenario.windGusts = slot.windGusts;
+  scenario.visibility = slot.visibility;
+  scenario.precipitation = slot.precipitation;
+  scenario.rain = slot.rain;
+  scenario.snowfall = slot.snowfall;
+  scenario.snowDepth = slot.snowDepth;
+  scenario.directRadiation = slot.directRadiation;
+  scenario.diffuseRadiation = slot.diffuseRadiation;
+}
+
+/**
+ * Find the hourly slot matching the requested hour.
+ */
+function findSlot(hourly: HourlyConditions[], hour: number): HourlyConditions | undefined {
+  return hourly.find((h) => {
+    const slotHour = parseInt(h.time.split("T")[1].split(":")[0], 10);
+    return slotHour === hour;
+  });
+}
+
+/**
+ * Fetch hourly weather (with retry + cache fallback) and apply to the scenario.
  */
 async function enrichWithWeather(
   scenario: Scenario,
@@ -90,41 +160,54 @@ async function enrichWithWeather(
   timezone: string,
   weatherProvider: WeatherProvider,
 ): Promise<void> {
+  const cacheKey = `${lat},${lon}`;
+  let hourly: HourlyConditions[];
+  let source: WeatherSource = "none";
+
   try {
-    const hourly = await weatherProvider.getHourlyConditions(
-      lat,
-      lon,
-      timezone,
+    hourly = await withRetry(
+      () => weatherProvider.getHourlyConditions(lat, lon, timezone),
+      3,    // 3 attempts total
+      1000, // 1s, 2s exponential backoff
     );
+    source = "live";
 
-    // Find the slot matching the requested hour
-    const slot = hourly.find((h) => {
-      const slotHour = parseInt(h.time.split("T")[1].split(":")[0], 10);
-      return slotHour === hour;
-    });
-
-    if (slot) {
-      scenario.weatherCode = slot.weatherCode;
-      scenario.cloudPercent = slot.cloudPercent;
-      scenario.precipProbability = slot.precipProbability;
-      scenario.isDay = slot.isDay;
-      scenario.temperature = slot.temperature;
-      scenario.humidity = slot.humidity;
-      scenario.windSpeed = slot.windSpeed;
-      scenario.windGusts = slot.windGusts;
-      scenario.visibility = slot.visibility;
-      scenario.precipitation = slot.precipitation;
-      scenario.rain = slot.rain;
-      scenario.snowfall = slot.snowfall;
-      scenario.snowDepth = slot.snowDepth;
-      scenario.directRadiation = slot.directRadiation;
-      scenario.diffuseRadiation = slot.diffuseRadiation;
-    }
+    // Update cache on success
+    weatherCache.set(cacheKey, { hourly, fetchedAt: Date.now() });
   } catch (err) {
-    // Weather fetch failed — fall back to time-only scenario
     console.error(
-      `[${new Date().toISOString()}] Weather fetch failed, using time-only scenario: ${err instanceof Error ? err.message : err}`,
+      `[${new Date().toISOString()}] Weather fetch failed after retries: ${err instanceof Error ? err.message : err}`,
     );
+
+    // Try cache fallback
+    const cached = weatherCache.get(cacheKey);
+    if (cached && (Date.now() - cached.fetchedAt) <= CACHE_MAX_AGE_MS) {
+      hourly = cached.hourly;
+      source = "cache";
+      const ageMin = Math.round((Date.now() - cached.fetchedAt) / 60_000);
+      console.warn(
+        `[${new Date().toISOString()}] Using cached weather data (${ageMin} min old)`,
+      );
+    } else {
+      scenario.weatherSource = "none";
+      return;
+    }
+  }
+
+  const slot = findSlot(hourly!, hour);
+
+  if (slot) {
+    applyWeatherSlot(scenario, slot);
+    scenario.weatherSource = source;
+  } else {
+    const availableHours = hourly!.map((h) =>
+      parseInt(h.time.split("T")[1].split(":")[0], 10),
+    );
+    console.warn(
+      `[${new Date().toISOString()}] Weather slot miss: wanted hour ${hour}, ` +
+      `available: [${availableHours.join(", ")}] (timezone: ${timezone})`,
+    );
+    scenario.weatherSource = "none";
   }
 }
 

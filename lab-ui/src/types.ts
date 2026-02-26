@@ -1,9 +1,12 @@
 // Frontend type definitions — mirrors server-side types for API communication
 
+export type WeatherSource = "live" | "cache" | "none";
+
 export interface SerializedScenario {
   timestampLocal: string;
   hour: number;
   isDay: boolean;
+  weatherSource?: WeatherSource;
   weatherCode?: number;
   cloudPercent?: number;
   precipProbability?: number;

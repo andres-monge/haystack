@@ -14,6 +14,7 @@ import {
   createMockWeatherProvider,
   getGenerateCallArgs,
 } from "../helpers/mock-factories.js";
+import { clearWeatherCache } from "../../src/server/scenario-builder.js";
 
 /** Create a small valid PNG buffer (1x1 pixel) for upload tests. */
 function createTestPng(): Buffer {
@@ -30,6 +31,7 @@ describe("Express API Server", () => {
   let testPngPath: string;
 
   beforeEach(() => {
+    clearWeatherCache();
     outputDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-server-test-"));
     pipeline = createMockPipeline();
     weatherProvider = createMockWeatherProvider();

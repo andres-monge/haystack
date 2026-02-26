@@ -11,6 +11,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { HourlyScheduler, type SchedulerConfig } from "../../src/server/scheduler.js";
 import { resetImageCache } from "../../src/server/image-rotation.js";
+import { clearWeatherCache } from "../../src/server/scenario-builder.js";
 import {
   makeGenerateResult,
   createMockPipeline,
@@ -36,12 +37,14 @@ describe("HourlyScheduler", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     resetImageCache();
+    clearWeatherCache();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-sched-test-"));
     fs.writeFileSync(path.join(tmpDir, "art1.jpg"), "fake-image-data");
     fs.writeFileSync(path.join(tmpDir, "art2.png"), "fake-image-data");
 
     consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -273,7 +276,12 @@ describe("HourlyScheduler", () => {
 
       const scheduler = new HourlyScheduler(config);
 
-      const result = await scheduler.runNow();
+      // runNow triggers retries with exponential backoff (setTimeout).
+      // With fake timers we must advance time to let the retries complete.
+      const resultPromise = scheduler.runNow();
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      const result = await resultPromise;
       expect(result).toBeDefined();
       expect(config.pipeline.generate).toHaveBeenCalledOnce();
     });

@@ -3,8 +3,10 @@ import {
   buildScenario,
   buildScheduledScenario,
   computeSunMoon,
+  clearWeatherCache,
 } from "../../src/server/scenario-builder.js";
 import { createScenarioFromHour } from "../../src/engine/scenario.js";
+import { getCurrentHourInTimezone } from "../../src/server/timezone.js";
 import { createMockWeatherProvider, BASE_CONDITIONS } from "../helpers/mock-factories.js";
 import type { WeatherProvider } from "../../src/weather/types.js";
 import type { Scenario } from "../../src/engine/types.js";
@@ -13,8 +15,10 @@ describe("buildScenario", () => {
   let weatherProvider: WeatherProvider;
 
   beforeEach(() => {
+    clearWeatherCache();
     weatherProvider = createMockWeatherProvider();
     vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   it("returns time-only scenario when no weather or location provided", async () => {
@@ -64,10 +68,11 @@ describe("buildScenario", () => {
     );
     expect(scenario.weatherCode).toBe(0);
     expect(scenario.temperature).toBe(15);
+    expect(scenario.weatherSource).toBe("live");
     expect(scenario.sunElevation).toBeDefined();
   });
 
-  it("falls back to time-only when weather fetch fails", async () => {
+  it("falls back to time-only when weather fetch fails after retries", async () => {
     vi.mocked(weatherProvider.getHourlyConditions).mockRejectedValue(
       new Error("Network error"),
     );
@@ -80,8 +85,27 @@ describe("buildScenario", () => {
 
     expect(scenario.hour).toBe(12);
     expect(scenario.weatherCode).toBeUndefined();
+    expect(scenario.weatherSource).toBe("none");
+    // Should retry 3 times
+    expect(weatherProvider.getHourlyConditions).toHaveBeenCalledTimes(3);
     // Sun/moon should still be computed even when weather fails
     expect(scenario.sunElevation).toBeDefined();
+  });
+
+  it("retries weather fetch on transient failure then succeeds", async () => {
+    vi.mocked(weatherProvider.getHourlyConditions)
+      .mockRejectedValueOnce(new Error("timeout"))
+      .mockResolvedValueOnce([{ ...BASE_CONDITIONS }]);
+
+    const scenario = await buildScenario(
+      12,
+      { lat: "40.4168", lon: "-3.7038", timezone: "Europe/Madrid" },
+      weatherProvider,
+    );
+
+    expect(weatherProvider.getHourlyConditions).toHaveBeenCalledTimes(2);
+    expect(scenario.weatherCode).toBe(0);
+    expect(scenario.weatherSource).toBe("live");
   });
 
   it("returns time-only when no matching weather slot exists", async () => {
@@ -99,6 +123,24 @@ describe("buildScenario", () => {
     // No matching slot for hour 12 — weather fields should be undefined
     expect(scenario.weatherCode).toBeUndefined();
     expect(scenario.temperature).toBeUndefined();
+    expect(scenario.weatherSource).toBe("none");
+  });
+
+  it("warns when no matching weather slot exists", async () => {
+    const warnSpy = vi.mocked(console.warn);
+    vi.mocked(weatherProvider.getHourlyConditions).mockResolvedValue([
+      { ...BASE_CONDITIONS, time: "2026-02-14T06:00" },
+    ]);
+
+    await buildScenario(
+      12,
+      { lat: "40.4168", lon: "-3.7038", timezone: "Europe/Madrid" },
+      weatherProvider,
+    );
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Weather slot miss: wanted hour 12"),
+    );
   });
 
   it("respects isDay override from body", async () => {
@@ -124,11 +166,24 @@ describe("buildScheduledScenario", () => {
   let weatherProvider: WeatherProvider;
 
   beforeEach(() => {
+    clearWeatherCache();
     weatherProvider = createMockWeatherProvider();
     vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
+  /** Return mock hourly data that matches the current hour in the given timezone. */
+  function mockHourlyForCurrentHour(tz: string) {
+    const hour = getCurrentHourInTimezone(tz);
+    const timeStr = `2026-02-26T${String(hour).padStart(2, "0")}:00`;
+    vi.mocked(weatherProvider.getHourlyConditions).mockResolvedValue([
+      { ...BASE_CONDITIONS, time: timeStr },
+    ]);
+  }
+
   it("builds scenario for current hour in configured timezone", async () => {
+    mockHourlyForCurrentHour("America/Los_Angeles");
+
     const scenario = await buildScheduledScenario(
       34.05,
       -118.25,
@@ -146,6 +201,8 @@ describe("buildScheduledScenario", () => {
   });
 
   it("computes sun/moon positions", async () => {
+    mockHourlyForCurrentHour("America/Los_Angeles");
+
     const scenario = await buildScheduledScenario(
       34.05,
       -118.25,
@@ -176,6 +233,20 @@ describe("buildScheduledScenario", () => {
     expect(scenario.hour).toBeDefined();
     expect(scenario.sunElevation).toBeDefined();
     expect(scenario.weatherCode).toBeUndefined();
+    expect(scenario.weatherSource).toBe("none");
+  });
+
+  it("sets weatherSource to live on successful fetch", async () => {
+    mockHourlyForCurrentHour("America/Los_Angeles");
+
+    const scenario = await buildScheduledScenario(
+      34.05,
+      -118.25,
+      "America/Los_Angeles",
+      weatherProvider,
+    );
+
+    expect(scenario.weatherSource).toBe("live");
   });
 });
 

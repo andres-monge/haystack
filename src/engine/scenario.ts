@@ -69,8 +69,22 @@ export function describeScenario(scenario: Scenario): string {
   if (scenario.diffuseRadiation !== undefined) {
     parts.push(`diffuse radiation ${scenario.diffuseRadiation} W/m²`);
   }
+  // Computed: direct_fraction — how "sunny" vs "overcast" the light is (0–1)
+  if (scenario.directRadiation !== undefined && scenario.diffuseRadiation !== undefined) {
+    const total = scenario.directRadiation + scenario.diffuseRadiation;
+    if (total > 0) {
+      const directFraction = Math.round((scenario.directRadiation / total) * 100) / 100;
+      parts.push(`direct_fraction ${directFraction}`);
+    }
+  }
   if (scenario.sunElevation !== undefined) {
     parts.push(`sun elevation ${scenario.sunElevation}°`);
+    // Computed: shadow_ratio — shadow length as multiple of object height
+    if (scenario.sunElevation > 0) {
+      const radians = scenario.sunElevation * (Math.PI / 180);
+      const shadowRatio = Math.round((1 / Math.tan(radians)) * 10) / 10;
+      parts.push(`shadow_ratio ${shadowRatio}×`);
+    }
   }
   if (scenario.sunAzimuth !== undefined) {
     parts.push(`sun azimuth ${scenario.sunAzimuth}°`);
