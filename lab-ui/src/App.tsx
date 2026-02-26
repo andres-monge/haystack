@@ -11,6 +11,7 @@ import { PreviewPanel } from "./components/PreviewPanel";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { useGenerate } from "./hooks/useGenerate";
 import { useHistory } from "./hooks/useHistory";
+import { useScheduler } from "./hooks/useScheduler";
 import { useLocationSearch, useWeather } from "./hooks/useWeather";
 import { getDefaultTemplate, getScenarioPreview } from "./api/client";
 import type { OverrideResult, RenderMetadata, SelectedLocation } from "./types";
@@ -37,6 +38,7 @@ export function App() {
   // Hooks
   const generate = useGenerate();
   const history = useHistory();
+  const scheduler = useScheduler();
   const locationSearch = useLocationSearch();
   const weather = useWeather();
 
@@ -181,7 +183,12 @@ export function App() {
             isGenerating={generate.isGenerating}
             onClick={handleGenerate}
           />
-          <SchedulerPause />
+          <SchedulerPause
+            running={scheduler.running}
+            isToggling={scheduler.isToggling}
+            error={scheduler.error}
+            onToggle={scheduler.toggle}
+          />
           <KioskOverride onResult={handleOverrideResult} />
         </div>
         <div className="results-column">

@@ -31,6 +31,33 @@ export const DEFAULT_PROMPT_CONFIG: PromptConfig = {
 };
 
 /**
+ * Safe template substitution: replaces {scenario} with the given text.
+ * Uses function form to prevent JavaScript's special replacement patterns
+ * ($`, $', $&) from being interpreted in user-provided text.
+ */
+function fillTemplate(template: string, scenarioText: string): string {
+  return template.replace("{scenario}", () => scenarioText);
+}
+
+/**
+ * Compose the full prompt from a pre-formed scenario text string.
+ * Use this when you already have the scenario description as text
+ * (e.g., a user-provided override), rather than a Scenario object.
+ */
+export function composePromptFromText(
+  scenarioText: string,
+  config: PromptConfig = DEFAULT_PROMPT_CONFIG,
+): string {
+  let prompt = fillTemplate(config.template, scenarioText);
+
+  if (config.extraContext) {
+    prompt += `\n\nAdditional context: ${config.extraContext}`;
+  }
+
+  return prompt;
+}
+
+/**
  * Compose the full prompt from scenario and config.
  * Replaces {scenario} in the template with a human-readable scenario description,
  * and appends extraContext if provided.
@@ -39,12 +66,5 @@ export function composePrompt(
   scenario: Scenario,
   config: PromptConfig = DEFAULT_PROMPT_CONFIG,
 ): string {
-  const scenarioDescription = describeScenario(scenario);
-  let prompt = config.template.replace("{scenario}", scenarioDescription);
-
-  if (config.extraContext) {
-    prompt += `\n\nAdditional context: ${config.extraContext}`;
-  }
-
-  return prompt;
+  return composePromptFromText(describeScenario(scenario), config);
 }

@@ -121,12 +121,18 @@ export async function getSchedulerStatus(): Promise<{ running: boolean }> {
 
 export async function pauseScheduler(): Promise<{ running: boolean }> {
   const res = await fetch("/api/scheduler/pause", { method: "POST" });
-  if (!res.ok) throw new Error("Failed to pause scheduler");
+  if (!res.ok) {
+    const err: { error?: string } = await res.json().catch(() => ({ error: "Failed to pause scheduler" }));
+    throw new Error(err.error ?? "Failed to pause scheduler");
+  }
   return res.json();
 }
 
 export async function resumeScheduler(): Promise<{ running: boolean }> {
   const res = await fetch("/api/scheduler/resume", { method: "POST" });
-  if (!res.ok) throw new Error("Failed to resume scheduler");
+  if (!res.ok) {
+    const err: { error?: string } = await res.json().catch(() => ({ error: "Failed to resume scheduler" }));
+    throw new Error(err.error ?? "Failed to resume scheduler");
+  }
   return res.json();
 }
