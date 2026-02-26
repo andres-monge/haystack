@@ -3,6 +3,7 @@
 import type { Pipeline } from "../engine/pipeline.js";
 import type { GenerateResult } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
+import { DEFAULT_TEMPLATE } from "../engine/prompt.js";
 import { describeScenario } from "../engine/scenario.js";
 import { getImageForToday } from "./image-rotation.js";
 import { buildScheduledScenario } from "./scenario-builder.js";
@@ -166,7 +167,7 @@ export class HourlyScheduler {
         location.timezone,
         weatherProvider,
       );
-      const prompt = `Transform this artwork to reflect: ${scenarioOverride}`;
+      const prompt = DEFAULT_TEMPLATE.replace("{scenario}", scenarioOverride);
       return pipeline.generate(imagePath, scenario, prompt);
     }
 
