@@ -628,6 +628,142 @@ describe("Express API Server", () => {
     });
   });
 
+  // --- POST /api/scheduler/trigger ---
+
+  describe("POST /api/scheduler/trigger", () => {
+    function createMockSchedulerForTrigger(overrides: {
+      running?: boolean;
+      inActiveHours?: boolean;
+    } = {}): HourlyScheduler {
+      const { running = true, inActiveHours = true } = overrides;
+      return {
+        start: vi.fn(),
+        stop: vi.fn(),
+        runNow: vi.fn().mockResolvedValue(makeGenerateResult()),
+        isRunning: vi.fn().mockReturnValue(running),
+        isInActiveHours: vi.fn().mockReturnValue(inActiveHours),
+      } as unknown as HourlyScheduler;
+    }
+
+    function createAppWithTriggerScheduler(overrides: {
+      running?: boolean;
+      inActiveHours?: boolean;
+    } = {}) {
+      const mockScheduler = createMockSchedulerForTrigger(overrides);
+      const app = createApp({
+        pipeline,
+        weatherProvider,
+        outputDir,
+        scheduler: mockScheduler,
+      });
+      return { app, mockScheduler };
+    }
+
+    it("returns 503 when scheduler is not configured", async () => {
+      const app = createTestApp();
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(503);
+      expect(res.body.error).toBe("Scheduler not configured");
+    });
+
+    it("returns triggered: false when scheduler is paused", async () => {
+      const { app } = createAppWithTriggerScheduler({ running: false });
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(200);
+      expect(res.body.triggered).toBe(false);
+      expect(res.body.reason).toBe("Scheduler paused");
+    });
+
+    it("returns triggered: false when outside active hours", async () => {
+      const { app } = createAppWithTriggerScheduler({ inActiveHours: false });
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(200);
+      expect(res.body.triggered).toBe(false);
+      expect(res.body.reason).toBe("Outside active hours");
+    });
+
+    it("returns triggered: false when recent generation exists (dedup)", async () => {
+      const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+      const recentMeta = makeMetadata({ id: "recent_render", createdAt: fiveMinAgo });
+      vi.mocked(pipeline.getStore().getLatest).mockReturnValue(recentMeta);
+
+      const { app } = createAppWithTriggerScheduler();
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(200);
+      expect(res.body.triggered).toBe(false);
+      expect(res.body.reason).toBe("Recent generation exists");
+      expect(res.body.latestId).toBe("recent_render");
+    });
+
+    it("triggers when latest render is exactly 30 min old (boundary)", async () => {
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      const oldMeta = makeMetadata({ createdAt: thirtyMinAgo });
+      vi.mocked(pipeline.getStore().getLatest).mockReturnValue(oldMeta);
+
+      const { app } = createAppWithTriggerScheduler();
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(200);
+      expect(res.body.triggered).toBe(true);
+      expect(res.body.metadata).toBeDefined();
+    });
+
+    it("triggers generation (happy path, no recent render)", async () => {
+      const { app, mockScheduler } = createAppWithTriggerScheduler();
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(200);
+      expect(res.body.triggered).toBe(true);
+      expect(res.body.metadata).toBeDefined();
+      expect(res.body.imageUrl).toBe("/api/outputs/20260214_120000_abc12345");
+      expect(mockScheduler.runNow).toHaveBeenCalledOnce();
+    });
+
+    it("triggers generation when store is empty (no latest)", async () => {
+      vi.mocked(pipeline.getStore().getLatest).mockReturnValue(null);
+
+      const { app, mockScheduler } = createAppWithTriggerScheduler();
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(200);
+      expect(res.body.triggered).toBe(true);
+      expect(mockScheduler.runNow).toHaveBeenCalledOnce();
+    });
+
+    it("triggers when no active hours configured", async () => {
+      const { app, mockScheduler } = createAppWithTriggerScheduler({ inActiveHours: true });
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(200);
+      expect(res.body.triggered).toBe(true);
+      expect(mockScheduler.runNow).toHaveBeenCalledOnce();
+    });
+
+    it("returns 500 when generation fails", async () => {
+      const { app, mockScheduler } = createAppWithTriggerScheduler();
+      vi.mocked(mockScheduler.runNow).mockRejectedValue(
+        new Error("Gemini API error"),
+      );
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe("Trigger generation failed");
+    });
+  });
+
   // --- POST /api/override ---
 
   describe("POST /api/override", () => {

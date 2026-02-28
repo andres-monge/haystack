@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.haystack.hourly</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/curl</string>
+        <string>-s</string>
+        <string>--max-time</string>
+        <string>120</string>
+        <string>--retry</string>
+        <string>3</string>
+        <string>--retry-delay</string>
+        <string>10</string>
+        <string>--retry-connrefused</string>
+        <string>-X</string>
+        <string>POST</string>
+        <string>http://127.0.0.1:4321/api/scheduler/trigger</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Minute</key>
+        <integer>5</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/.haystack/launchd-hourly.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>__HOME__/.haystack/launchd-hourly.log</string>
+</dict>
+</plist>

@@ -139,13 +139,13 @@ Note: `POST /api/override` (custom scenario from Lab UI) does NOT check `isRunni
 
 **Acceptance criteria:**
 
-- [ ] `POST /api/scheduler/trigger` triggers generation with real weather/time — `server.ts`
-- [ ] Endpoint skips when scheduler is paused (`isRunning() === false`) — `server.ts`
-- [ ] Endpoint respects active hours (returns `{ triggered: false }` when outside window) — `server.ts`
-- [ ] Endpoint deduplicates: skips if last render < 30 min old — `server.ts`
-- [ ] Returns 503 when scheduler is not configured — `server.ts`
-- [ ] Returns 500 with error message on generation failure — `server.ts`
-- [ ] `scheduler.isInActiveHours()` returns correct result for boundary hours — `scheduler.ts`
+- [x] `POST /api/scheduler/trigger` triggers generation with real weather/time — `server.ts`
+- [x] Endpoint skips when scheduler is paused (`isRunning() === false`) — `server.ts`
+- [x] Endpoint respects active hours (returns `{ triggered: false }` when outside window) — `server.ts`
+- [x] Endpoint deduplicates: skips if last render < 30 min old — `server.ts`
+- [x] Returns 503 when scheduler is not configured — `server.ts`
+- [x] Returns 500 with error message on generation failure — `server.ts`
+- [x] `scheduler.isInActiveHours()` returns correct result for boundary hours — `scheduler.ts`
 
 #### Phase 2: Server Wrapper Script
 
@@ -192,11 +192,11 @@ Key design choices:
 
 **Acceptance criteria:**
 
-- [ ] Script resolves Node.js from nvm, volta, homebrew, or /usr/local — `start-server.sh`
-- [ ] Script fails with a clear error if node is not found — `start-server.sh`
-- [ ] Script uses `exec` so the Node process inherits the launchd PID — `start-server.sh`
-- [ ] Script creates `~/.haystack/` if missing — `start-server.sh`
-- [ ] Script is executable (`chmod +x`) — `start-server.sh`
+- [x] Script resolves Node.js from nvm, volta, homebrew, or /usr/local — `start-server.sh`
+- [x] Script fails with a clear error if node is not found — `start-server.sh`
+- [x] Script uses `exec` so the Node process inherits the launchd PID — `start-server.sh`
+- [x] Script creates `~/.haystack/` if missing — `start-server.sh`
+- [x] Script is executable (`chmod +x`) — `start-server.sh`
 
 #### Phase 3: launchd Plist Files
 
@@ -294,11 +294,11 @@ Two plist files in a `launchd/` directory at the project root. They use `__PROJE
 
 **Acceptance criteria:**
 
-- [ ] Server plist auto-starts the server on login — `com.haystack.server.plist`
-- [ ] Server plist restarts the process on crash — `com.haystack.server.plist`
-- [ ] Hourly plist fires curl at HH:05 — `com.haystack.hourly.plist`
-- [ ] Curl includes 120s timeout — `com.haystack.hourly.plist`
-- [ ] Both plists log to `~/.haystack/` — plists
+- [x] Server plist auto-starts the server on login — `com.haystack.server.plist`
+- [x] Server plist restarts the process on crash — `com.haystack.server.plist`
+- [x] Hourly plist fires curl at HH:05 — `com.haystack.hourly.plist`
+- [x] Curl includes 120s timeout — `com.haystack.hourly.plist`
+- [x] Both plists log to `~/.haystack/` — plists
 
 #### Phase 4: Install/Uninstall Scripts
 
@@ -382,11 +382,11 @@ Note: Uses `launchctl bootstrap`/`bootout` (modern API) instead of the deprecate
 
 **Acceptance criteria:**
 
-- [ ] Install script resolves project directory and fills plist placeholders — `launchd-install.sh`
-- [ ] Install script makes `start-server.sh` executable — `launchd-install.sh`
-- [ ] Install script unloads existing agents before re-installing (idempotent) — `launchd-install.sh`
-- [ ] Uninstall script removes agents and plist files — `launchd-uninstall.sh`
-- [ ] Uninstall script preserves `~/.haystack/` data — `launchd-uninstall.sh`
+- [x] Install script resolves project directory and fills plist placeholders — `launchd-install.sh`
+- [x] Install script makes `start-server.sh` executable — `launchd-install.sh`
+- [x] Install script unloads existing agents before re-installing (idempotent) — `launchd-install.sh`
+- [x] Uninstall script removes agents and plist files — `launchd-uninstall.sh`
+- [x] Uninstall script preserves `~/.haystack/` data — `launchd-uninstall.sh`
 
 #### Phase 5: Tests
 
@@ -421,9 +421,9 @@ Note: Uses `launchctl bootstrap`/`bootout` (modern API) instead of the deprecate
 
 **Acceptance criteria:**
 
-- [ ] Trigger endpoint tests cover happy path, dedup, active hours, and error cases — `server.test.ts`
-- [ ] `isInActiveHours()` tests cover boundaries — `scheduler.test.ts`
-- [ ] All existing tests continue to pass
+- [x] Trigger endpoint tests cover happy path, dedup, active hours, and error cases — `server.test.ts`
+- [x] `isInActiveHours()` tests cover boundaries — `scheduler.test.ts`
+- [x] All existing tests continue to pass
 
 #### Phase 6: Log Rotation
 
@@ -456,9 +456,9 @@ fi
 
 **Acceptance criteria:**
 
-- [ ] newsyslog config rotates server and hourly logs weekly — `haystack.newsyslog.conf`
-- [ ] Install script installs log rotation when sudo is available — `launchd-install.sh`
-- [ ] Uninstall script removes newsyslog config — `launchd-uninstall.sh`
+- [x] newsyslog config rotates server and hourly logs weekly — `haystack.newsyslog.conf`
+- [x] Install script installs log rotation when sudo is available — `launchd-install.sh`
+- [x] Uninstall script removes newsyslog config — `launchd-uninstall.sh`
 
 #### Phase 7: Documentation
 
@@ -500,36 +500,36 @@ tail -f ~/.haystack/launchd-hourly.log   # hourly trigger output
 
 **Acceptance criteria:**
 
-- [ ] CLAUDE.md has launchd install/uninstall instructions
-- [ ] Troubleshooting section covers common issues
+- [x] CLAUDE.md has launchd install/uninstall instructions
+- [x] Troubleshooting section covers common issues
 
 ## Acceptance Criteria
 
 ### Functional Requirements
 
-- [ ] Server auto-starts on Mac login when launchd agents are installed
-- [ ] Server restarts automatically after a crash (within 10 seconds)
-- [ ] `POST /api/scheduler/trigger` triggers generation using real weather/time
-- [ ] Trigger endpoint respects scheduler pause (Lab UI pause = zero API calls)
-- [ ] Trigger endpoint respects active hours (`HAYSTACK_ACTIVE_START`/`END`)
-- [ ] Trigger endpoint deduplicates (skips if render < 30 min old)
-- [ ] Hourly launchd job fires at HH:05 and curls the trigger endpoint
-- [ ] Kiosk (Phase C) continues working unchanged — polls `/api/latest`, displays images
-- [ ] Install/uninstall scripts work idempotently
+- [x] Server auto-starts on Mac login when launchd agents are installed
+- [x] Server restarts automatically after a crash (within 10 seconds)
+- [x] `POST /api/scheduler/trigger` triggers generation using real weather/time
+- [x] Trigger endpoint respects scheduler pause (Lab UI pause = zero API calls)
+- [x] Trigger endpoint respects active hours (`HAYSTACK_ACTIVE_START`/`END`)
+- [x] Trigger endpoint deduplicates (skips if render < 30 min old)
+- [x] Hourly launchd job fires at HH:05 and curls the trigger endpoint
+- [x] Kiosk (Phase C) continues working unchanged — polls `/api/latest`, displays images
+- [x] Install/uninstall scripts work idempotently
 
 ### Non-Functional Requirements
 
-- [ ] Zero wasted API calls under normal operation (dedup prevents double-generation)
-- [ ] Server logs to `~/.haystack/launchd-server.log`
-- [ ] No new npm dependencies required
-- [ ] All existing tests continue to pass
+- [x] Zero wasted API calls under normal operation (dedup prevents double-generation)
+- [x] Server logs to `~/.haystack/launchd-server.log`
+- [x] No new npm dependencies required
+- [x] All existing tests continue to pass
 
 ### Quality Gates
 
-- [ ] Unit tests for trigger endpoint (happy path, dedup, active hours, errors)
-- [ ] Unit tests for `isInActiveHours()` (boundary cases)
-- [ ] `npm run build` passes
-- [ ] `npm run test:run` passes
+- [x] Unit tests for trigger endpoint (happy path, dedup, active hours, errors)
+- [x] Unit tests for `isInActiveHours()` (boundary cases)
+- [x] `npm run build` passes
+- [x] `npm run test:run` passes
 
 ## Dependencies & Prerequisites
 

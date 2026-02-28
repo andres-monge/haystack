@@ -444,4 +444,75 @@ describe("HourlyScheduler", () => {
       scheduler.stop();
     });
   });
+
+  describe("isInActiveHours()", () => {
+    it("returns true when hour is inside window", () => {
+      // 14:00 in America/Los_Angeles (UTC-8 → 22:00 UTC)
+      vi.setSystemTime(new Date("2026-02-15T22:00:00Z"));
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        activeStart: 9,
+        activeEnd: 21,
+      });
+      const scheduler = new HourlyScheduler(config);
+
+      expect(scheduler.isInActiveHours()).toBe(true);
+    });
+
+    it("returns true at start boundary (inclusive)", () => {
+      // 9:00 in America/Los_Angeles (UTC-8 → 17:00 UTC)
+      vi.setSystemTime(new Date("2026-02-15T17:00:00Z"));
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        activeStart: 9,
+        activeEnd: 21,
+      });
+      const scheduler = new HourlyScheduler(config);
+
+      expect(scheduler.isInActiveHours()).toBe(true);
+    });
+
+    it("returns false at end boundary (exclusive)", () => {
+      // 21:00 in America/Los_Angeles (UTC-8 → 05:00 UTC next day)
+      vi.setSystemTime(new Date("2026-02-16T05:00:00Z"));
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        activeStart: 9,
+        activeEnd: 21,
+      });
+      const scheduler = new HourlyScheduler(config);
+
+      expect(scheduler.isInActiveHours()).toBe(false);
+    });
+
+    it("returns false when hour is before window", () => {
+      // 6:00 in America/Los_Angeles (UTC-8 → 14:00 UTC)
+      vi.setSystemTime(new Date("2026-02-15T14:00:00Z"));
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        activeStart: 9,
+        activeEnd: 21,
+      });
+      const scheduler = new HourlyScheduler(config);
+
+      expect(scheduler.isInActiveHours()).toBe(false);
+    });
+
+    it("returns true when no active window configured", () => {
+      vi.setSystemTime(new Date("2026-02-15T11:00:00Z")); // 3 AM PST
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        activeStart: undefined,
+        activeEnd: undefined,
+      });
+      const scheduler = new HourlyScheduler(config);
+
+      expect(scheduler.isInActiveHours()).toBe(true);
+    });
+  });
 });

@@ -43,6 +43,14 @@ export class HourlyScheduler {
     return this.running;
   }
 
+  /** Check whether the current hour falls within the configured active window. */
+  isInActiveHours(): boolean {
+    const { activeStart, activeEnd, location } = this.config;
+    if (activeStart == null || activeEnd == null) return true; // no window = always active
+    const hour = getCurrentHourInTimezone(location.timezone);
+    return hour >= activeStart && hour < activeEnd;
+  }
+
   /**
    * Start scheduling. Schedules the first tick at the next top-of-hour.
    */
@@ -110,16 +118,14 @@ export class HourlyScheduler {
     this.timerId = null;
 
     // Check active hours before acquiring the mutex
-    const { activeStart, activeEnd, location } = this.config;
-    if (activeStart != null && activeEnd != null) {
+    if (!this.isInActiveHours()) {
+      const { activeStart, activeEnd, location } = this.config;
       const hour = getCurrentHourInTimezone(location.timezone);
-      if (hour < activeStart || hour >= activeEnd) {
-        console.log(
-          `[${new Date().toISOString()}] Skipping generation: hour ${hour} outside active window ${activeStart}–${activeEnd}`,
-        );
-        this.scheduleNext();
-        return;
-      }
+      console.log(
+        `[${new Date().toISOString()}] Skipping generation: hour ${hour} outside active window ${activeStart}–${activeEnd}`,
+      );
+      this.scheduleNext();
+      return;
     }
 
     let release: () => void;

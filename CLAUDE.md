@@ -126,12 +126,42 @@ chromium --kiosk --noerrdialogs --disable-infobars --no-first-run --check-for-up
 
 **Mac-side:** Run the server with `HAYSTACK_BIND_HOST=0.0.0.0` (set in `.env.local`).
 
+## launchd (Phase A4)
+
+Auto-start the server on login and keep it alive across reboots.
+
+**Install:**
+```bash
+./scripts/launchd-install.sh
+```
+
+**Uninstall:**
+```bash
+./scripts/launchd-uninstall.sh
+```
+
+**What it does:**
+- `com.haystack.server` — starts Express server on login, restarts on crash
+- `com.haystack.hourly` — curls `POST /api/scheduler/trigger` at HH:05 (backup for in-process scheduler)
+
+**Logs:**
+```bash
+tail -f ~/.haystack/launchd-server.log   # server output
+tail -f ~/.haystack/launchd-hourly.log   # hourly trigger output
+```
+
+**Troubleshooting:**
+- Check status: `launchctl list | grep haystack`
+- Manual trigger: `curl -X POST http://127.0.0.1:4321/api/scheduler/trigger`
+- If server won't start: check `~/.haystack/launchd-server.log` and verify `.env.local` has `GOOGLE_API_KEY`
+- To stop temporarily: `launchctl bootout gui/$(id -u)/com.haystack.server`
+
 ## Phased roadmap
 
 - **Phase A1** ✓: Engine + pipeline + CLI
 - **A2** ✓: Lab UI + weather integration (Express server, React frontend, Open-Meteo provider)
 - **A3**: Wallpaper apply via `desktoppr`
-- **A4**: `launchd` hourly scheduler
+- **A4** ✓: `launchd` server daemon + hourly scheduler
 - **Phase B**: macOS Menu Bar app (Electron)
 - **Phase C** ✓: Always-on TV kiosk (Raspberry Pi)
 

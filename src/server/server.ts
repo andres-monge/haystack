@@ -320,6 +320,48 @@ export function createApp(config: CreateAppConfig): Express {
     res.json({ running: true });
   });
 
+  // --- POST /api/scheduler/trigger ---
+  app.post("/api/scheduler/trigger", async (_req: Request, res: Response) => {
+    if (!scheduler) {
+      res.status(503).json({ error: "Scheduler not configured" });
+      return;
+    }
+
+    // Respect Lab UI pause — if the user paused the scheduler, don't trigger
+    if (!scheduler.isRunning()) {
+      res.json({ triggered: false, reason: "Scheduler paused" });
+      return;
+    }
+
+    // Respect active hours
+    if (!scheduler.isInActiveHours()) {
+      res.json({ triggered: false, reason: "Outside active hours" });
+      return;
+    }
+
+    // Dedup: skip if a render happened within the last 30 minutes
+    const latest = pipeline.getStore().getLatest();
+    if (latest) {
+      const ageMs = Date.now() - new Date(latest.createdAt).getTime();
+      if (ageMs < 30 * 60 * 1000) {
+        res.json({ triggered: false, reason: "Recent generation exists", latestId: latest.id });
+        return;
+      }
+    }
+
+    try {
+      const result = await scheduler.runNow();
+      res.json({
+        triggered: true,
+        metadata: result.metadata,
+        imageUrl: `/api/outputs/${result.metadata.id}`,
+      });
+    } catch (err) {
+      console.error(`[${new Date().toISOString()}] Trigger error:`, err instanceof Error ? err.message : err);
+      res.status(500).json({ error: "Trigger generation failed" });
+    }
+  });
+
   // --- POST /api/override ---
   app.post("/api/override", async (req: Request, res: Response) => {
     try {
