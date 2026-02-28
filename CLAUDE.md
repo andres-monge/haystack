@@ -79,6 +79,8 @@ HAYSTACK_IMAGE_DIR                — Folder of base artworks for daily rotation
 HAYSTACK_LAT                      — Latitude for scheduled weather fetch
 HAYSTACK_LON                      — Longitude for scheduled weather fetch
 HAYSTACK_TIMEZONE                 — IANA timezone (e.g., Europe/Madrid)
+HAYSTACK_ACTIVE_START             — Hour (0–23) when scheduler starts (inclusive, e.g., 9)
+HAYSTACK_ACTIVE_END               — Hour (0–23) when scheduler stops (exclusive, e.g., 21)
 ```
 
 ## Raspberry Pi kiosk setup
@@ -113,7 +115,8 @@ chromium --kiosk --noerrdialogs --disable-infobars --no-first-run --check-for-up
 - `--ozone-platform=wayland` — required, Chromium renders blank white without it
 - `--password-store=basic` — prevents keyring popup on first boot
 - Binary is `chromium`, not `chromium-browser` (Debian/RPi OS naming)
-- Use Mac's IP address (e.g., `192.168.0.20`), not mDNS hostname — Pi may not resolve `.local`
+- Use Mac's IP address (`192.168.0.20`), not mDNS hostname — Pi may not resolve `.local`
+- Mac has a DHCP reservation on the router so `192.168.0.20` is stable across WiFi networks
 
 **Other setup:**
 - Disable screen blanking: `sudo raspi-config nonint do_blanking 1`

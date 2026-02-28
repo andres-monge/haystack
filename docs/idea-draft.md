@@ -258,15 +258,19 @@ Support _at least one_ provider + a clean interface for swapping providers.
 
 ### A4. launchd hourly scheduler
 
-`.plist` file for hourly generation. Runs CLI with real scenario (no overrides). Quiet hours support (00:00–05:00).
+`.plist` file for hourly generation. Triggers generation via the running Express server. Sleep-proof alternative to the in-process `setTimeout` scheduler.
 
-- A background job scheduled hourly using `launchd` (preferred macOS approach; cron is supported but Apple documents `launchd` for scheduled jobs). ([Apple Developer](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/ScheduledJobs.html?utm_source=chatgpt.com "Scheduling Timed Jobs - Apple Developer"))
+- A background job scheduled hourly using `launchd` (preferred macOS approach; survives sleep/wake cycles unlike in-process timers). ([Apple Developer](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/ScheduledJobs.html?utm_source=chatgpt.com "Scheduling Timed Jobs - Apple Developer"))
 
-- Runs the engine with "real scenario" (no overrides)
+- Triggers generation by hitting the server's override endpoint (`curl -X POST http://localhost:4321/api/scheduler/override`). The server handles weather fetch, image generation, and output storage — the kiosk (Phase C) picks up new images automatically.
 
-- Logs success/failure, keeps last applied wallpaper path.
+- Active hours enforced server-side via `HAYSTACK_ACTIVE_START` / `HAYSTACK_ACTIVE_END` env vars.
 
-- Optional quiet window: 00:00–05:00 (skip generation/apply)
+- Logs output to `~/.haystack/launchd.log` for debugging.
+
+- **Why curl instead of CLI:** The kiosk depends on the Express server's output store. Running the CLI directly would bypass the server and generate to a separate pipeline the kiosk can't see. Using curl keeps a single generation path.
+
+- **Future (A3):** When wallpaper apply is added, `desktoppr` can be called server-side after generation or the plist command can be replaced with a wrapper script that does both.
 
 ### Phase A: General requirements
 
