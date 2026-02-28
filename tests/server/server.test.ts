@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
+import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import request from "supertest";
@@ -761,6 +762,79 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe("Trigger generation failed");
+    });
+
+    it("skips dedup when createdAt is corrupted (NaN guard)", async () => {
+      const corruptMeta = makeMetadata({ createdAt: "not-a-date" });
+      vi.mocked(pipeline.getStore().getLatest).mockReturnValue(corruptMeta);
+
+      const { app } = createAppWithTriggerScheduler();
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(200);
+      expect(res.body.triggered).toBe(false);
+      expect(res.body.reason).toBe("Recent generation exists");
+    });
+
+    it("returns triggered: false when generation already in progress", async () => {
+      let resolveGeneration!: (value: ReturnType<typeof makeGenerateResult>) => void;
+      const mockScheduler = {
+        start: vi.fn(),
+        stop: vi.fn(),
+        runNow: vi.fn().mockImplementation(
+          () => new Promise((resolve) => { resolveGeneration = resolve; }),
+        ),
+        isRunning: vi.fn().mockReturnValue(true),
+        isInActiveHours: vi.fn().mockReturnValue(true),
+      } as unknown as HourlyScheduler;
+
+      const app = createApp({ pipeline, weatherProvider, outputDir, scheduler: mockScheduler });
+
+      // Use native http to test concurrent requests — supertest serializes
+      // on keep-alive connections, making true concurrency impossible.
+      const server = app.listen(0);
+      const port = (server.address() as { port: number }).port;
+
+      function postTrigger(): Promise<{ status: number; body: Record<string, unknown> }> {
+        return new Promise((resolve, reject) => {
+          const req = http.request(
+            { hostname: "127.0.0.1", port, path: "/api/scheduler/trigger", method: "POST" },
+            (res) => {
+              let data = "";
+              res.on("data", (chunk: string) => { data += chunk; });
+              res.on("end", () => {
+                resolve({ status: res.statusCode!, body: JSON.parse(data) });
+              });
+            },
+          );
+          req.on("error", reject);
+          req.end();
+        });
+      }
+
+      try {
+        // Fire first request (will block on runNow)
+        const first = postTrigger();
+
+        // Wait for the first request to enter the handler and set triggerInFlight
+        await new Promise((r) => setTimeout(r, 100));
+
+        // Fire second request while first is in-flight
+        const second = await postTrigger();
+
+        expect(second.status).toBe(200);
+        expect(second.body.triggered).toBe(false);
+        expect(second.body.reason).toBe("Generation already in progress");
+
+        // Resolve the first request so it completes cleanly
+        resolveGeneration(makeGenerateResult());
+        const firstRes = await first;
+        expect(firstRes.status).toBe(200);
+        expect(firstRes.body.triggered).toBe(true);
+      } finally {
+        server.close();
+      }
     });
   });
 

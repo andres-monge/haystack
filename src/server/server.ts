@@ -14,6 +14,7 @@ import { buildScenario, computeSunMoon } from "./scenario-builder.js";
 
 const VALID_ID_PATTERN = /^[a-zA-Z0-9_\-]+$/;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
+const DEDUP_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
 
 export interface CreateAppConfig {
   pipeline: Pipeline;
@@ -321,6 +322,8 @@ export function createApp(config: CreateAppConfig): Express {
   });
 
   // --- POST /api/scheduler/trigger ---
+  let triggerInFlight = false;
+
   app.post("/api/scheduler/trigger", async (_req: Request, res: Response) => {
     if (!scheduler) {
       res.status(503).json({ error: "Scheduler not configured" });
@@ -329,12 +332,14 @@ export function createApp(config: CreateAppConfig): Express {
 
     // Respect Lab UI pause — if the user paused the scheduler, don't trigger
     if (!scheduler.isRunning()) {
+      console.log(`[${new Date().toISOString()}] Trigger skipped: scheduler paused`);
       res.json({ triggered: false, reason: "Scheduler paused" });
       return;
     }
 
     // Respect active hours
     if (!scheduler.isInActiveHours()) {
+      console.log(`[${new Date().toISOString()}] Trigger skipped: outside active hours`);
       res.json({ triggered: false, reason: "Outside active hours" });
       return;
     }
@@ -343,14 +348,24 @@ export function createApp(config: CreateAppConfig): Express {
     const latest = pipeline.getStore().getLatest();
     if (latest) {
       const ageMs = Date.now() - new Date(latest.createdAt).getTime();
-      if (ageMs < 30 * 60 * 1000) {
+      if (!Number.isFinite(ageMs) || ageMs < DEDUP_WINDOW_MS) {
+        console.log(`[${new Date().toISOString()}] Trigger skipped: recent generation exists (${latest.id})`);
         res.json({ triggered: false, reason: "Recent generation exists", latestId: latest.id });
         return;
       }
     }
 
+    // Prevent curl retry stacking — if a generation is already in progress, skip
+    if (triggerInFlight) {
+      console.log(`[${new Date().toISOString()}] Trigger skipped: generation already in progress`);
+      res.json({ triggered: false, reason: "Generation already in progress" });
+      return;
+    }
+
+    triggerInFlight = true;
     try {
       const result = await scheduler.runNow();
+      console.log(`[${new Date().toISOString()}] Trigger generation complete: ${result.metadata.id}`);
       res.json({
         triggered: true,
         metadata: result.metadata,
@@ -359,6 +374,8 @@ export function createApp(config: CreateAppConfig): Express {
     } catch (err) {
       console.error(`[${new Date().toISOString()}] Trigger error:`, err instanceof Error ? err.message : err);
       res.status(500).json({ error: "Trigger generation failed" });
+    } finally {
+      triggerInFlight = false;
     }
   });
 
