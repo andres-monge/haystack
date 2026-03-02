@@ -7,9 +7,15 @@ import {
   resetImageCache,
   resetStateDir,
   setStateDir,
-  getDayOfYear,
+  getDateString,
   reconcileQueue,
 } from "../../src/server/image-rotation.js";
+
+interface RotationState {
+  queue: string[];
+  position: number;
+  lastDate: string;
+}
 
 describe("getImageForToday", () => {
   let tmpDir: string;
@@ -28,12 +34,12 @@ describe("getImageForToday", () => {
     fs.rmSync(stateDir, { recursive: true, force: true });
   });
 
-  function readState() {
+  function readState(): RotationState {
     const raw = fs.readFileSync(
       path.join(stateDir, "rotation-state.json"),
       "utf-8",
     );
-    return JSON.parse(raw);
+    return JSON.parse(raw) as RotationState;
   }
 
   it("returns null for a missing directory", () => {
@@ -167,9 +173,8 @@ describe("getImageForToday", () => {
       // Day 1: initializes at a.jpg
       getImageForToday(tmpDir, undefined, new Date(2026, 0, 1));
 
-      // Simulate restart: reset in-memory cache, state file remains
+      // Simulate restart: reset in-memory cache, state file remains on disk
       resetImageCache();
-      setStateDir(stateDir); // re-set since resetImageCache clears it
 
       // Day 2: should load from disk and advance to b.jpg
       const result = getImageForToday(tmpDir, undefined, new Date(2026, 0, 2));
@@ -190,12 +195,55 @@ describe("getImageForToday", () => {
     it("handles state file with missing fields by reinitializing", () => {
       fs.writeFileSync(
         path.join(stateDir, "rotation-state.json"),
-        JSON.stringify({ queue: ["a.jpg"] }), // missing position and lastDay
+        JSON.stringify({ queue: ["a.jpg"] }), // missing position and lastDate
       );
       fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
 
       const result = getImageForToday(tmpDir);
       expect(result).not.toBeNull();
+    });
+
+    it("handles state file with non-string queue elements by reinitializing", () => {
+      fs.writeFileSync(
+        path.join(stateDir, "rotation-state.json"),
+        JSON.stringify({
+          queue: [42, null, "a.jpg"],
+          position: 0,
+          lastDate: "2026-01-01",
+        }),
+      );
+      fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+
+      const result = getImageForToday(tmpDir);
+      expect(result).toBe(path.join(tmpDir, "a.jpg"));
+    });
+
+    it("handles state file with out-of-bounds position", () => {
+      fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+      fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+
+      fs.writeFileSync(
+        path.join(stateDir, "rotation-state.json"),
+        JSON.stringify({
+          queue: ["a.jpg", "b.jpg"],
+          position: 999,
+          lastDate: "2026-01-01",
+        }),
+      );
+
+      // position 999 should be clamped to 0, then advance to 1 on new day
+      const result = getImageForToday(tmpDir, undefined, new Date(2026, 0, 2));
+      expect(result).not.toBeNull();
+      const state = readState();
+      expect(state.position).toBeLessThan(state.queue.length);
+    });
+
+    it("stores lastDate as ISO date string", () => {
+      fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+
+      getImageForToday(tmpDir, undefined, new Date(2026, 2, 2)); // Mar 2
+      const state = readState();
+      expect(state.lastDate).toBe("2026-03-02");
     });
   });
 
@@ -456,23 +504,38 @@ describe("reconcileQueue", () => {
   });
 });
 
-describe("getDayOfYear", () => {
-  it("returns 1 for January 1", () => {
-    expect(getDayOfYear(new Date(2026, 0, 1))).toBe(1);
+describe("getDateString", () => {
+  it("returns ISO date for a given date", () => {
+    expect(getDateString(new Date(2026, 0, 1))).toBe("2026-01-01");
   });
 
-  it("returns 365 for December 31 (non-leap year)", () => {
-    expect(getDayOfYear(new Date(2026, 11, 31))).toBe(365);
+  it("pads month and day with zeros", () => {
+    expect(getDateString(new Date(2026, 2, 2))).toBe("2026-03-02");
+  });
+
+  it("returns December 31 correctly", () => {
+    expect(getDateString(new Date(2026, 11, 31))).toBe("2026-12-31");
   });
 
   it("respects timezone when provided", () => {
     // Feb 26 at 23:30 UTC = Feb 27 at 00:30 in Europe/Madrid
     const utcLateNight = new Date("2026-02-26T23:30:00Z");
 
-    const dayUTC = getDayOfYear(utcLateNight, "UTC");
-    const dayMadrid = getDayOfYear(utcLateNight, "Europe/Madrid");
+    const dateUTC = getDateString(utcLateNight, "UTC");
+    const dateMadrid = getDateString(utcLateNight, "Europe/Madrid");
 
-    expect(dayUTC).toBe(57); // Feb 26
-    expect(dayMadrid).toBe(58); // Feb 27
+    expect(dateUTC).toBe("2026-02-26");
+    expect(dateMadrid).toBe("2026-02-27");
+  });
+
+  it("handles year boundary correctly", () => {
+    // Dec 31 at 23:30 UTC = Jan 1 at 00:30 in Europe/Madrid
+    const newYearsEve = new Date("2026-12-31T23:30:00Z");
+
+    const dateUTC = getDateString(newYearsEve, "UTC");
+    const dateMadrid = getDateString(newYearsEve, "Europe/Madrid");
+
+    expect(dateUTC).toBe("2026-12-31");
+    expect(dateMadrid).toBe("2027-01-01");
   });
 });

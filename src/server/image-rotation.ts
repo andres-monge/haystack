@@ -10,12 +10,16 @@ const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 interface RotationState {
   queue: string[];
   position: number;
-  lastDay: number;
+  /** ISO date string (YYYY-MM-DD) of the last day the position was advanced. */
+  lastDate: string;
 }
 
 /** In-memory cache: avoids re-reading disk on every hourly tick within the same day. */
-let cachedSelection: { day: number; imageDir: string; path: string } | null =
-  null;
+let cachedSelection: {
+  date: string;
+  imageDir: string;
+  path: string;
+} | null = null;
 
 /** Override for state file directory (testing). */
 let stateDirOverride: string | null = null;
@@ -40,7 +44,7 @@ function getStateFilePath(): string {
   return path.join(dir, "rotation-state.json");
 }
 
-/** Read state from disk, or return null if missing/corrupt. */
+/** Read state from disk, or return null if missing/corrupt/invalid. */
 function loadState(): RotationState | null {
   const filePath = getStateFilePath();
   try {
@@ -48,8 +52,14 @@ function loadState(): RotationState | null {
     const parsed = JSON.parse(raw);
     if (
       Array.isArray(parsed.queue) &&
+      parsed.queue.every(
+        (e: unknown) => typeof e === "string" && e.length > 0,
+      ) &&
       typeof parsed.position === "number" &&
-      typeof parsed.lastDay === "number"
+      Number.isInteger(parsed.position) &&
+      parsed.position >= 0 &&
+      typeof parsed.lastDate === "string" &&
+      parsed.lastDate.length > 0
     ) {
       return parsed as RotationState;
     }
@@ -59,7 +69,7 @@ function loadState(): RotationState | null {
   }
 }
 
-/** Atomic write: temp file → rename. */
+/** Atomic write: temp file → rename. Logs warning on failure. */
 function saveState(state: RotationState): void {
   const filePath = getStateFilePath();
   const dir = path.dirname(filePath);
@@ -86,7 +96,7 @@ function scanImages(imageDir: string): string[] | null {
 
   return entries
     .filter((entry) => {
-      if (!entry.isFile()) return false;
+      if (!entry.isFile() || entry.isSymbolicLink()) return false;
       if (entry.name.startsWith(".")) return false;
       const ext = path.extname(entry.name).toLowerCase();
       return IMAGE_EXTENSIONS.has(ext);
@@ -128,9 +138,7 @@ export function reconcileQueue(
   }
 
   // Find new images not yet in the queue
-  const newImages = currentFiles
-    .filter((f) => !existingSet.has(f))
-    .sort();
+  const newImages = currentFiles.filter((f) => !existingSet.has(f)).sort();
 
   if (newImages.length === 0) {
     return { queue: filtered, position: newPos };
@@ -161,12 +169,12 @@ export function getImageForToday(
   timezone?: string,
   now?: Date,
 ): string | null {
-  const day = getDayOfYear(now ?? new Date(), timezone);
+  const today = getDateString(now ?? new Date(), timezone);
 
   // Fast path: in-memory cache for same day
   if (
     cachedSelection &&
-    cachedSelection.day === day &&
+    cachedSelection.date === today &&
     cachedSelection.imageDir === imageDir &&
     fs.existsSync(cachedSelection.path)
   ) {
@@ -179,36 +187,61 @@ export function getImageForToday(
 
   // Load or initialize state
   let state = loadState();
+  let dirty = false;
+
   if (!state) {
-    state = { queue: currentFiles, position: 0, lastDay: day };
+    state = { queue: currentFiles, position: 0, lastDate: today };
+    dirty = true;
   }
 
   // Reconcile queue with current files on disk
   const reconciled = reconcileQueue(state.queue, state.position, currentFiles);
-  state.queue = reconciled.queue;
-  state.position = reconciled.position;
+  if (
+    reconciled.queue !== state.queue ||
+    reconciled.position !== state.position
+  ) {
+    state.queue = reconciled.queue;
+    state.position = reconciled.position;
+    dirty = true;
+  }
 
   if (state.queue.length === 0) return null;
 
-  // Advance position if it's a new day
-  if (day !== state.lastDay) {
-    state.position = (state.position + 1) % state.queue.length;
-    state.lastDay = day;
+  // Clamp position in case state file was hand-edited or corrupted
+  if (state.position >= state.queue.length) {
+    state.position = 0;
+    dirty = true;
   }
 
-  // Persist and cache
-  saveState(state);
+  // Advance position if it's a new day
+  if (today !== state.lastDate) {
+    state.position = (state.position + 1) % state.queue.length;
+    state.lastDate = today;
+    dirty = true;
+  }
+
+  // Persist (only if changed) and cache
+  if (dirty) {
+    try {
+      saveState(state);
+    } catch (err: unknown) {
+      console.warn(
+        `[${new Date().toISOString()}] Failed to save rotation state: ${err instanceof Error ? err.message : err}`,
+      );
+    }
+  }
+
   const selected = path.join(imageDir, state.queue[state.position]);
-  cachedSelection = { day, imageDir, path: selected };
+  cachedSelection = { date: today, imageDir, path: selected };
   return selected;
 }
 
 /**
- * Returns 1-based day of year (Jan 1 = 1, Dec 31 = 365/366).
+ * Returns an ISO date string (YYYY-MM-DD) for the given date.
  * When timezone is provided, uses Intl to determine the calendar day
  * in that timezone rather than the system's local time.
  */
-export function getDayOfYear(date: Date, timezone?: string): number {
+export function getDateString(date: Date, timezone?: string): string {
   let year: number;
   let month: number;
   let day: number;
@@ -230,10 +263,7 @@ export function getDayOfYear(date: Date, timezone?: string): number {
     day = date.getDate();
   }
 
-  // Compute day-of-year from year/month/day
-  const start = new Date(year, 0, 0);
-  const target = new Date(year, month - 1, day);
-  const diff = target.getTime() - start.getTime();
-  const oneDay = 1000 * 60 * 60 * 24;
-  return Math.floor(diff / oneDay);
+  const mm = String(month).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
 }
