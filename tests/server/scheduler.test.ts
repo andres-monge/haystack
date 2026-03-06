@@ -10,7 +10,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { HourlyScheduler, type SchedulerConfig } from "../../src/server/scheduler.js";
-import { resetImageCache } from "../../src/server/image-rotation.js";
+import { resetImageCache, setStateDir, resetStateDir } from "../../src/server/image-rotation.js";
 import { clearWeatherCache } from "../../src/server/scenario-builder.js";
 import {
   makeGenerateResult,
@@ -31,6 +31,7 @@ function createSchedulerConfig(overrides: Partial<SchedulerConfig> = {}): Schedu
 
 describe("HourlyScheduler", () => {
   let tmpDir: string;
+  let stateDir: string;
   let consoleLogSpy: ReturnType<typeof vi.spyOn>;
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
 
@@ -39,6 +40,8 @@ describe("HourlyScheduler", () => {
     resetImageCache();
     clearWeatherCache();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-sched-test-"));
+    stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-sched-state-"));
+    setStateDir(stateDir);
     fs.writeFileSync(path.join(tmpDir, "art1.jpg"), "fake-image-data");
     fs.writeFileSync(path.join(tmpDir, "art2.png"), "fake-image-data");
 
@@ -49,7 +52,9 @@ describe("HourlyScheduler", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    resetStateDir();
     fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(stateDir, { recursive: true, force: true });
     consoleLogSpy.mockRestore();
     consoleErrorSpy.mockRestore();
   });
