@@ -237,6 +237,27 @@ export function getImageForToday(
 }
 
 /**
+ * Returns alternate image paths from the directory, excluding any in `skipFiles`.
+ *
+ * Used by the scheduler when the primary image is rejected by Gemini
+ * (e.g. IMAGE_OTHER for copyrighted artwork). Returns full paths in
+ * queue order, skipping filenames that match the basenames in `skipFiles`.
+ * Does not mutate persisted rotation state.
+ */
+export function getAlternateImages(
+  imageDir: string,
+  skipFiles: string[],
+): string[] {
+  const currentFiles = scanImages(imageDir);
+  if (!currentFiles || currentFiles.length === 0) return [];
+
+  const skipSet = new Set(skipFiles.map((f) => path.basename(f)));
+  return currentFiles
+    .filter((f) => !skipSet.has(f))
+    .map((f) => path.join(imageDir, f));
+}
+
+/**
  * Returns an ISO date string (YYYY-MM-DD) for the given date.
  * When timezone is provided, uses Intl to determine the calendar day
  * in that timezone rather than the system's local time.

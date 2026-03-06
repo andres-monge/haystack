@@ -5,7 +5,7 @@ import type { GenerateResult } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
 import { composePromptFromText } from "../engine/prompt.js";
 import { describeScenario } from "../engine/scenario.js";
-import { getImageForToday } from "./image-rotation.js";
+import { getImageForToday, getAlternateImages } from "./image-rotation.js";
 import { buildScheduledScenario } from "./scenario-builder.js";
 import { getCurrentHourInTimezone } from "./timezone.js";
 
@@ -152,6 +152,10 @@ export class HourlyScheduler {
 
   /**
    * Run a single generation tick.
+   *
+   * When the primary image is rejected by Gemini (IMAGE_OTHER — typically
+   * copyrighted artwork), automatically tries alternate images from the
+   * rotation queue before giving up.
    */
   private async tick(scenarioOverride?: string): Promise<GenerateResult> {
     const { pipeline, weatherProvider, imageDir, location } = this.config;
@@ -164,20 +168,7 @@ export class HourlyScheduler {
       );
     }
 
-    if (scenarioOverride) {
-      // Override mode: use the provided text as the scenario description.
-      // Build a minimal scenario with current time, then override the prompt.
-      const scenario = await buildScheduledScenario(
-        location.lat,
-        location.lon,
-        location.timezone,
-        weatherProvider,
-      );
-      const prompt = composePromptFromText(scenarioOverride);
-      return pipeline.generate(imagePath, scenario, prompt);
-    }
-
-    // Normal mode: build scenario from real weather + time + sun/moon
+    // Build scenario once — reused across fallback attempts
     const scenario = await buildScheduledScenario(
       location.lat,
       location.lon,
@@ -185,10 +176,55 @@ export class HourlyScheduler {
       weatherProvider,
     );
 
-    console.log(
-      `[${new Date().toISOString()}] Generating: ${describeScenario(scenario)} | image: ${imagePath}`,
-    );
+    // Try the primary image first, then fall back to alternates on IMAGE_OTHER
+    const imagesToTry = [imagePath];
+    const skipped: string[] = [];
+    let lastError: Error | undefined;
 
-    return pipeline.generate(imagePath, scenario);
+    for (const img of imagesToTry) {
+      try {
+        if (scenarioOverride) {
+          const prompt = composePromptFromText(scenarioOverride);
+          return await pipeline.generate(img, scenario, prompt);
+        }
+
+        console.log(
+          `[${new Date().toISOString()}] Generating: ${describeScenario(scenario)} | image: ${img}`,
+        );
+
+        return await pipeline.generate(img, scenario);
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+
+        if (!isImageRejection(lastError)) {
+          // Non-rejection error (timeout, network, etc.) — don't try other images
+          throw lastError;
+        }
+
+        // IMAGE_OTHER: this artwork was rejected — try alternates
+        console.warn(
+          `[${new Date().toISOString()}] Image rejected by Gemini: ${img} — trying fallback`,
+        );
+        skipped.push(img);
+
+        // Lazily populate alternates only when needed
+        if (imagesToTry.length === 1) {
+          const alternates = getAlternateImages(imageDir, skipped);
+          imagesToTry.push(...alternates);
+        }
+      }
+    }
+
+    // All images exhausted
+    throw lastError ?? new Error("No images available for generation");
   }
+}
+
+/**
+ * Detect whether a pipeline error is an image rejection (IMAGE_OTHER)
+ * as opposed to a transient failure (timeout, network error, etc.).
+ * Only rejection errors should trigger fallback to an alternate image.
+ */
+function isImageRejection(err: Error): boolean {
+  return err.message.includes("IMAGE_OTHER");
 }

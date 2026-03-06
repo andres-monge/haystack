@@ -4,6 +4,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import {
   getImageForToday,
+  getAlternateImages,
   resetImageCache,
   resetStateDir,
   setStateDir,
@@ -501,6 +502,75 @@ describe("reconcileQueue", () => {
     const result = reconcileQueue(["a.jpg", "b.jpg"], 0, []);
     expect(result.queue).toEqual([]);
     expect(result.position).toBe(0);
+  });
+});
+
+describe("getAlternateImages", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-alt-test-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("returns all images except the skipped ones", () => {
+    fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "b.png"), "");
+    fs.writeFileSync(path.join(tmpDir, "c.webp"), "");
+
+    const result = getAlternateImages(tmpDir, [path.join(tmpDir, "a.jpg")]);
+    expect(result).toEqual([
+      path.join(tmpDir, "b.png"),
+      path.join(tmpDir, "c.webp"),
+    ]);
+  });
+
+  it("accepts basenames in skipFiles", () => {
+    fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+
+    // Full path with different prefix — should still skip by basename
+    const result = getAlternateImages(tmpDir, ["/other/dir/a.jpg"]);
+    expect(result).toEqual([path.join(tmpDir, "b.jpg")]);
+  });
+
+  it("returns empty array when all images are skipped", () => {
+    fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+
+    const result = getAlternateImages(tmpDir, [path.join(tmpDir, "a.jpg")]);
+    expect(result).toEqual([]);
+  });
+
+  it("returns empty array for missing directory", () => {
+    const result = getAlternateImages("/nonexistent/path", []);
+    expect(result).toEqual([]);
+  });
+
+  it("returns empty array for empty directory", () => {
+    const result = getAlternateImages(tmpDir, []);
+    expect(result).toEqual([]);
+  });
+
+  it("returns all images when skipFiles is empty", () => {
+    fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+
+    const result = getAlternateImages(tmpDir, []);
+    expect(result).toEqual([
+      path.join(tmpDir, "a.jpg"),
+      path.join(tmpDir, "b.jpg"),
+    ]);
+  });
+
+  it("ignores non-image files", () => {
+    fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "readme.md"), "");
+
+    const result = getAlternateImages(tmpDir, []);
+    expect(result).toEqual([path.join(tmpDir, "a.jpg")]);
   });
 });
 

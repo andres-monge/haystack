@@ -269,6 +269,72 @@ describe("HourlyScheduler", () => {
       scheduler.stop();
     });
 
+    it("falls back to alternate image on IMAGE_OTHER rejection", async () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      vi.mocked(config.pipeline.generate)
+        .mockRejectedValueOnce(
+          new Error("Gemini did not return an image (finishReason: IMAGE_OTHER)"),
+        )
+        .mockResolvedValueOnce(makeGenerateResult({ id: "fallback_success" }));
+
+      const scheduler = new HourlyScheduler(config);
+
+      const result = await scheduler.runNow();
+
+      // First call failed (art1.jpg), second call succeeded (art2.png)
+      expect(config.pipeline.generate).toHaveBeenCalledTimes(2);
+      expect(result.metadata.id).toBe("fallback_success");
+
+      // Verify the second call used a different image
+      const calls = vi.mocked(config.pipeline.generate).mock.calls;
+      const firstImage = calls[0][0] as string;
+      const secondImage = calls[1][0] as string;
+      expect(firstImage).not.toBe(secondImage);
+    });
+
+    it("does NOT fallback on non-rejection errors (e.g. timeout)", async () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      vi.mocked(config.pipeline.generate).mockRejectedValue(
+        new Error("Gemini API call timed out"),
+      );
+
+      const scheduler = new HourlyScheduler(config);
+
+      await expect(scheduler.runNow()).rejects.toThrow("timed out");
+      // Should only try once — no fallback for transient errors
+      expect(config.pipeline.generate).toHaveBeenCalledOnce();
+    });
+
+    it("throws when all images are rejected with IMAGE_OTHER", async () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      vi.mocked(config.pipeline.generate).mockRejectedValue(
+        new Error("Gemini did not return an image (finishReason: IMAGE_OTHER)"),
+      );
+
+      const scheduler = new HourlyScheduler(config);
+
+      await expect(scheduler.runNow()).rejects.toThrow("IMAGE_OTHER");
+      // Should try primary + all alternates (2 files total in tmpDir)
+      expect(config.pipeline.generate).toHaveBeenCalledTimes(2);
+    });
+
+    it("logs a warning when falling back to alternate image", async () => {
+      const consoleWarnSpy = vi.spyOn(console, "warn");
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      vi.mocked(config.pipeline.generate)
+        .mockRejectedValueOnce(
+          new Error("Gemini did not return an image (finishReason: IMAGE_OTHER)"),
+        )
+        .mockResolvedValueOnce(makeGenerateResult());
+
+      const scheduler = new HourlyScheduler(config);
+      await scheduler.runNow();
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Image rejected by Gemini"),
+      );
+    });
+
     it("falls back to time-only scenario when weather fetch fails", async () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
       vi.mocked(config.weatherProvider.getHourlyConditions)
