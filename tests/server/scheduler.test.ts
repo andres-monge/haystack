@@ -335,6 +335,32 @@ describe("HourlyScheduler", () => {
       );
     });
 
+    it("falls back to alternate image with scenarioOverride on IMAGE_OTHER", async () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      vi.mocked(config.pipeline.generate)
+        .mockRejectedValueOnce(
+          new Error("Gemini did not return an image (finishReason: IMAGE_OTHER)"),
+        )
+        .mockResolvedValueOnce(makeGenerateResult({ id: "override_fallback" }));
+
+      const scheduler = new HourlyScheduler(config);
+
+      const result = await scheduler.runNow("A stormy night scene");
+
+      expect(config.pipeline.generate).toHaveBeenCalledTimes(2);
+      expect(result.metadata.id).toBe("override_fallback");
+
+      // Verify the override prompt was passed to the fallback image
+      const calls = vi.mocked(config.pipeline.generate).mock.calls;
+      const secondPrompt = calls[1][2] as string | undefined;
+      expect(secondPrompt).toContain("A stormy night scene");
+
+      // Verify different image was used
+      const firstImage = calls[0][0] as string;
+      const secondImage = calls[1][0] as string;
+      expect(firstImage).not.toBe(secondImage);
+    });
+
     it("falls back to time-only scenario when weather fetch fails", async () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
       vi.mocked(config.weatherProvider.getHourlyConditions)

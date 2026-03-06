@@ -176,23 +176,23 @@ export class HourlyScheduler {
       weatherProvider,
     );
 
+    // Pre-compute prompt once for override mode (invariant across fallback attempts)
+    const prompt = scenarioOverride
+      ? composePromptFromText(scenarioOverride)
+      : undefined;
+
     // Try the primary image first, then fall back to alternates on IMAGE_OTHER
     const imagesToTry = [imagePath];
-    const skipped: string[] = [];
     let lastError: Error | undefined;
 
-    for (const img of imagesToTry) {
+    for (let i = 0; i < imagesToTry.length; i++) {
+      const img = imagesToTry[i];
       try {
-        if (scenarioOverride) {
-          const prompt = composePromptFromText(scenarioOverride);
-          return await pipeline.generate(img, scenario, prompt);
-        }
-
         console.log(
           `[${new Date().toISOString()}] Generating: ${describeScenario(scenario)} | image: ${img}`,
         );
 
-        return await pipeline.generate(img, scenario);
+        return await pipeline.generate(img, scenario, prompt);
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
 
@@ -205,11 +205,10 @@ export class HourlyScheduler {
         console.warn(
           `[${new Date().toISOString()}] Image rejected by Gemini: ${img} — trying fallback`,
         );
-        skipped.push(img);
 
-        // Lazily populate alternates only when needed
+        // Lazily populate alternates only on first rejection
         if (imagesToTry.length === 1) {
-          const alternates = getAlternateImages(imageDir, skipped);
+          const alternates = getAlternateImages(imageDir, [img]);
           imagesToTry.push(...alternates);
         }
       }

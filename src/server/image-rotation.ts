@@ -241,7 +241,7 @@ export function getImageForToday(
  *
  * Used by the scheduler when the primary image is rejected by Gemini
  * (e.g. IMAGE_OTHER for copyrighted artwork). Returns full paths in
- * queue order, skipping filenames that match the basenames in `skipFiles`.
+ * alphabetical order, skipping filenames that match the basenames in `skipFiles`.
  * Does not mutate persisted rotation state.
  */
 export function getAlternateImages(
