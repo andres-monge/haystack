@@ -25,7 +25,7 @@ export interface CreateAppConfig {
 
 /** Detect Gemini rate-limit / quota errors so we can return 429 instead of 500. */
 function isRateLimitError(message: string): boolean {
-  return message.includes("RESOURCE_EXHAUSTED") || message.includes("429");
+  return message.includes("RESOURCE_EXHAUSTED") || message.includes('"code":429');
 }
 
 export function createApp(config: CreateAppConfig): Express {
@@ -416,11 +416,16 @@ export function createApp(config: CreateAppConfig): Express {
         imageUrl: `/api/outputs/${result.metadata.id}`,
       });
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       console.error(
         `[${new Date().toISOString()}] Override error:`,
-        err instanceof Error ? err.message : err,
+        message,
       );
-      res.status(500).json({ error: "Override generation failed" });
+      if (isRateLimitError(message)) {
+        res.status(429).json({ error: "Rate limited — try again later" });
+      } else {
+        res.status(500).json({ error: "Override generation failed" });
+      }
     }
   });
 

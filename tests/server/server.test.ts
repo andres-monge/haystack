@@ -922,7 +922,7 @@ describe("Express API Server", () => {
       expect(mockScheduler.runNow).toHaveBeenCalledWith("A stormy night scene");
     });
 
-    it("returns 500 when scheduler.runNow throws", async () => {
+    it("returns 500 when scheduler.runNow throws with non-rate-limit error", async () => {
       const { app, mockScheduler } = createAppWithScheduler();
       vi.mocked(mockScheduler.runNow).mockRejectedValue(
         new Error("Generation failed"),
@@ -934,6 +934,20 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe("Override generation failed");
+    });
+
+    it("returns 429 when scheduler.runNow throws with rate limit error", async () => {
+      const { app, mockScheduler } = createAppWithScheduler();
+      vi.mocked(mockScheduler.runNow).mockRejectedValue(
+        new Error('{"error":{"code":429,"message":"Resource has been exhausted (e.g. check quota).","status":"RESOURCE_EXHAUSTED"}}'),
+      );
+
+      const res = await request(app)
+        .post("/api/override")
+        .send({ scenario: "A rainy day" });
+
+      expect(res.status).toBe(429);
+      expect(res.body.error).toContain("Rate limited");
     });
 
     it("accepts scenario with HTML-like content (stored verbatim)", async () => {
