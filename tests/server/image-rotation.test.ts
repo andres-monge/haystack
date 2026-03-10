@@ -507,19 +507,35 @@ describe("reconcileQueue", () => {
 
 describe("getAlternateImages", () => {
   let tmpDir: string;
+  let stateDir: string;
 
   beforeEach(() => {
+    resetImageCache();
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-alt-test-"));
+    stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-alt-state-"));
+    setStateDir(stateDir);
   });
 
   afterEach(() => {
+    resetStateDir();
     fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(stateDir, { recursive: true, force: true });
   });
 
-  it("returns all images except the skipped ones", () => {
+  function writeState(state: RotationState): void {
+    fs.writeFileSync(
+      path.join(stateDir, "rotation-state.json"),
+      JSON.stringify(state, null, 2),
+    );
+  }
+
+  it("returns images in queue order starting after current position", () => {
     fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
     fs.writeFileSync(path.join(tmpDir, "b.png"), "");
     fs.writeFileSync(path.join(tmpDir, "c.webp"), "");
+
+    // Position 0 = a.jpg, so alternates should start from b, then c
+    writeState({ queue: ["a.jpg", "b.png", "c.webp"], position: 0, lastDate: "2026-03-10" });
 
     const result = getAlternateImages(tmpDir, [path.join(tmpDir, "a.jpg")]);
     expect(result).toEqual([
@@ -528,9 +544,32 @@ describe("getAlternateImages", () => {
     ]);
   });
 
+  it("wraps around the queue when position is near the end", () => {
+    fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "d.jpg"), "");
+
+    // Position 2 = c.jpg, so alternates should be: d, a, b (wrapping around)
+    writeState({
+      queue: ["a.jpg", "b.jpg", "c.jpg", "d.jpg"],
+      position: 2,
+      lastDate: "2026-03-10",
+    });
+
+    const result = getAlternateImages(tmpDir, [path.join(tmpDir, "c.jpg")]);
+    expect(result).toEqual([
+      path.join(tmpDir, "d.jpg"),
+      path.join(tmpDir, "a.jpg"),
+      path.join(tmpDir, "b.jpg"),
+    ]);
+  });
+
   it("accepts basenames in skipFiles", () => {
     fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
     fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+
+    writeState({ queue: ["a.jpg", "b.jpg"], position: 0, lastDate: "2026-03-10" });
 
     // Full path with different prefix — should still skip by basename
     const result = getAlternateImages(tmpDir, ["/other/dir/a.jpg"]);
@@ -539,6 +578,8 @@ describe("getAlternateImages", () => {
 
   it("returns empty array when all images are skipped", () => {
     fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+
+    writeState({ queue: ["a.jpg"], position: 0, lastDate: "2026-03-10" });
 
     const result = getAlternateImages(tmpDir, [path.join(tmpDir, "a.jpg")]);
     expect(result).toEqual([]);
@@ -554,14 +595,18 @@ describe("getAlternateImages", () => {
     expect(result).toEqual([]);
   });
 
-  it("returns all images when skipFiles is empty", () => {
+  it("returns all images in queue order when skipFiles is empty", () => {
     fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
     fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
+
+    // Position 1 = b.jpg, so order should be: c, a (starting after position 1)
+    writeState({ queue: ["a.jpg", "b.jpg", "c.jpg"], position: 1, lastDate: "2026-03-10" });
 
     const result = getAlternateImages(tmpDir, []);
     expect(result).toEqual([
+      path.join(tmpDir, "c.jpg"),
       path.join(tmpDir, "a.jpg"),
-      path.join(tmpDir, "b.jpg"),
     ]);
   });
 
@@ -569,8 +614,38 @@ describe("getAlternateImages", () => {
     fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
     fs.writeFileSync(path.join(tmpDir, "readme.md"), "");
 
+    writeState({ queue: ["a.jpg"], position: 0, lastDate: "2026-03-10" });
+
     const result = getAlternateImages(tmpDir, []);
-    expect(result).toEqual([path.join(tmpDir, "a.jpg")]);
+    expect(result).toEqual([]);
+  });
+
+  it("falls back to alphabetical order when no rotation state exists", () => {
+    fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
+
+    // No state file written — should use alphabetical fallback
+    const result = getAlternateImages(tmpDir, [path.join(tmpDir, "b.jpg")]);
+    expect(result).toEqual([
+      path.join(tmpDir, "a.jpg"),
+      path.join(tmpDir, "c.jpg"),
+    ]);
+  });
+
+  it("skips queue entries that no longer exist on disk", () => {
+    fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
+    fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
+    // b.jpg is in queue but not on disk
+
+    writeState({
+      queue: ["a.jpg", "b.jpg", "c.jpg"],
+      position: 0,
+      lastDate: "2026-03-10",
+    });
+
+    const result = getAlternateImages(tmpDir, [path.join(tmpDir, "a.jpg")]);
+    expect(result).toEqual([path.join(tmpDir, "c.jpg")]);
   });
 });
 

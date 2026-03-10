@@ -752,7 +752,7 @@ describe("Express API Server", () => {
       expect(mockScheduler.runNow).toHaveBeenCalledOnce();
     });
 
-    it("returns 500 when generation fails", async () => {
+    it("returns 500 when generation fails with non-rate-limit error", async () => {
       const { app, mockScheduler } = createAppWithTriggerScheduler();
       vi.mocked(mockScheduler.runNow).mockRejectedValue(
         new Error("Gemini API error"),
@@ -762,6 +762,18 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe("Trigger generation failed");
+    });
+
+    it("returns 429 when generation fails with rate limit error", async () => {
+      const { app, mockScheduler } = createAppWithTriggerScheduler();
+      vi.mocked(mockScheduler.runNow).mockRejectedValue(
+        new Error('{"error":{"code":429,"message":"Resource has been exhausted (e.g. check quota).","status":"RESOURCE_EXHAUSTED"}}'),
+      );
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(429);
+      expect(res.body.error).toContain("Rate limited");
     });
 
     it("skips dedup when createdAt is corrupted (NaN guard)", async () => {

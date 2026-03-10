@@ -240,8 +240,12 @@ export function getImageForToday(
  * Returns alternate image paths from the directory, excluding any in `skipFiles`.
  *
  * Used by the scheduler when the primary image is rejected by Gemini
- * (e.g. IMAGE_OTHER for copyrighted artwork). Returns full paths in
- * alphabetical order, skipping filenames that match the basenames in `skipFiles`.
+ * (e.g. IMAGE_OTHER). Returns full paths in rotation-queue order starting
+ * from the position after the current image, wrapping around. This ensures
+ * the fallback tries nearby images in the queue (e.g. the next day's image)
+ * rather than always jumping to the alphabetically first file.
+ *
+ * Falls back to alphabetical order if no rotation state exists.
  * Does not mutate persisted rotation state.
  */
 export function getAlternateImages(
@@ -252,9 +256,26 @@ export function getAlternateImages(
   if (!currentFiles || currentFiles.length === 0) return [];
 
   const skipSet = new Set(skipFiles.map((f) => path.basename(f)));
-  return currentFiles
-    .filter((f) => !skipSet.has(f))
-    .map((f) => path.join(imageDir, f));
+  const currentSet = new Set(currentFiles);
+
+  const state = loadState();
+  if (!state || state.queue.length === 0) {
+    // No rotation state — fall back to alphabetical
+    return currentFiles
+      .filter((f) => !skipSet.has(f))
+      .map((f) => path.join(imageDir, f));
+  }
+
+  // Walk the queue starting from position+1, wrapping around
+  const result: string[] = [];
+  for (let i = 1; i < state.queue.length; i++) {
+    const idx = (state.position + i) % state.queue.length;
+    const name = state.queue[idx];
+    if (currentSet.has(name) && !skipSet.has(name)) {
+      result.push(path.join(imageDir, name));
+    }
+  }
+  return result;
 }
 
 /**

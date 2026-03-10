@@ -23,6 +23,11 @@ export interface CreateAppConfig {
   scheduler?: HourlyScheduler;
 }
 
+/** Detect Gemini rate-limit / quota errors so we can return 429 instead of 500. */
+function isRateLimitError(message: string): boolean {
+  return message.includes("RESOURCE_EXHAUSTED") || message.includes("429");
+}
+
 export function createApp(config: CreateAppConfig): Express {
   const { pipeline, weatherProvider, outputDir, scheduler } = config;
   const app = express();
@@ -372,8 +377,13 @@ export function createApp(config: CreateAppConfig): Express {
         imageUrl: `/api/outputs/${result.metadata.id}`,
       });
     } catch (err) {
-      console.error(`[${new Date().toISOString()}] Trigger error:`, err instanceof Error ? err.message : err);
-      res.status(500).json({ error: "Trigger generation failed" });
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`[${new Date().toISOString()}] Trigger error:`, message);
+      if (isRateLimitError(message)) {
+        res.status(429).json({ error: "Rate limited — try again later" });
+      } else {
+        res.status(500).json({ error: "Trigger generation failed" });
+      }
     } finally {
       triggerInFlight = false;
     }
