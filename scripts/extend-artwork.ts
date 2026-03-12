@@ -7,7 +7,7 @@ dotenv.config({ path: ".env.local" });
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { GeminiClient } from "../src/engine/gemini-client.js";
 import { loadConfigFromEnv } from "../src/config/config.js";
 
@@ -33,26 +33,10 @@ function isHeic(buffer: Buffer): boolean {
   );
 }
 
-/**
- * Derive output filename from input path.
- * - Strip directory and extension
- * - Strip existing `-landscape` suffix (prevents foo-landscape-landscape.png)
- * - Sanitize to alphanumeric + dash + underscore
- * - Append `-landscape.png`
- */
+/** Derive output filename: strip extension and existing `-landscape` suffix, append `-landscape.png`. */
 function deriveOutputName(inputPath: string): string {
-  let stem = path.basename(inputPath, path.extname(inputPath));
-  stem = stem.replace(/-landscape$/i, "");
-  stem = stem.replace(/[^a-zA-Z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
-  if (!stem) stem = "artwork";
+  const stem = path.basename(inputPath, path.extname(inputPath)).replace(/-landscape$/i, "");
   return `${stem}-landscape.png`;
-}
-
-/** Atomic write: write to .tmp then rename into place. */
-function atomicWrite(filePath: string, data: Buffer | string): void {
-  const tmp = `${filePath}.tmp`;
-  fs.writeFileSync(tmp, data);
-  fs.renameSync(tmp, filePath);
 }
 
 // --- Main ---
@@ -128,12 +112,12 @@ async function main(): Promise<void> {
   const outputName = deriveOutputName(inputPath);
   const outputPath = path.join(config.imageDir, outputName);
 
-  atomicWrite(outputPath, result.imageBuffer);
+  fs.writeFileSync(outputPath, result.imageBuffer);
 
   // --- Open in Preview (best-effort) ---
 
   try {
-    execSync(`open "${outputPath}"`, { stdio: "ignore" });
+    execFileSync("open", [outputPath], { stdio: "ignore" });
   } catch {
     console.error(`(Could not open Preview — file saved at ${outputPath})`);
   }
@@ -150,9 +134,8 @@ async function main(): Promise<void> {
   console.log(JSON.stringify(output, null, 2));
 }
 
-main().catch((error: Error) => {
-  // Surface common Gemini error patterns
-  const msg = error.message ?? String(error);
+main().catch((error: unknown) => {
+  const msg = error instanceof Error ? error.message : String(error);
 
   if (msg.includes("IMAGE_OTHER") || msg.includes("image_other")) {
     console.error("Error: Gemini rejected the image (likely copyright/IP concern).");
