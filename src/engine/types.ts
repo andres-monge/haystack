@@ -81,10 +81,10 @@ export type AspectRatio =
   | "21:9";
 
 export interface GeminiConfig {
-  model: "gemini-2.5-flash-image" | "gemini-3-pro-image-preview";
+  model: "gemini-2.5-flash-image" | "gemini-3-pro-image-preview" | "gemini-3.1-flash-image-preview";
   /** Optional — omit to let the API match the input image's aspect ratio. */
   aspectRatio?: AspectRatio;
-  imageSize?: "1K" | "2K" | "4K"; // Only for pro model
+  imageSize?: "512" | "1K" | "2K" | "4K"; // Supported by 3.1 Flash and Pro (512 is 3.1 Flash only)
   /** Optional seed for more reproducible outputs. */
   seed?: number;
 }

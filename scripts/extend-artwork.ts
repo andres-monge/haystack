@@ -97,14 +97,15 @@ async function main(): Promise<void> {
   const prompt = customPrompt ?? DEFAULT_PROMPT;
   const client = new GeminiClient(config.googleApiKey);
 
-  console.error(`Model: ${config.defaultModel}`);
+  console.error(`Model: ${config.extendModel}`);
   console.error(`Input: ${inputPath}`);
   console.error(`Prompt: ${prompt.slice(0, 80)}${prompt.length > 80 ? "…" : ""}`);
   console.error("Calling Gemini...");
 
   const result = await client.editImage(inputBuffer, prompt, {
-    model: config.defaultModel,
+    model: config.extendModel,
     aspectRatio: "16:9",
+    imageSize: "2K",
   });
 
   // --- Write output ---
@@ -126,7 +127,7 @@ async function main(): Promise<void> {
 
   const output = {
     outputPath,
-    model: config.defaultModel,
+    model: config.extendModel,
     modelVersion: result.modelVersion,
     responseText: result.responseText,
   };

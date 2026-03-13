@@ -7,6 +7,7 @@ import type { PipelineConfig, GeminiConfig, AspectRatio } from "../engine/types.
 const VALID_MODELS: ReadonlySet<GeminiConfig["model"]> = new Set([
   "gemini-2.5-flash-image",
   "gemini-3-pro-image-preview",
+  "gemini-3.1-flash-image-preview",
 ]);
 
 const VALID_ASPECT_RATIOS: ReadonlySet<AspectRatio> = new Set([
@@ -32,6 +33,8 @@ export interface HaystackConfig {
   activeStart?: number;
   /** Hour (0–23) when scheduled generation stops (exclusive). */
   activeEnd?: number;
+  /** Model used by extend-artwork script (defaults to gemini-3.1-flash-image-preview). */
+  extendModel: GeminiConfig["model"];
 }
 
 function parseIntStrict(raw: string | undefined, fallback: number, name: string): number {
@@ -154,6 +157,7 @@ export function loadConfigFromEnv(): HaystackConfig {
     schedulerLocation: parseSchedulerLocation(process.env),
     activeStart,
     activeEnd,
+    extendModel: parseModel(process.env.HAYSTACK_EXTEND_MODEL ?? "gemini-3.1-flash-image-preview"),
   };
 }
 

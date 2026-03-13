@@ -62,6 +62,7 @@ lab-ui/         — React (Vite) frontend for prompt iteration
 | Model | ID | Use case |
 |-------|----|----------|
 | Flash Image | `gemini-2.5-flash-image` | Fast iteration, hourly updates |
+| 3.1 Flash Image | `gemini-3.1-flash-image-preview` | Extend artwork (2K default), thinking mode |
 | Pro Image | `gemini-3-pro-image-preview` | High quality, up to 4K |
 
 ## Environment variables
@@ -70,6 +71,7 @@ lab-ui/         — React (Vite) frontend for prompt iteration
 GOOGLE_API_KEY or GEMINI_API_KEY  — Required. Gemini API key.
 HAYSTACK_OUTPUT_DIR               — Output directory (default: ~/.haystack/outputs)
 HAYSTACK_MODEL                    — Model ID (default: gemini-2.5-flash-image)
+HAYSTACK_EXTEND_MODEL             — Model for /extend-artwork (default: gemini-3.1-flash-image-preview)
 HAYSTACK_ASPECT_RATIO             — Optional, omit to match input
 HAYSTACK_SEED                     — Optional, for reproducible outputs
 HAYSTACK_MAX_OUTPUTS              — Max stored outputs (default: 24)
