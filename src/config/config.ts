@@ -46,11 +46,11 @@ function parseIntStrict(raw: string | undefined, fallback: number, name: string)
   return parsed;
 }
 
-function parseModel(raw: string | undefined): GeminiConfig["model"] {
+function parseModel(raw: string | undefined, name = "HAYSTACK_MODEL"): GeminiConfig["model"] {
   if (!raw) return "gemini-2.5-flash-image";
   if (!VALID_MODELS.has(raw as GeminiConfig["model"])) {
     throw new Error(
-      `Invalid HAYSTACK_MODEL: "${raw}". Valid values: ${[...VALID_MODELS].join(", ")}`,
+      `Invalid ${name}: "${raw}". Valid values: ${[...VALID_MODELS].join(", ")}`,
     );
   }
   return raw as GeminiConfig["model"];
@@ -157,7 +157,7 @@ export function loadConfigFromEnv(): HaystackConfig {
     schedulerLocation: parseSchedulerLocation(process.env),
     activeStart,
     activeEnd,
-    extendModel: parseModel(process.env.HAYSTACK_EXTEND_MODEL ?? "gemini-3.1-flash-image-preview"),
+    extendModel: parseModel(process.env.HAYSTACK_EXTEND_MODEL ?? "gemini-3.1-flash-image-preview", "HAYSTACK_EXTEND_MODEL"),
   };
 }
 

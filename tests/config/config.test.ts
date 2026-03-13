@@ -20,6 +20,7 @@ describe("loadConfigFromEnv", () => {
     delete process.env.HAYSTACK_TIMEZONE;
     delete process.env.HAYSTACK_ACTIVE_START;
     delete process.env.HAYSTACK_ACTIVE_END;
+    delete process.env.HAYSTACK_EXTEND_MODEL;
   });
 
   afterEach(() => {
@@ -40,6 +41,7 @@ describe("loadConfigFromEnv", () => {
     expect(config.schedulerLocation).toBeUndefined();
     expect(config.activeStart).toBeUndefined();
     expect(config.activeEnd).toBeUndefined();
+    expect(config.extendModel).toBe("gemini-3.1-flash-image-preview");
   });
 
   it("prefers GOOGLE_API_KEY over GEMINI_API_KEY", () => {
@@ -70,6 +72,19 @@ describe("loadConfigFromEnv", () => {
   it("throws on invalid model value", () => {
     process.env.HAYSTACK_MODEL = "gpt-4o";
     expect(() => loadConfigFromEnv()).toThrow(/Invalid HAYSTACK_MODEL.*gpt-4o/);
+  });
+
+  // --- Extend model ---
+
+  it("accepts valid HAYSTACK_EXTEND_MODEL override", () => {
+    process.env.HAYSTACK_EXTEND_MODEL = "gemini-3-pro-image-preview";
+    const config = loadConfigFromEnv();
+    expect(config.extendModel).toBe("gemini-3-pro-image-preview");
+  });
+
+  it("throws on invalid HAYSTACK_EXTEND_MODEL with correct env var name", () => {
+    process.env.HAYSTACK_EXTEND_MODEL = "invalid-model";
+    expect(() => loadConfigFromEnv()).toThrow(/Invalid HAYSTACK_EXTEND_MODEL.*invalid-model/);
   });
 
   it("accepts valid aspect ratio values", () => {
@@ -269,6 +284,7 @@ describe("toPipelineConfig", () => {
       defaultModel: "gemini-2.5-flash-image",
       maxStoredOutputs: 10,
       bindHost: "127.0.0.1",
+      extendModel: "gemini-3.1-flash-image-preview",
     });
 
     expect(result.outputDir).toBe("/out");
@@ -285,6 +301,7 @@ describe("toPipelineConfig", () => {
       defaultSeed: 42,
       maxStoredOutputs: 24,
       bindHost: "127.0.0.1",
+      extendModel: "gemini-3.1-flash-image-preview",
     });
 
     expect(result.geminiConfig?.aspectRatio).toBe("16:9");
@@ -298,6 +315,7 @@ describe("toPipelineConfig", () => {
       defaultModel: "gemini-2.5-flash-image",
       maxStoredOutputs: 24,
       bindHost: "127.0.0.1",
+      extendModel: "gemini-3.1-flash-image-preview",
     });
 
     expect(result.geminiConfig?.aspectRatio).toBeUndefined();
@@ -311,6 +329,7 @@ describe("toPipelineConfig", () => {
       defaultModel: "gemini-2.5-flash-image",
       maxStoredOutputs: 24,
       bindHost: "127.0.0.1",
+      extendModel: "gemini-3.1-flash-image-preview",
     });
 
     expect(JSON.stringify(result)).not.toContain("secret-key");

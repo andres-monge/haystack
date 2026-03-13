@@ -31,7 +31,7 @@ On success, stdout contains:
 ```json
 {
   "outputPath": "/path/to/image-landscape.png",
-  "model": "gemini-2.5-flash-image",
+  "model": "gemini-3.1-flash-image-preview",
   "modelVersion": "...",
   "responseText": "..."
 }
