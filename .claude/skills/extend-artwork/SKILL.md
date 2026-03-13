@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # Extend Artwork — Reimagine as 16:9 Landscape
 
-Takes any image (portrait, square, cropped) and uses Gemini outpainting to reimagine it as a wide 16:9 landscape for Haystack's artwork rotation.
+Takes any image (portrait, square, cropped) and uses Gemini outpainting to reimagine it as a wide 16:9 landscape for Haystack's artwork rotation. Automatically cleans Instagram/social media UI overlays (carousel arrows, pagination dots) before extending.
 
 ## Usage
 

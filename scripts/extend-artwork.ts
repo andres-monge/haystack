@@ -11,12 +11,20 @@ import { execFileSync } from "node:child_process";
 import { GeminiClient } from "../src/engine/gemini-client.js";
 import { loadConfigFromEnv } from "../src/config/config.js";
 
-const DEFAULT_PROMPT = `Reimagine this artwork as a wide 16:9 landscape scene. Expand the composition
-naturally — extend the environment, architecture, and atmosphere to fill the
-wider frame. Preserve the EXACT artistic style, medium, color palette, and
-rendering technique of the original. Do not crop, stretch, or distort any
-existing elements. The extended areas should feel like a natural continuation
-of the original scene.`;
+const CLEANUP_PROMPT = `Remove any Instagram or social media UI overlays from this image.
+This includes: navigation arrows (< >) on the left and right edges, pagination
+dots or circles at the bottom, like/comment/share icons, username overlays,
+and any other semi-transparent UI elements. Replace the removed areas with a
+natural continuation of the underlying artwork. Do NOT change the art style,
+composition, or any actual content of the image — only remove the UI overlays.
+If there are no overlays present, return the image unchanged.`;
+
+const DEFAULT_PROMPT = `Seamlessly extend this artwork to a wide 16:9 landscape. The existing edges
+must continue naturally with no visible seam — elements at the boundaries
+(trees, buildings, terrain) should flow uninterrupted into the new space.
+Expand by revealing more of the same scene, not by generating new disconnected
+content. Preserve the EXACT artistic style, medium, color palette, and lighting
+throughout.`;
 
 const SUPPORTED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
 
@@ -99,10 +107,24 @@ async function main(): Promise<void> {
 
   console.error(`Model: ${config.extendModel}`);
   console.error(`Input: ${inputPath}`);
-  console.error(`Prompt: ${prompt.slice(0, 80)}${prompt.length > 80 ? "…" : ""}`);
-  console.error("Calling Gemini...");
 
-  const result = await client.editImage(inputBuffer, prompt, {
+  // --- Step 1: Clean Instagram UI overlays ---
+
+  console.error("Step 1/2: Cleaning social media overlays...");
+
+  const cleanResult = await client.editImage(inputBuffer, CLEANUP_PROMPT, {
+    model: config.extendModel,
+  });
+
+  const cleanedBuffer = cleanResult.imageBuffer;
+  console.error("  Cleanup complete.");
+
+  // --- Step 2: Extend to 16:9 landscape ---
+
+  console.error(`Step 2/2: Extending to 16:9 landscape...`);
+  console.error(`Prompt: ${prompt.slice(0, 80)}${prompt.length > 80 ? "…" : ""}`);
+
+  const result = await client.editImage(cleanedBuffer, prompt, {
     model: config.extendModel,
     aspectRatio: "16:9",
     imageSize: "2K",
