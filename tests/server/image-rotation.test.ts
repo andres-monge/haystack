@@ -286,7 +286,7 @@ describe("getImageForToday", () => {
       expect(day2).toBe(path.join(tmpDir, "b.jpg"));
     });
 
-    it("does not reshuffle already-shown images", () => {
+    it("maintains alphabetical order when images are added mid-cycle", () => {
       fs.writeFileSync(path.join(tmpDir, "b.jpg"), "");
       fs.writeFileSync(path.join(tmpDir, "d.jpg"), "");
 
@@ -304,12 +304,10 @@ describe("getImageForToday", () => {
       fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
       fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
 
-      // Day 3: should continue from after position 1, not restart
+      // Day 3: queue re-sorts to [a, b, c, d], d.jpg is now at index 3
+      // Advance from 3 → (3+1)%4 = 0 → a.jpg
       const day3 = getImageForToday(tmpDir, undefined, new Date(2026, 0, 3));
-      // New images a.jpg and c.jpg are inserted after position 1
-      // Queue becomes [b, d, a, c] → day 3 advances to position 2 = a.jpg
-      expect(day3).not.toBe(day1);
-      expect(day3).not.toBe(day2);
+      expect(day3).toBe(path.join(tmpDir, "a.jpg"));
     });
   });
 
@@ -467,16 +465,16 @@ describe("reconcileQueue", () => {
     expect(result.position).toBe(0);
   });
 
-  it("inserts multiple new files sorted among themselves", () => {
+  it("re-sorts queue alphabetically and tracks current image", () => {
     const result = reconcileQueue(["c.jpg"], 0, [
       "a.jpg",
       "b.jpg",
       "c.jpg",
       "d.jpg",
     ]);
-    // New images [a, b, d] inserted after position 0
-    expect(result.queue).toEqual(["c.jpg", "a.jpg", "b.jpg", "d.jpg"]);
-    expect(result.position).toBe(0);
+    // Queue is always alphabetical; position follows c.jpg to index 2
+    expect(result.queue).toEqual(["a.jpg", "b.jpg", "c.jpg", "d.jpg"]);
+    expect(result.position).toBe(2);
   });
 
   it("handles removing the current image", () => {

@@ -108,57 +108,46 @@ function scanImages(imageDir: string): string[] | null {
 /**
  * Reconcile the persisted queue with the current files on disk.
  *
- * - Removed images are dropped; position is adjusted if it pointed past the end.
- * - New images are inserted into the queue after the current position,
- *   in alphabetical order relative to each other, so they get their turn
- *   without disrupting already-scheduled images.
+ * The queue is always kept in alphabetical order. When files are added or
+ * removed, the position is adjusted to keep pointing at the same image.
+ * If the current image was removed, the position is clamped to the nearest
+ * valid index so rotation continues forward.
  */
 export function reconcileQueue(
   queue: string[],
   position: number,
   currentFiles: string[],
 ): { queue: string[]; position: number } {
-  const currentSet = new Set(currentFiles);
-  const existingSet = new Set(queue);
+  if (currentFiles.length === 0) {
+    return { queue: [], position: 0 };
+  }
 
-  // Remove deleted images, track how many were before position
-  let removedBeforePos = 0;
-  const filtered: string[] = [];
-  for (let i = 0; i < queue.length; i++) {
-    if (currentSet.has(queue[i])) {
-      filtered.push(queue[i]);
-    } else if (i < position) {
-      removedBeforePos++;
+  // Remember which image is currently selected
+  const currentImage = position < queue.length ? queue[position] : null;
+
+  // New queue is always sorted alphabetically
+  const newQueue = [...currentFiles].sort();
+
+  // Find the current image in the new sorted queue
+  if (currentImage) {
+    const idx = newQueue.indexOf(currentImage);
+    if (idx !== -1) {
+      return { queue: newQueue, position: idx };
     }
   }
 
-  let newPos = Math.max(0, position - removedBeforePos);
-  if (filtered.length > 0 && newPos >= filtered.length) {
-    newPos = 0;
-  }
-
-  // Find new images not yet in the queue
-  const newImages = currentFiles.filter((f) => !existingSet.has(f)).sort();
-
-  if (newImages.length === 0) {
-    return { queue: filtered, position: newPos };
-  }
-
-  // Insert new images after the current position, sorted among themselves
-  const before = filtered.slice(0, newPos + 1);
-  const after = filtered.slice(newPos + 1);
-  const merged = [...before, ...newImages, ...after];
-
-  return { queue: merged, position: newPos };
+  // Current image was removed — clamp to valid range
+  const newPos = Math.min(position, newQueue.length - 1);
+  return { queue: newQueue, position: newPos };
 }
 
 /**
  * Returns the path to today's image from the given directory.
  *
- * Uses a persistent queue stored at ~/.haystack/rotation-state.json
- * so that adding/removing images doesn't reshuffle the rotation order.
- * New images are inserted after the current position and will appear
- * in the remainder of the current cycle or the next one.
+ * Uses a persistent queue stored at ~/.haystack/rotation-state.json.
+ * The queue is always kept in strict alphabetical order. Adding or
+ * removing images re-sorts the queue while keeping the position
+ * pointing at the same current image.
  *
  * Returns `null` if the directory is empty, missing, or contains no images.
  * Pass `timezone` to use a specific IANA timezone for the day boundary.
