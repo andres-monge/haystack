@@ -122,13 +122,11 @@ export function reconcileQueue(
     return { queue: [], position: 0 };
   }
 
-  // Remember which image is currently selected
   const currentImage = position < queue.length ? queue[position] : null;
 
   // New queue is always sorted alphabetically
   const newQueue = [...currentFiles].sort();
 
-  // Find the current image in the new sorted queue
   if (currentImage) {
     const idx = newQueue.indexOf(currentImage);
     if (idx !== -1) {
@@ -185,14 +183,9 @@ export function getImageForToday(
 
   // Reconcile queue with current files on disk
   const reconciled = reconcileQueue(state.queue, state.position, currentFiles);
-  if (
-    reconciled.queue !== state.queue ||
-    reconciled.position !== state.position
-  ) {
-    state.queue = reconciled.queue;
-    state.position = reconciled.position;
-    dirty = true;
-  }
+  state.queue = reconciled.queue;
+  state.position = reconciled.position;
+  dirty = true;
 
   if (state.queue.length === 0) return null;
 

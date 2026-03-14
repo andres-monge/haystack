@@ -265,7 +265,7 @@ describe("getImageForToday", () => {
       expect(second).toBe(first);
     });
 
-    it("inserts new images after current position", () => {
+    it("sorts new files into alphabetical position", () => {
       fs.writeFileSync(path.join(tmpDir, "a.jpg"), "");
       fs.writeFileSync(path.join(tmpDir, "c.jpg"), "");
 
@@ -280,8 +280,8 @@ describe("getImageForToday", () => {
       const day2 = getImageForToday(tmpDir, undefined, new Date(2026, 0, 2));
       const state = readState();
 
-      // New image (b.jpg) should be in the queue after position 0
-      // Queue should be [a, b, c] and we advance to position 1 = b.jpg
+      // Queue re-sorts to [a, b, c]; position 0 still points to a.jpg
+      // Advance to position 1 = b.jpg
       expect(state.queue).toEqual(["a.jpg", "b.jpg", "c.jpg"]);
       expect(day2).toBe(path.join(tmpDir, "b.jpg"));
     });
