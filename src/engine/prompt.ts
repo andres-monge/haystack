@@ -19,7 +19,7 @@ Interpreting the lighting data (use these as continuous scales, not categories):
 
 Rules:
 - Preserve the EXACT artistic style, medium, and rendering technique of the original
-- Keep the architecture, signage, furniture, and environment layout identical
+- Keep the architecture, signage, furniture, vehicles, and environment layout identical
 - Characters may change position, appear, or leave — but must match the original art style exactly
 - Lighting must be physically consistent with the time of day and weather
 - Weather should affect the scene naturally (wet surfaces, fog, snow, etc.)
