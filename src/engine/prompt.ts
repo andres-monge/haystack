@@ -24,6 +24,7 @@ Rules:
 - Lighting must be physically consistent with the time of day and weather
 - Weather should affect the scene naturally (wet surfaces, fog, snow, etc.)
 - Do NOT change the camera angle, framing, scale, or composition
+- Place people and animals only on walkable surfaces visible in the original — respect terrain, water, elevation, and barriers
 - Do NOT add modern or anachronistic elements
 - Do NOT add text, watermarks, or UI elements`;
 
