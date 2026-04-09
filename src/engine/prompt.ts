@@ -7,7 +7,7 @@ export const DEFAULT_TEMPLATE = `Using the provided artwork, reimagine this scen
 
 Time: {scenario}
 
-The setting, architecture, and environment are permanent — but the scene is alive. People and animals go about their day naturally for this time and weather. Consider who would be here now, what they would be doing, how the light falls at this hour, and how people would be dressed for the current conditions.
+The setting, architecture, and environment are permanent — but the scene is alive. People and animals go about their day naturally for this time and weather — but only where the scene's surfaces allow. Read the terrain before placing anyone: solid ground, paths, floors, and furniture are fair game; treat everything else as a real obstacle or hazard that characters navigate around, not through. Consider who would be here now, what they would be doing, how the light falls at this hour, and how people would be dressed for the current conditions.
 
 Interpreting the lighting data (use these as continuous scales, not categories):
 - shadow_ratio: shadow length as a multiple of object height. 1× = shadows same length as object (45° sun). 3× = long afternoon shadows. 10×+ = extremely long shadows near sunrise/sunset. Apply this ratio to all cast shadows in the scene.
@@ -24,7 +24,6 @@ Rules:
 - Lighting must be physically consistent with the time of day and weather
 - Weather should affect the scene naturally (wet surfaces, fog, snow, etc.)
 - Do NOT change the camera angle, framing, scale, or composition
-- Place people and animals only on walkable surfaces visible in the original — respect terrain, water, elevation, and barriers
 - Do NOT add modern or anachronistic elements
 - Do NOT add text, watermarks, or UI elements`;
 
