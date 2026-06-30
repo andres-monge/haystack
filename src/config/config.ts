@@ -5,6 +5,7 @@ import * as os from "node:os";
 import type { PipelineConfig, GeminiConfig, AspectRatio } from "../engine/types.js";
 
 const VALID_MODELS: ReadonlySet<GeminiConfig["model"]> = new Set([
+  "gemini-3.1-flash-lite-image",
   "gemini-2.5-flash-image",
   "gemini-3-pro-image-preview",
   "gemini-3.1-flash-image-preview",
@@ -47,7 +48,7 @@ function parseIntStrict(raw: string | undefined, fallback: number, name: string)
 }
 
 function parseModel(raw: string | undefined, name = "HAYSTACK_MODEL"): GeminiConfig["model"] {
-  if (!raw) return "gemini-2.5-flash-image";
+  if (!raw) return "gemini-3.1-flash-lite-image";
   if (!VALID_MODELS.has(raw as GeminiConfig["model"])) {
     throw new Error(
       `Invalid ${name}: "${raw}". Valid values: ${[...VALID_MODELS].join(", ")}`,

@@ -84,7 +84,7 @@ describe("Pipeline", () => {
     const result = await pipeline.generate(testImagePath, scenario);
 
     const { metadata } = result;
-    expect(metadata.model).toBe("gemini-2.5-flash-image");
+    expect(metadata.model).toBe("gemini-3.1-flash-lite-image");
     expect(metadata.artworkSource).toBe(testImagePath);
     expect(metadata.outputPath).toBe(result.imagePath);
     expect(metadata.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
@@ -140,7 +140,7 @@ describe("Pipeline", () => {
     const result = await pipeline.generate(testImagePath, scenario);
 
     expect(result.metadata.seed).toBe(42);
-    expect(result.metadata.model).toBe("gemini-2.5-flash-image");
+    expect(result.metadata.model).toBe("gemini-3.1-flash-lite-image");
   });
 
   it("getStore returns the output store", async () => {
@@ -153,7 +153,7 @@ describe("Pipeline", () => {
     const store = pipeline.getStore();
     const latest = store.getLatest();
     expect(latest).not.toBeNull();
-    expect(latest!.model).toBe("gemini-2.5-flash-image");
+    expect(latest!.model).toBe("gemini-3.1-flash-lite-image");
   });
 
   it("render ID has expected format", async () => {

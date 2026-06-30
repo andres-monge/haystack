@@ -61,9 +61,10 @@ lab-ui/         — React (Vite) frontend for prompt iteration
 
 | Model | ID | Use case |
 |-------|----|----------|
-| Flash Image | `gemini-2.5-flash-image` | Fast iteration, hourly updates |
+| Flash Lite Image | `gemini-3.1-flash-lite-image` | Default -- fast, cheapest, hourly updates (1K only) |
 | 3.1 Flash Image | `gemini-3.1-flash-image-preview` | Extend artwork (2K default), thinking mode |
 | Pro Image | `gemini-3-pro-image-preview` | High quality, up to 4K |
+| Flash Image (legacy) | `gemini-2.5-flash-image` | Previous default, still supported |
 
 ## Environment variables
 

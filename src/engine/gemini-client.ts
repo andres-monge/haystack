@@ -28,7 +28,7 @@ export interface ImageEditClient {
 
 /** Default Gemini configuration — uses the fast flash model with no aspect ratio override. */
 export const DEFAULT_GEMINI_CONFIG: GeminiConfig = {
-  model: "gemini-2.5-flash-image",
+  model: "gemini-3.1-flash-lite-image",
   // aspectRatio intentionally omitted — API will match input image's ratio
 };
 

@@ -32,7 +32,7 @@ describe("loadConfigFromEnv", () => {
     expect(config.googleApiKey).toBe("");
     expect(config.outputDir).toContain(".haystack");
     expect(config.outputDir).toContain("outputs");
-    expect(config.defaultModel).toBe("gemini-2.5-flash-image");
+    expect(config.defaultModel).toBe("gemini-3.1-flash-lite-image");
     expect(config.defaultAspectRatio).toBeUndefined();
     expect(config.defaultSeed).toBeUndefined();
     expect(config.maxStoredOutputs).toBe(24);
