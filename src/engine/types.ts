@@ -2,9 +2,20 @@
 
 export type WeatherSource = "live" | "cache" | "none";
 
+export type SolarPhase =
+  | "daylight"
+  | "golden-hour"
+  | "civil-twilight"
+  | "nautical-twilight"
+  | "astronomical-twilight"
+  | "night";
+
+export type SolarTrend = "rising" | "setting";
+
 export interface Scenario {
   timestampLocal: Date;
   hour: number; // 0-23
+  minute?: number; // 0-59
   isDay: boolean;
 
   // Weather source tracking
@@ -29,6 +40,8 @@ export interface Scenario {
   // Sun/moon position (optional — computed via suncalc)
   sunElevation?: number; // degrees (negative = below horizon)
   sunAzimuth?: number; // degrees
+  solarPhase?: SolarPhase;
+  solarTrend?: SolarTrend;
   moonFraction?: number; // 0-1 illuminated fraction
   moonAltitude?: number; // degrees
 
@@ -44,6 +57,7 @@ export interface Scenario {
 export interface SerializedScenario {
   timestampLocal: string; // ISO 8601
   hour: number;
+  minute?: number;
   isDay: boolean;
   weatherSource?: WeatherSource;
   weatherCode?: number;
@@ -62,6 +76,8 @@ export interface SerializedScenario {
   diffuseRadiation?: number;
   sunElevation?: number;
   sunAzimuth?: number;
+  solarPhase?: SolarPhase;
+  solarTrend?: SolarTrend;
   moonFraction?: number;
   moonAltitude?: number;
   sunrise?: string; // ISO 8601

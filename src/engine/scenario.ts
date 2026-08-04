@@ -1,6 +1,6 @@
 // src/engine/scenario.ts — Scenario builder for time/weather context
 
-import type { Scenario } from "./types.js";
+import type { Scenario, SolarPhase } from "./types.js";
 
 /**
  * Create a scenario from just an hour (for testing/manual overrides).
@@ -42,8 +42,9 @@ export function createScenarioFromNow(): Scenario {
  * hardcoded hour ranges — accounting for latitude and season.
  */
 export function describeScenario(scenario: Scenario): string {
+  const solarTarget = getSolarVisualTarget(scenario);
   const parts: string[] = [
-    getTimeOfDayDescription(scenario.hour, scenario.isDay),
+    getTimeOfDayDescription(scenario.hour, scenario.isDay, scenario.minute),
   ];
 
   if (scenario.weatherCode !== undefined) {
@@ -89,14 +90,110 @@ export function describeScenario(scenario: Scenario): string {
   if (scenario.sunAzimuth !== undefined) {
     parts.push(`sun azimuth ${scenario.sunAzimuth}°`);
   }
-  if (scenario.moonFraction !== undefined && !scenario.isDay) {
+  const moonCanBeSeen = (
+    (scenario.moonAltitude === undefined || scenario.moonAltitude > 0)
+    && (scenario.moonFraction === undefined || scenario.moonFraction > 0.02)
+  );
+  if (scenario.moonFraction !== undefined && !scenario.isDay && moonCanBeSeen) {
     parts.push(`moon ${Math.round(scenario.moonFraction * 100)}% illuminated`);
   }
-  if (scenario.moonAltitude !== undefined && !scenario.isDay && scenario.moonAltitude > 0) {
+  if (scenario.moonAltitude !== undefined && !scenario.isDay && moonCanBeSeen) {
     parts.push(`moon altitude ${scenario.moonAltitude}°`);
   }
 
-  return parts.join(", ");
+  const measuredConditions = parts.join(", ");
+  return solarTarget
+    ? `Solar visual target: ${solarTarget}\nMeasured conditions: ${measuredConditions}`
+    : measuredConditions;
+}
+
+/** Derive a physically meaningful solar phase from elevation, not clock time. */
+export function getSolarPhase(sunElevation: number): SolarPhase {
+  if (sunElevation > 6) return "daylight";
+  if (sunElevation > 0) return "golden-hour";
+  if (sunElevation > -6) return "civil-twilight";
+  if (sunElevation > -12) return "nautical-twilight";
+  if (sunElevation > -18) return "astronomical-twilight";
+  return "night";
+}
+
+/**
+ * Describe the intended visible result in concrete, positive language.
+ * Gemini's image guide recommends specific scene descriptions and semantic
+ * negatives over relying on terse labels or lists of prohibitions.
+ */
+function getSolarVisualTarget(scenario: Scenario): string | undefined {
+  if (scenario.sunElevation === undefined) return undefined;
+
+  const phase = scenario.solarPhase ?? getSolarPhase(scenario.sunElevation);
+  const setting = scenario.solarTrend !== "rising";
+  const moonless = (
+    (scenario.moonAltitude !== undefined && scenario.moonAltitude <= 0)
+    || (scenario.moonFraction !== undefined && scenario.moonFraction <= 0.02)
+  );
+  const brightSkyEnding = moonless
+    ? " The visible sky is moonless and starless."
+    : "";
+  const twilightSkyEnding = moonless ? " The visible sky is moonless." : "";
+  const darkSkyEnding = moonless
+    ? " The dark sky is moonless, with stars providing only faint natural light."
+    : "";
+  const eventTiming = getRelevantSolarEventTiming(scenario);
+
+  switch (phase) {
+    case "daylight":
+      return setting
+        ? `bright late-afternoon daylight.${eventTiming} Render a luminous daylight-blue sky and keep the landscape, foliage, and buildings fully visible in natural daylight.${brightSkyEnding}`
+        : `bright morning daylight.${eventTiming} Render a luminous daylight-blue sky and keep the landscape, foliage, and buildings fully visible in natural daylight.${brightSkyEnding}`;
+    case "golden-hour":
+      return setting
+        ? `warm golden-hour daylight with the sun still above the horizon.${eventTiming} Render long warm shadows and a blue upper sky grading toward warm color near the horizon.${brightSkyEnding}`
+        : `warm early-morning daylight with the sun just above the horizon.${eventTiming} Render long warm shadows and a blue upper sky grading from dawn color near the horizon.${brightSkyEnding}`;
+    case "civil-twilight":
+      return setting
+        ? `soft civil twilight just after sunset.${eventTiming} Render a blue upper sky with a warm residual horizon glow and keep the landscape clearly readable in soft ambient light.${twilightSkyEnding}`
+        : `soft civil twilight before sunrise.${eventTiming} Render a blue upper sky with a warm developing horizon glow and keep the landscape clearly readable in soft ambient light.${twilightSkyEnding}`;
+    case "nautical-twilight":
+      return setting
+        ? `deep blue nautical twilight after dusk. Render a darkening blue sky with a faint horizon glow and subdued landscape detail.${darkSkyEnding}`
+        : `deep blue nautical twilight before dawn. Render a dark blue sky with the first faint horizon glow and subdued landscape detail.${darkSkyEnding}`;
+    case "astronomical-twilight":
+      return setting
+        ? `very dark astronomical twilight. Render a nearly black-blue sky and low ambient illumination.${darkSkyEnding}`
+        : `very dark astronomical twilight before dawn. Render a nearly black-blue sky with the earliest trace of ambient illumination.${darkSkyEnding}`;
+    case "night":
+      return moonless
+        ? `full night. Render a moonless, starry dark sky and illuminate the scene only with faint starlight and practical light sources.`
+        : `full night. Render a dark sky and illuminate the scene only with visible moonlight and practical light sources.`;
+  }
+}
+
+function getRelevantSolarEventTiming(scenario: Scenario): string {
+  if (scenario.solarTrend === "setting" && scenario.sunset) {
+    const minutes = Math.round(
+      (scenario.sunset.getTime() - scenario.timestampLocal.getTime()) / 60_000,
+    );
+    if (minutes > 0 && minutes <= 180) {
+      return ` Sunset is about ${minutes} minutes away.`;
+    }
+    if (minutes <= 0 && minutes >= -180) {
+      return ` Sunset was about ${Math.abs(minutes)} minutes ago.`;
+    }
+  }
+
+  if (scenario.solarTrend === "rising" && scenario.sunrise) {
+    const minutes = Math.round(
+      (scenario.sunrise.getTime() - scenario.timestampLocal.getTime()) / 60_000,
+    );
+    if (minutes > 0 && minutes <= 180) {
+      return ` Sunrise is about ${minutes} minutes away.`;
+    }
+    if (minutes <= 0 && minutes >= -180) {
+      return ` Sunrise was about ${Math.abs(minutes)} minutes ago.`;
+    }
+  }
+
+  return "";
 }
 
 function formatHour(hour: number): string {
@@ -106,8 +203,16 @@ function formatHour(hour: number): string {
   return `${hour - 12} PM`;
 }
 
-function getTimeOfDayDescription(hour: number, isDay: boolean): string {
-  return `${formatHour(hour)}, ${isDay ? "day" : "night"}`;
+function getTimeOfDayDescription(
+  hour: number,
+  isDay: boolean,
+  minute?: number,
+): string {
+  const formattedHour = formatHour(hour);
+  const formattedTime = minute
+    ? formattedHour.replace(/ (AM|PM)$/, `:${String(minute).padStart(2, "0")} $1`)
+    : formattedHour;
+  return `${formattedTime}, ${isDay ? "day" : "night"}`;
 }
 
 // WMO weather codes (used by Open-Meteo)

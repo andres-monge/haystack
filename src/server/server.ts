@@ -11,6 +11,7 @@ import type { HourlyScheduler } from "./scheduler.js";
 import { createScenarioFromHour, describeScenario } from "../engine/scenario.js";
 import { DEFAULT_TEMPLATE } from "../engine/prompt.js";
 import { buildScenario, computeSunMoon } from "./scenario-builder.js";
+import { getInstantForHourInTimezone } from "./timezone.js";
 
 const VALID_ID_PATTERN = /^[a-zA-Z0-9_\-]+$/;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -250,7 +251,13 @@ export function createApp(config: CreateAppConfig): Express {
 
         // Compute sun/moon position if location provided
         if (lat !== undefined && lon !== undefined && timezone) {
-          computeSunMoon(scenario, hour, lat, lon, timezone);
+          const previewInstant = getInstantForHourInTimezone(
+            new Date(),
+            hour,
+            0,
+            timezone,
+          );
+          computeSunMoon(scenario, previewInstant, lat, lon);
         }
 
         res.json({ description: describeScenario(scenario) });
@@ -353,7 +360,8 @@ export function createApp(config: CreateAppConfig): Express {
     const latest = pipeline.getStore().getLatest();
     if (latest) {
       const ageMs = Date.now() - new Date(latest.createdAt).getTime();
-      if (!Number.isFinite(ageMs) || ageMs < DEDUP_WINDOW_MS) {
+      const isRecent = !Number.isFinite(ageMs) || ageMs < DEDUP_WINDOW_MS;
+      if (isRecent && scheduler.isRenderForCurrentPeriod(latest)) {
         console.log(`[${new Date().toISOString()}] Trigger skipped: recent generation exists (${latest.id})`);
         res.json({ triggered: false, reason: "Recent generation exists", latestId: latest.id });
         return;
@@ -431,4 +439,3 @@ export function createApp(config: CreateAppConfig): Express {
 
   return app;
 }
-

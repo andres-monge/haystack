@@ -111,8 +111,8 @@ describe("HourlyScheduler", () => {
       await vi.advanceTimersByTimeAsync(29 * 60 * 1000);
       expect(config.pipeline.generate).not.toHaveBeenCalled();
 
-      // Advance 1 more minute to hit 3:00 PM
-      await vi.advanceTimersByTimeAsync(1 * 60 * 1000);
+      // Advance through the boundary plus the one-second safety margin
+      await vi.advanceTimersByTimeAsync(1 * 60 * 1000 + 1001);
       expect(config.pipeline.generate).toHaveBeenCalledOnce();
 
       scheduler.stop();
@@ -127,11 +127,49 @@ describe("HourlyScheduler", () => {
       scheduler.start();
 
       // Advance to next top of hour
-      await vi.advanceTimersByTimeAsync(1001);
+      await vi.advanceTimersByTimeAsync(2001);
       expect(config.pipeline.generate).toHaveBeenCalledOnce();
 
       // Should have rescheduled — a new timer should exist
       expect(vi.getTimerCount()).toBe(1);
+
+      scheduler.stop();
+    });
+
+    it("waits safely past the wall-clock boundary before reading the new hour", async () => {
+      vi.setSystemTime(new Date("2026-08-03T17:59:59.900Z"));
+
+      const weatherProvider = createMockWeatherProvider();
+      vi.mocked(weatherProvider.getHourlyConditions).mockResolvedValue([
+        {
+          time: "2026-08-03T20:00",
+          weatherCode: 0,
+          cloudPercent: 10,
+          precipProbability: 0,
+          temperature: 30,
+          isDay: true,
+        },
+      ]);
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        weatherProvider,
+        location: { lat: 40.53, lon: -3.64, timezone: "Europe/Madrid" },
+      });
+      const scheduler = new HourlyScheduler(config);
+      scheduler.start();
+
+      await vi.advanceTimersByTimeAsync(100);
+      expect(config.pipeline.generate).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(config.pipeline.generate).toHaveBeenCalledOnce();
+      const { scenario } = getGenerateCallArgs(config.pipeline);
+      expect(scenario.hour).toBe(20);
+      expect(scenario.minute).toBe(0);
+      expect(scenario.isDay).toBe(true);
+      expect(scenario.solarPhase).toBe("daylight");
+      expect(scenario.solarTrend).toBe("setting");
+      expect(scenario.sunElevation).toBeCloseTo(15.2, 1);
 
       scheduler.stop();
     });
@@ -261,7 +299,7 @@ describe("HourlyScheduler", () => {
       scheduler.start();
 
       // Advance to first tick (should fail)
-      await vi.advanceTimersByTimeAsync(1001);
+      await vi.advanceTimersByTimeAsync(2001);
       expect(config.pipeline.generate).toHaveBeenCalledOnce();
 
       // Should still have a rescheduled timer
@@ -456,8 +494,8 @@ describe("HourlyScheduler", () => {
       const scheduler = new HourlyScheduler(config);
       scheduler.start();
 
-      // Advance to trigger the tick
-      await vi.advanceTimersByTimeAsync(60 * 60 * 1000);
+      // Advance to trigger the tick, including the boundary safety margin
+      await vi.advanceTimersByTimeAsync(60 * 60 * 1000 + 1001);
 
       expect(config.pipeline.generate).not.toHaveBeenCalled();
       expect(consoleLogSpy).toHaveBeenCalledWith(
@@ -498,7 +536,7 @@ describe("HourlyScheduler", () => {
       const scheduler = new HourlyScheduler(config);
       scheduler.start();
 
-      await vi.advanceTimersByTimeAsync(1001);
+      await vi.advanceTimersByTimeAsync(2001);
 
       expect(config.pipeline.generate).toHaveBeenCalledOnce();
 
@@ -534,7 +572,7 @@ describe("HourlyScheduler", () => {
       const scheduler = new HourlyScheduler(config);
       scheduler.start();
 
-      await vi.advanceTimersByTimeAsync(1001);
+      await vi.advanceTimersByTimeAsync(2001);
 
       expect(config.pipeline.generate).toHaveBeenCalledOnce();
 
@@ -610,6 +648,46 @@ describe("HourlyScheduler", () => {
       const scheduler = new HourlyScheduler(config);
 
       expect(scheduler.isInActiveHours()).toBe(true);
+    });
+  });
+
+  describe("isRenderForCurrentPeriod()", () => {
+    it("rejects a recent render whose scenario belongs to the previous local hour", () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      const scheduler = new HourlyScheduler(config);
+      const render = makeGenerateResult({
+        scenario: {
+          timestampLocal: "2026-08-03T16:59:59.965Z",
+          hour: 9,
+          isDay: true,
+        },
+      }).metadata;
+
+      expect(
+        scheduler.isRenderForCurrentPeriod(
+          render,
+          new Date("2026-08-03T17:05:00Z"),
+        ),
+      ).toBe(false);
+    });
+
+    it("accepts a render generated within the current configured local hour", () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      const scheduler = new HourlyScheduler(config);
+      const render = makeGenerateResult({
+        scenario: {
+          timestampLocal: "2026-08-03T17:00:01.000Z",
+          hour: 10,
+          isDay: true,
+        },
+      }).metadata;
+
+      expect(
+        scheduler.isRenderForCurrentPeriod(
+          render,
+          new Date("2026-08-03T17:05:00Z"),
+        ),
+      ).toBe(true);
     });
   });
 });

@@ -17,6 +17,8 @@ describe("composePrompt", () => {
     const scenario = createScenarioFromHour(18);
     const prompt = composePrompt(scenario);
     expect(prompt).toContain("6 PM, day");
+    expect(prompt).toContain("When a Solar visual target is present");
+    expect(prompt).toContain("otherwise use the available clock and day/night state");
   });
 
   it("includes scenario description for morning hour", () => {
@@ -71,5 +73,25 @@ describe("composePrompt", () => {
     scenario.weatherCode = 63;
     const prompt = composePrompt(scenario);
     expect(prompt).toContain("moderate rain");
+  });
+
+  it("turns the reported 8 PM failure into ordered, positive daylight instructions", () => {
+    const scenario = createScenarioFromHour(20, true);
+    scenario.minute = 0;
+    scenario.sunElevation = 15.2;
+    scenario.sunAzimuth = 280.2;
+    scenario.moonAltitude = -34.1;
+    scenario.solarPhase = "daylight";
+    scenario.solarTrend = "setting";
+    scenario.directRadiation = 210;
+    scenario.diffuseRadiation = 75;
+
+    const prompt = composePrompt(scenario);
+
+    expect(prompt).toContain("Solar visual target: bright late-afternoon daylight");
+    expect(prompt).toContain("First, establish the sky and ambient illumination from the Solar visual target");
+    expect(prompt).toContain("Set overall exposure from the Solar visual target");
+    expect(prompt).toContain("Use radiation values only to refine light direction and softness");
+    expect(prompt.indexOf("Solar visual target")).toBeLessThan(prompt.indexOf("8 PM"));
   });
 });

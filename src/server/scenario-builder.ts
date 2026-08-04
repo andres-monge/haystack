@@ -3,8 +3,11 @@
 import SunCalc from "suncalc";
 import type { Scenario, WeatherSource } from "../engine/types.js";
 import type { WeatherProvider, HourlyConditions } from "../weather/types.js";
-import { createScenarioFromHour } from "../engine/scenario.js";
-import { getCurrentHourInTimezone } from "./timezone.js";
+import { createScenarioFromHour, getSolarPhase } from "../engine/scenario.js";
+import {
+  getInstantForHourInTimezone,
+  getLocalTimeInTimezone,
+} from "./timezone.js";
 
 /** In-memory cache of last successful weather response, keyed by "lat,lon". */
 interface WeatherCacheEntry {
@@ -38,10 +41,14 @@ export async function buildScenario(
   body: Record<string, string | undefined>,
   weatherProvider: WeatherProvider,
 ): Promise<Scenario> {
+  const minute = body.minute !== undefined ? parseInt(body.minute, 10) : 0;
   const scenario = createScenarioFromHour(
     hour,
     body.isDay !== undefined ? body.isDay === "true" : undefined,
   );
+  scenario.minute = Number.isInteger(minute) && minute >= 0 && minute <= 59
+    ? minute
+    : 0;
 
   const hasExplicitWeather =
     body.weatherCode !== undefined ||
@@ -71,7 +78,13 @@ export async function buildScenario(
 
   if (lat !== undefined && lon !== undefined && timezone) {
     await enrichWithWeather(scenario, hour, lat, lon, timezone, weatherProvider, 1);
-    computeSunMoon(scenario, hour, lat, lon, timezone);
+    const instant = getInstantForHourInTimezone(
+      new Date(),
+      hour,
+      scenario.minute,
+      timezone,
+    );
+    computeSunMoon(scenario, instant, lat, lon);
   }
 
   return scenario;
@@ -88,13 +101,23 @@ export async function buildScheduledScenario(
   lon: number,
   timezone: string,
   weatherProvider: WeatherProvider,
+  instant: Date = new Date(),
 ): Promise<Scenario> {
-  // Get the current hour in the configured timezone
-  const hour = getCurrentHourInTimezone(timezone);
+  const localTime = getLocalTimeInTimezone(instant, timezone);
 
-  const scenario = createScenarioFromHour(hour);
-  await enrichWithWeather(scenario, hour, lat, lon, timezone, weatherProvider, 3);
-  computeSunMoon(scenario, hour, lat, lon, timezone);
+  const scenario = createScenarioFromHour(localTime.hour);
+  scenario.timestampLocal = new Date(instant);
+  scenario.minute = localTime.minute;
+  await enrichWithWeather(
+    scenario,
+    localTime.hour,
+    lat,
+    lon,
+    timezone,
+    weatherProvider,
+    3,
+  );
+  computeSunMoon(scenario, instant, lat, lon);
 
   return scenario;
 }
@@ -194,25 +217,39 @@ async function enrichWithWeather(
  */
 export function computeSunMoon(
   scenario: Scenario,
-  hour: number,
+  instant: Date,
   lat: number,
   lon: number,
-  timezone: string,
 ): void {
-  const dateForHour = new Date(
-    new Date().toLocaleDateString("en-CA", { timeZone: timezone }) +
-      `T${String(hour).padStart(2, "0")}:00:00`,
-  );
-  const sunPos = SunCalc.getPosition(dateForHour, lat, lon);
+  scenario.timestampLocal = new Date(instant);
+  const sunPos = SunCalc.getPosition(instant, lat, lon);
   scenario.sunElevation =
     Math.round(sunPos.altitude * (180 / Math.PI) * 10) / 10;
   scenario.sunAzimuth =
     Math.round(((sunPos.azimuth * (180 / Math.PI)) + 180) * 10) / 10;
+  scenario.solarPhase = getSolarPhase(scenario.sunElevation);
+  const laterSunPos = SunCalc.getPosition(
+    new Date(instant.getTime() + 5 * 60 * 1000),
+    lat,
+    lon,
+  );
+  scenario.solarTrend = laterSunPos.altitude >= sunPos.altitude
+    ? "rising"
+    : "setting";
+  scenario.isDay = scenario.sunElevation > -0.833;
 
-  const moonIllum = SunCalc.getMoonIllumination(dateForHour);
+  const sunTimes = SunCalc.getTimes(instant, lat, lon);
+  scenario.sunrise = Number.isFinite(sunTimes.sunrise.getTime())
+    ? sunTimes.sunrise
+    : undefined;
+  scenario.sunset = Number.isFinite(sunTimes.sunset.getTime())
+    ? sunTimes.sunset
+    : undefined;
+
+  const moonIllum = SunCalc.getMoonIllumination(instant);
   scenario.moonFraction = Math.round(moonIllum.fraction * 100) / 100;
 
-  const moonPos = SunCalc.getMoonPosition(dateForHour, lat, lon);
+  const moonPos = SunCalc.getMoonPosition(instant, lat, lon);
   scenario.moonAltitude =
     Math.round(moonPos.altitude * (180 / Math.PI) * 10) / 10;
 }

@@ -6,10 +6,11 @@ import {
   clearWeatherCache,
 } from "../../src/server/scenario-builder.js";
 import { createScenarioFromHour } from "../../src/engine/scenario.js";
+import { composePrompt } from "../../src/engine/prompt.js";
 import { getCurrentHourInTimezone } from "../../src/server/timezone.js";
 import { createMockWeatherProvider, BASE_CONDITIONS } from "../helpers/mock-factories.js";
 import type { WeatherProvider } from "../../src/weather/types.js";
-import type { Scenario } from "../../src/engine/types.js";
+import { serializeScenario, type Scenario } from "../../src/engine/types.js";
 
 describe("buildScenario", () => {
   let weatherProvider: WeatherProvider;
@@ -273,12 +274,44 @@ describe("buildScheduledScenario", () => {
 
     expect(scenario.weatherSource).toBe("live");
   });
+
+  it("uses one exact instant for local clock and solar state", async () => {
+    const instant = new Date("2026-08-03T18:34:02Z"); // 20:34 in Madrid
+    vi.mocked(weatherProvider.getHourlyConditions).mockResolvedValue([
+      { ...BASE_CONDITIONS, time: "2026-08-03T20:00", isDay: true },
+    ]);
+
+    const scenario = await buildScheduledScenario(
+      40.53,
+      -3.64,
+      "Europe/Madrid",
+      weatherProvider,
+      instant,
+    );
+
+    expect(scenario.timestampLocal.toISOString()).toBe(instant.toISOString());
+    expect(scenario.hour).toBe(20);
+    expect(scenario.minute).toBe(34);
+    expect(scenario.sunElevation).toBeCloseTo(8.9, 1);
+    expect(scenario.solarPhase).toBe("daylight");
+    expect(scenario.solarTrend).toBe("setting");
+    expect(scenario.moonAltitude).toBeLessThan(0);
+    expect(scenario.isDay).toBe(true);
+
+    const prompt = composePrompt(scenario);
+    expect(prompt).toContain("8:34 PM");
+    expect(prompt).toContain("bright late-afternoon daylight");
+    expect(prompt).toMatch(/Sunset is about 5[45] minutes away/);
+    expect(prompt).toContain("moonless and starless");
+    expect(prompt).not.toContain("full night");
+    expect(prompt).not.toContain("moon 74% illuminated");
+  });
 });
 
 describe("computeSunMoon", () => {
   it("populates sun elevation, azimuth, moon fraction, and altitude", () => {
     const scenario = createScenarioFromHour(12);
-    computeSunMoon(scenario, 12, 40.4168, -3.7038, "Europe/Madrid");
+    computeSunMoon(scenario, new Date("2026-02-14T11:00:00Z"), 40.4168, -3.7038);
 
     expect(typeof scenario.sunElevation).toBe("number");
     expect(typeof scenario.sunAzimuth).toBe("number");
@@ -288,7 +321,7 @@ describe("computeSunMoon", () => {
 
   it("computes plausible sun elevation for midday at mid-latitude", () => {
     const scenario = createScenarioFromHour(12);
-    computeSunMoon(scenario, 12, 40.4168, -3.7038, "Europe/Madrid");
+    computeSunMoon(scenario, new Date("2026-02-14T11:00:00Z"), 40.4168, -3.7038);
 
     // Midday sun at 40°N in February should be positive (above horizon)
     expect(scenario.sunElevation!).toBeGreaterThan(0);
@@ -296,7 +329,7 @@ describe("computeSunMoon", () => {
 
   it("computes negative sun elevation for midnight", () => {
     const scenario = createScenarioFromHour(0);
-    computeSunMoon(scenario, 0, 40.4168, -3.7038, "Europe/Madrid");
+    computeSunMoon(scenario, new Date("2026-02-13T23:00:00Z"), 40.4168, -3.7038);
 
     // Midnight sun at 40°N should be negative (below horizon)
     expect(scenario.sunElevation!).toBeLessThan(0);
@@ -304,7 +337,7 @@ describe("computeSunMoon", () => {
 
   it("moon fraction is between 0 and 1", () => {
     const scenario = createScenarioFromHour(22);
-    computeSunMoon(scenario, 22, 34.05, -118.25, "America/Los_Angeles");
+    computeSunMoon(scenario, new Date("2026-02-15T06:00:00Z"), 34.05, -118.25);
 
     expect(scenario.moonFraction!).toBeGreaterThanOrEqual(0);
     expect(scenario.moonFraction!).toBeLessThanOrEqual(1);
@@ -312,9 +345,39 @@ describe("computeSunMoon", () => {
 
   it("sun azimuth is between 0 and 360", () => {
     const scenario = createScenarioFromHour(12);
-    computeSunMoon(scenario, 12, 40.4168, -3.7038, "Europe/Madrid");
+    computeSunMoon(scenario, new Date("2026-02-14T11:00:00Z"), 40.4168, -3.7038);
 
     expect(scenario.sunAzimuth!).toBeGreaterThanOrEqual(0);
     expect(scenario.sunAzimuth!).toBeLessThanOrEqual(360);
+  });
+
+  it("computes the same known Madrid elevation from an absolute instant regardless of host timezone", () => {
+    const scenario = createScenarioFromHour(20, true);
+
+    computeSunMoon(
+      scenario,
+      new Date("2026-08-03T18:00:00Z"),
+      40.53,
+      -3.64,
+    );
+
+    expect(scenario.sunElevation).toBeCloseTo(15.2, 1);
+    expect(scenario.solarPhase).toBe("daylight");
+    expect(scenario.solarTrend).toBe("setting");
+  });
+
+  it("omits invalid sunrise and sunset values during polar day", () => {
+    const scenario = createScenarioFromHour(12, true);
+
+    computeSunMoon(
+      scenario,
+      new Date("2026-06-21T10:00:00Z"),
+      69.6492,
+      18.9553,
+    );
+
+    expect(scenario.sunrise).toBeUndefined();
+    expect(scenario.sunset).toBeUndefined();
+    expect(() => serializeScenario(scenario)).not.toThrow();
   });
 });

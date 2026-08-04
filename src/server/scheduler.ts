@@ -1,13 +1,19 @@
 // src/server/scheduler.ts — Hourly generation scheduler
 
 import type { Pipeline } from "../engine/pipeline.js";
-import type { GenerateResult } from "../engine/types.js";
+import type { GenerateResult, RenderMetadata } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
 import { composePromptFromText } from "../engine/prompt.js";
 import { describeScenario } from "../engine/scenario.js";
 import { getImageForToday, getAlternateImages } from "./image-rotation.js";
 import { buildScheduledScenario } from "./scenario-builder.js";
-import { getCurrentHourInTimezone } from "./timezone.js";
+import {
+  getCurrentHourInTimezone,
+  getLocalTimeInTimezone,
+} from "./timezone.js";
+
+/** Read the new hour after the wall-clock boundary has safely passed. */
+const HOUR_BOUNDARY_SAFETY_MS = 1000;
 
 export interface SchedulerConfig {
   pipeline: Pipeline;
@@ -49,6 +55,27 @@ export class HourlyScheduler {
     if (activeStart == null || activeEnd == null) return true; // no window = always active
     const hour = getCurrentHourInTimezone(location.timezone);
     return hour >= activeStart && hour < activeEnd;
+  }
+
+  /** Whether stored metadata belongs to the current local hourly period. */
+  isRenderForCurrentPeriod(
+    metadata: RenderMetadata,
+    now: Date = new Date(),
+  ): boolean {
+    const renderedAt = new Date(metadata.scenario.timestampLocal);
+    if (!Number.isFinite(renderedAt.getTime())) return false;
+
+    const current = getLocalTimeInTimezone(now, this.config.location.timezone);
+    const rendered = getLocalTimeInTimezone(
+      renderedAt,
+      this.config.location.timezone,
+    );
+
+    return rendered.year === current.year
+      && rendered.month === current.month
+      && rendered.day === current.day
+      && rendered.hour === current.hour
+      && metadata.scenario.hour === current.hour;
   }
 
   /**
@@ -105,7 +132,7 @@ export class HourlyScheduler {
     const next = new Date(now);
     next.setMinutes(0, 0, 0);
     next.setHours(next.getHours() + 1);
-    const ms = next.getTime() - now.getTime();
+    const ms = next.getTime() - now.getTime() + HOUR_BOUNDARY_SAFETY_MS;
 
     this.timerId = setTimeout(() => this.onTick(), ms);
   }
