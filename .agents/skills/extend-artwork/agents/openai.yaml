@@ -1,0 +1,7 @@
+interface:
+  display_name: "Extend Artwork"
+  short_description: "Reimagine artwork as a 16:9 landscape"
+  default_prompt: "Use $extend-artwork to turn this image into a Haystack-ready 16:9 landscape."
+
+policy:
+  allow_implicit_invocation: false
