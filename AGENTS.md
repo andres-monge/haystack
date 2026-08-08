@@ -47,6 +47,8 @@ src/cli/        — CLI entry point for launchd scheduler
 src/weather/    — Weather provider interface + Open-Meteo implementation
 src/server/     — Express API server for Lab UI
 lab-ui/         — React (Vite) frontend for prompt iteration
+docs/solutions/ — Searchable past-problem guides, organized by category with YAML metadata (`module`, `tags`, `problem_type`)
+CONCEPTS.md     — Shared project vocabulary for domain entities, processes, and status concepts
 ```
 
 ## Key design rules
@@ -119,7 +121,9 @@ chromium --kiosk --noerrdialogs --disable-infobars --no-first-run --check-for-up
 - `--password-store=basic` — prevents keyring popup on first boot
 - Binary is `chromium`, not `chromium-browser` (Debian/RPi OS naming)
 - Use Mac's IP address (`192.168.0.20`), not mDNS hostname — Pi may not resolve `.local`
-- Mac has a DHCP reservation on the router so `192.168.0.20` is stable across WiFi networks
+- On the primary SSID, set macOS **Private Wi-Fi Address** to **Fixed** and reserve `192.168.0.20` for that exact private MAC in the router
+- An extender SSID is a separate network identity; switching to it may interrupt the kiosk unless its LAN reachability and reservation are configured separately
+- If the TV becomes stale, compare the Mac's current IP/private MAC with the Pi kiosk URL and router reservation; see [the verified recovery guide](docs/solutions/integration-issues/raspberry-pi-kiosk-hardcoded-mac-ip.md)
 
 **Other setup:**
 - Disable screen blanking: `sudo raspi-config nonint do_blanking 1`
