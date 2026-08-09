@@ -10,6 +10,22 @@ describe("DEFAULT_TEMPLATE", () => {
   it("contains the {scenario} placeholder", () => {
     expect(DEFAULT_TEMPLATE).toContain("{scenario}");
   });
+
+  it("requires a visibly new living moment rather than a lighting-only edit", () => {
+    expect(DEFAULT_TEMPLATE).toContain("create a visibly new moment");
+    expect(DEFAULT_TEMPLATE).toContain(
+      "must not all retain the same pose, action, gaze, and position",
+    );
+    expect(DEFAULT_TEMPLATE).toContain(
+      "another moment, not a recolored copy",
+    );
+    expect(DEFAULT_TEMPLATE).toContain(
+      "authoritative for lighting and sky only",
+    );
+    expect(DEFAULT_TEMPLATE.indexOf("Choose one coherent")).toBeLessThan(
+      DEFAULT_TEMPLATE.indexOf("3. Establish the sky"),
+    );
+  });
 });
 
 describe("composePrompt", () => {
@@ -89,7 +105,7 @@ describe("composePrompt", () => {
     const prompt = composePrompt(scenario);
 
     expect(prompt).toContain("Solar visual target: bright late-afternoon daylight");
-    expect(prompt).toContain("First, establish the sky and ambient illumination from the Solar visual target");
+    expect(prompt).toContain("Establish the sky and ambient illumination from the Solar visual target");
     expect(prompt).toContain("Set overall exposure from the Solar visual target");
     expect(prompt).toContain("Use radiation values only to refine light direction and softness");
     expect(prompt.indexOf("Solar visual target")).toBeLessThan(prompt.indexOf("8 PM"));

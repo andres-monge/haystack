@@ -3,15 +3,16 @@
 import type { Scenario, PromptConfig } from "./types.js";
 import { describeScenario } from "./scenario.js";
 
-export const DEFAULT_TEMPLATE = `Using the provided artwork as the permanent world, re-render the same scene for the exact current conditions below. When a Solar visual target is present, it is the highest-priority instruction for sky color, ambient brightness, and whether the scene reads as daylight, twilight, or night; otherwise use the available clock and day/night state.
+export const DEFAULT_TEMPLATE = `Using the provided artwork as the permanent setting, create a visibly new moment in this living world for the exact current conditions below. When a Solar visual target is present, it is authoritative for lighting and sky only — including sky color, ambient brightness, and whether the scene reads as daylight, twilight, or night; otherwise use the available clock and day/night state.
 
 Current conditions: {scenario}
 
 Build the edit in this order:
-1. First, establish the sky and ambient illumination from the Solar visual target when present; otherwise use the clock and day/night state. Treat a supplied physical solar phase as authoritative rather than inferring a generic mood from the clock time.
-2. Apply the current weather and atmospheric visibility to that solar state.
-3. Populate the living scene with people and animals acting naturally for the conditions. Read the terrain before placing anyone: solid ground, paths, floors, and furniture are fair game; everything else is a real obstacle or hazard that characters navigate around.
-4. Preserve the permanent world and the original artwork's rendering technique while changing its depicted illumination to the current solar state.
+1. Choose one coherent, time-and-weather-specific micro-story that is happening now. Decide who is present, what each person or animal is actively doing, how they interact, and how people are dressed for the conditions.
+2. Make the living activity visibly different from the input artwork. Existing people and animals must not all retain the same pose, action, gaze, and position. Repose, reposition, add, or remove characters as naturally appropriate. The result should read at a glance as another moment, not a recolored copy. Read the terrain before placing anyone: solid ground, paths, floors, and furniture are fair game; everything else is a real obstacle or hazard that characters navigate around.
+3. Establish the sky and ambient illumination from the Solar visual target when present; otherwise use the clock and day/night state. Treat a supplied physical solar phase as authoritative rather than inferring a generic mood from the clock time.
+4. Apply the current weather and atmospheric visibility to that solar state.
+5. Preserve the permanent setting and the original artwork's rendering technique while changing its depicted illumination and living activity for the current moment.
 
 Interpreting the lighting data (use these as continuous scales, not categories):
 - shadow_ratio: shadow length as a multiple of object height. 1× = shadows same length as object (45° sun). 3× = long afternoon shadows. 10×+ = extremely long shadows near sunrise/sunset. Apply this ratio to all cast shadows in the scene.
@@ -24,7 +25,7 @@ Interpreting the lighting data (use these as continuous scales, not categories):
 Rules:
 - Preserve the EXACT artistic style, medium, and rendering technique of the original
 - Keep the architecture, signage, furniture, vehicles, and environment layout identical
-- Characters may change position, appear, or leave — but must match the original art style exactly
+- People and animals are intentionally mutable: change their activity, pose, position, or presence while matching the original art style exactly
 - Lighting must be physically consistent with the time of day and weather
 - Weather should affect the scene naturally (wet surfaces, fog, snow, etc.)
 - Do NOT change the camera angle, framing, scale, or composition
