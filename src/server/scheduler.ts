@@ -26,6 +26,10 @@ export interface SchedulerConfig {
   activeEnd?: number;
 }
 
+export type ConditionalRunResult =
+  | { generated: true; result: GenerateResult }
+  | { generated: false; latest: RenderMetadata };
+
 /**
  * In-process hourly scheduler that generates images at the top of each hour.
  *
@@ -78,6 +82,17 @@ export class HourlyScheduler {
       && metadata.scenario.hour === current.hour;
   }
 
+  /** Whether metadata is both recent enough and from the current local hour. */
+  isRecentRenderForCurrentPeriod(
+    metadata: RenderMetadata,
+    dedupWindowMs: number,
+    now: Date = new Date(),
+  ): boolean {
+    const ageMs = now.getTime() - new Date(metadata.createdAt).getTime();
+    const isRecent = !Number.isFinite(ageMs) || ageMs < dedupWindowMs;
+    return isRecent && this.isRenderForCurrentPeriod(metadata, now);
+  }
+
   /**
    * Start scheduling. Schedules the first tick at the next top-of-hour.
    */
@@ -108,6 +123,33 @@ export class HourlyScheduler {
    *   passed directly as the prompt scenario slot.
    */
   async runNow(scenarioOverride?: string): Promise<GenerateResult> {
+    return this.runWithMutex(() => this.tick(scenarioOverride));
+  }
+
+  /**
+   * Trigger a backup generation only when the current hourly period still
+   * lacks a recent render. The check runs after acquiring the same mutex as
+   * scheduled generations, closing the race where a queued backup trigger
+   * inspected the store before the in-process render finished.
+   */
+  async runNowIfNoRecentRender(
+    dedupWindowMs: number,
+  ): Promise<ConditionalRunResult> {
+    return this.runWithMutex(async () => {
+      const latest = this.config.pipeline.getStore().getLatest();
+      if (
+        latest &&
+        this.isRecentRenderForCurrentPeriod(latest, dedupWindowMs)
+      ) {
+        return { generated: false, latest };
+      }
+
+      return { generated: true, result: await this.tick() };
+    });
+  }
+
+  /** Serialize scheduled, manual, and backup-trigger generations. */
+  private async runWithMutex<T>(operation: () => Promise<T>): Promise<T> {
     // Promise-chain mutex: each call waits for the previous to finish,
     // guaranteeing serial execution without race conditions.
     let release: () => void;
@@ -118,7 +160,7 @@ export class HourlyScheduler {
     await prev;
 
     try {
-      return await this.tick(scenarioOverride);
+      return await operation();
     } finally {
       release!();
     }
@@ -155,15 +197,8 @@ export class HourlyScheduler {
       return;
     }
 
-    let release: () => void;
-    const prev = this.mutex;
-    this.mutex = new Promise((resolve) => {
-      release = resolve;
-    });
-    await prev;
-
     try {
-      const result = await this.tick();
+      const result = await this.runWithMutex(() => this.tick());
       console.log(
         `[${new Date().toISOString()}] Scheduled generation complete: ${result.metadata.id}`,
       );
@@ -172,7 +207,6 @@ export class HourlyScheduler {
         `[${new Date().toISOString()}] Scheduled generation failed: ${err instanceof Error ? err.message : err}`,
       );
     } finally {
-      release!();
       this.scheduleNext();
     }
   }

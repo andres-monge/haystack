@@ -273,6 +273,67 @@ describe("HourlyScheduler", () => {
       expect(r1.metadata.id).toBe("result_1");
       expect(r2.metadata.id).toBe("result_2");
     });
+
+    it("generates when the backup check finds no recent render", async () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      const expected = makeGenerateResult({ id: "backup_render" });
+      vi.mocked(config.pipeline.getStore().getLatest).mockReturnValue(null);
+      vi.mocked(config.pipeline.generate).mockResolvedValue(expected);
+
+      const scheduler = new HourlyScheduler(config);
+      await expect(
+        scheduler.runNowIfNoRecentRender(30 * 60 * 1000),
+      ).resolves.toEqual({ generated: true, result: expected });
+
+      expect(config.pipeline.getStore().getLatest).toHaveBeenCalledOnce();
+      expect(config.pipeline.generate).toHaveBeenCalledOnce();
+    });
+
+    it("rechecks dedup after waiting for an in-progress generation", async () => {
+      const now = new Date("2026-08-10T19:05:00.000Z");
+      vi.setSystemTime(now);
+
+      const config = createSchedulerConfig({
+        imageDir: tmpDir,
+        location: { lat: 40.53, lon: -3.64, timezone: "Europe/Madrid" },
+      });
+      const completedResult = makeGenerateResult({
+        id: "scheduled_render",
+        createdAt: now.toISOString(),
+        scenario: {
+          timestampLocal: now.toISOString(),
+          hour: 21,
+          minute: 5,
+          isDay: true,
+        },
+      });
+      let resolveGeneration!: (
+        value: ReturnType<typeof makeGenerateResult>,
+      ) => void;
+      vi.mocked(config.pipeline.generate).mockImplementationOnce(
+        () => new Promise((resolve) => {
+          resolveGeneration = resolve;
+        }),
+      );
+
+      const scheduler = new HourlyScheduler(config);
+      const scheduledRun = scheduler.runNow();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(config.pipeline.generate).toHaveBeenCalledOnce();
+
+      const backupRun = scheduler.runNowIfNoRecentRender(30 * 60 * 1000);
+      vi.mocked(config.pipeline.getStore().getLatest).mockReturnValue(
+        completedResult.metadata,
+      );
+      resolveGeneration(completedResult);
+
+      await expect(scheduledRun).resolves.toEqual(completedResult);
+      await expect(backupRun).resolves.toEqual({
+        generated: false,
+        latest: completedResult.metadata,
+      });
+      expect(config.pipeline.generate).toHaveBeenCalledOnce();
+    });
   });
 
   describe("error handling", () => {
@@ -687,6 +748,39 @@ describe("HourlyScheduler", () => {
           render,
           new Date("2026-08-03T17:05:00Z"),
         ),
+      ).toBe(true);
+    });
+  });
+
+  describe("isRecentRenderForCurrentPeriod()", () => {
+    const now = new Date("2026-08-03T17:05:00Z");
+
+    function currentPeriodRender(createdAt: string) {
+      return makeGenerateResult({
+        createdAt,
+        scenario: {
+          timestampLocal: "2026-08-03T17:00:01.000Z",
+          hour: 10,
+          isDay: true,
+        },
+      }).metadata;
+    }
+
+    it("does not deduplicate a render exactly at the age boundary", () => {
+      const scheduler = new HourlyScheduler(createSchedulerConfig({ imageDir: tmpDir }));
+      const render = currentPeriodRender("2026-08-03T16:35:00.000Z");
+
+      expect(
+        scheduler.isRecentRenderForCurrentPeriod(render, 30 * 60 * 1000, now),
+      ).toBe(false);
+    });
+
+    it("conservatively deduplicates malformed creation timestamps", () => {
+      const scheduler = new HourlyScheduler(createSchedulerConfig({ imageDir: tmpDir }));
+      const render = currentPeriodRender("not-a-date");
+
+      expect(
+        scheduler.isRecentRenderForCurrentPeriod(render, 30 * 60 * 1000, now),
       ).toBe(true);
     });
   });

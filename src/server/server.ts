@@ -358,14 +358,13 @@ export function createApp(config: CreateAppConfig): Express {
 
     // Dedup: skip if a render happened within the last 30 minutes
     const latest = pipeline.getStore().getLatest();
-    if (latest) {
-      const ageMs = Date.now() - new Date(latest.createdAt).getTime();
-      const isRecent = !Number.isFinite(ageMs) || ageMs < DEDUP_WINDOW_MS;
-      if (isRecent && scheduler.isRenderForCurrentPeriod(latest)) {
-        console.log(`[${new Date().toISOString()}] Trigger skipped: recent generation exists (${latest.id})`);
-        res.json({ triggered: false, reason: "Recent generation exists", latestId: latest.id });
-        return;
-      }
+    if (
+      latest &&
+      scheduler.isRecentRenderForCurrentPeriod(latest, DEDUP_WINDOW_MS)
+    ) {
+      console.log(`[${new Date().toISOString()}] Trigger skipped: recent generation exists (${latest.id})`);
+      res.json({ triggered: false, reason: "Recent generation exists", latestId: latest.id });
+      return;
     }
 
     // Prevent curl retry stacking — if a generation is already in progress, skip
@@ -377,7 +376,20 @@ export function createApp(config: CreateAppConfig): Express {
 
     triggerInFlight = true;
     try {
-      const result = await scheduler.runNow();
+      const outcome = await scheduler.runNowIfNoRecentRender(DEDUP_WINDOW_MS);
+      if (!outcome.generated) {
+        console.log(
+          `[${new Date().toISOString()}] Trigger skipped after waiting: recent generation exists (${outcome.latest.id})`,
+        );
+        res.json({
+          triggered: false,
+          reason: "Recent generation exists",
+          latestId: outcome.latest.id,
+        });
+        return;
+      }
+
+      const { result } = outcome;
       console.log(`[${new Date().toISOString()}] Trigger generation complete: ${result.metadata.id}`);
       res.json({
         triggered: true,

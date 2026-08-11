@@ -637,13 +637,19 @@ describe("Express API Server", () => {
       inActiveHours?: boolean;
     } = {}): HourlyScheduler {
       const { running = true, inActiveHours = true } = overrides;
+      const result = makeGenerateResult();
       return {
         start: vi.fn(),
         stop: vi.fn(),
-        runNow: vi.fn().mockResolvedValue(makeGenerateResult()),
+        runNow: vi.fn().mockResolvedValue(result),
+        runNowIfNoRecentRender: vi.fn().mockResolvedValue({
+          generated: true,
+          result,
+        }),
         isRunning: vi.fn().mockReturnValue(running),
         isInActiveHours: vi.fn().mockReturnValue(inActiveHours),
         isRenderForCurrentPeriod: vi.fn().mockReturnValue(true),
+        isRecentRenderForCurrentPeriod: vi.fn().mockReturnValue(true),
       } as unknown as HourlyScheduler;
     }
 
@@ -705,18 +711,49 @@ describe("Express API Server", () => {
       expect(res.body.latestId).toBe("recent_render");
     });
 
+    it("honors the scheduler dedup recheck after waiting on its mutex", async () => {
+      const recentMeta = makeMetadata({ id: "just_finished_render" });
+      vi.mocked(pipeline.getStore().getLatest)
+        .mockReturnValueOnce(null)
+        .mockReturnValue(recentMeta);
+
+      const mockScheduler = {
+        start: vi.fn(),
+        stop: vi.fn(),
+        runNow: vi.fn().mockResolvedValue(makeGenerateResult()),
+        runNowIfNoRecentRender: vi.fn().mockResolvedValue({
+          generated: false,
+          latest: recentMeta,
+        }),
+        isRunning: vi.fn().mockReturnValue(true),
+        isInActiveHours: vi.fn().mockReturnValue(true),
+        isRenderForCurrentPeriod: vi.fn().mockReturnValue(true),
+        isRecentRenderForCurrentPeriod: vi.fn().mockReturnValue(false),
+      } as unknown as HourlyScheduler;
+      const app = createApp({ pipeline, weatherProvider, outputDir, scheduler: mockScheduler });
+
+      const res = await request(app).post("/api/scheduler/trigger");
+
+      expect(res.status).toBe(200);
+      expect(res.body.triggered).toBe(false);
+      expect(res.body.reason).toBe("Recent generation exists");
+      expect(res.body.latestId).toBe("just_finished_render");
+      expect(mockScheduler.runNowIfNoRecentRender).toHaveBeenCalledWith(30 * 60 * 1000);
+      expect(mockScheduler.runNow).not.toHaveBeenCalled();
+    });
+
     it("repairs a recent render from the previous hourly period", async () => {
       const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
       const recentMeta = makeMetadata({ id: "early_previous_hour", createdAt: fiveMinAgo });
       vi.mocked(pipeline.getStore().getLatest).mockReturnValue(recentMeta);
       const { app, mockScheduler } = createAppWithTriggerScheduler();
-      vi.mocked(mockScheduler.isRenderForCurrentPeriod).mockReturnValue(false);
+      vi.mocked(mockScheduler.isRecentRenderForCurrentPeriod).mockReturnValue(false);
 
       const res = await request(app).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(true);
-      expect(mockScheduler.runNow).toHaveBeenCalledOnce();
+      expect(mockScheduler.runNowIfNoRecentRender).toHaveBeenCalledOnce();
     });
 
     it("triggers when latest render is exactly 30 min old (boundary)", async () => {
@@ -724,7 +761,8 @@ describe("Express API Server", () => {
       const oldMeta = makeMetadata({ createdAt: thirtyMinAgo });
       vi.mocked(pipeline.getStore().getLatest).mockReturnValue(oldMeta);
 
-      const { app } = createAppWithTriggerScheduler();
+      const { app, mockScheduler } = createAppWithTriggerScheduler();
+      vi.mocked(mockScheduler.isRecentRenderForCurrentPeriod).mockReturnValue(false);
 
       const res = await request(app).post("/api/scheduler/trigger");
 
@@ -742,7 +780,7 @@ describe("Express API Server", () => {
       expect(res.body.triggered).toBe(true);
       expect(res.body.metadata).toBeDefined();
       expect(res.body.imageUrl).toBe("/api/outputs/20260214_120000_abc12345");
-      expect(mockScheduler.runNow).toHaveBeenCalledOnce();
+      expect(mockScheduler.runNowIfNoRecentRender).toHaveBeenCalledOnce();
     });
 
     it("triggers generation when store is empty (no latest)", async () => {
@@ -754,7 +792,7 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(true);
-      expect(mockScheduler.runNow).toHaveBeenCalledOnce();
+      expect(mockScheduler.runNowIfNoRecentRender).toHaveBeenCalledOnce();
     });
 
     it("triggers when no active hours configured", async () => {
@@ -764,12 +802,12 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(true);
-      expect(mockScheduler.runNow).toHaveBeenCalledOnce();
+      expect(mockScheduler.runNowIfNoRecentRender).toHaveBeenCalledOnce();
     });
 
     it("returns 500 when generation fails with non-rate-limit error", async () => {
       const { app, mockScheduler } = createAppWithTriggerScheduler();
-      vi.mocked(mockScheduler.runNow).mockRejectedValue(
+      vi.mocked(mockScheduler.runNowIfNoRecentRender).mockRejectedValue(
         new Error("Gemini API error"),
       );
 
@@ -781,7 +819,7 @@ describe("Express API Server", () => {
 
     it("returns 429 when generation fails with rate limit error", async () => {
       const { app, mockScheduler } = createAppWithTriggerScheduler();
-      vi.mocked(mockScheduler.runNow).mockRejectedValue(
+      vi.mocked(mockScheduler.runNowIfNoRecentRender).mockRejectedValue(
         new Error('{"error":{"code":429,"message":"Resource has been exhausted (e.g. check quota).","status":"RESOURCE_EXHAUSTED"}}'),
       );
 
@@ -805,16 +843,21 @@ describe("Express API Server", () => {
     });
 
     it("returns triggered: false when generation already in progress", async () => {
-      let resolveGeneration!: (value: ReturnType<typeof makeGenerateResult>) => void;
+      let resolveGeneration!: (value: {
+        generated: true;
+        result: ReturnType<typeof makeGenerateResult>;
+      }) => void;
       const mockScheduler = {
         start: vi.fn(),
         stop: vi.fn(),
-        runNow: vi.fn().mockImplementation(
+        runNow: vi.fn().mockResolvedValue(makeGenerateResult()),
+        runNowIfNoRecentRender: vi.fn().mockImplementation(
           () => new Promise((resolve) => { resolveGeneration = resolve; }),
         ),
         isRunning: vi.fn().mockReturnValue(true),
         isInActiveHours: vi.fn().mockReturnValue(true),
         isRenderForCurrentPeriod: vi.fn().mockReturnValue(true),
+        isRecentRenderForCurrentPeriod: vi.fn().mockReturnValue(false),
       } as unknown as HourlyScheduler;
 
       const app = createApp({ pipeline, weatherProvider, outputDir, scheduler: mockScheduler });
@@ -842,7 +885,7 @@ describe("Express API Server", () => {
       }
 
       try {
-        // Fire first request (will block on runNow)
+        // Fire first request (will block on the mutex-protected trigger)
         const first = postTrigger();
 
         // Wait for the first request to enter the handler and set triggerInFlight
@@ -856,7 +899,7 @@ describe("Express API Server", () => {
         expect(second.body.reason).toBe("Generation already in progress");
 
         // Resolve the first request so it completes cleanly
-        resolveGeneration(makeGenerateResult());
+        resolveGeneration({ generated: true, result: makeGenerateResult() });
         const firstRes = await first;
         expect(firstRes.status).toBe(200);
         expect(firstRes.body.triggered).toBe(true);
