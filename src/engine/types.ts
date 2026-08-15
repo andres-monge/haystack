@@ -132,6 +132,16 @@ export interface UsageMetadata {
   totalTokenCount?: number;
 }
 
+export interface ExtendArtworkStageMetadata {
+  stage: "extend-cleanup" | "extend-outpaint";
+  chainId: string;
+  provider: ImageProviderId;
+  requestedModel: string;
+  resolvedModel?: string;
+  providerOrder: readonly ImageProviderId[];
+  attempts: readonly ProviderAttemptRecord[];
+}
+
 export interface RenderMetadata {
   id: string;
   artworkSource: string;
@@ -159,6 +169,8 @@ export interface RenderMetadata {
   sha256?: string;
   providerOrder?: readonly ImageProviderId[];
   attempts?: readonly ProviderAttemptRecord[];
+  /** Present only for two-stage extend-artwork outputs. */
+  extendStages?: readonly ExtendArtworkStageMetadata[];
 }
 
 export interface GenerateResult {

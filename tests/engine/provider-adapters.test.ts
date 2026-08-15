@@ -123,7 +123,7 @@ describe("direct provider clients", () => {
 });
 
 describe("production provider adapters", () => {
-  it("uses the production Gemini normal and 16:9 outpaint profiles", async () => {
+  it("uses the production Gemini normal, cleanup, and 16:9 outpaint profiles", async () => {
     const editImage = vi.fn().mockImplementation(
       async (_bytes: Buffer, _prompt: string, config: { aspectRatio?: string }) => ({
         imageBuffer: config.aspectRatio === "16:9" ? PNG_16X9 : PNG_2X1,
@@ -139,6 +139,11 @@ describe("production provider adapters", () => {
       prompt: "add snow",
       output: { stage: "normal", aspectRatio: "source" },
     });
+    const cleanup = await provider.editImage({
+      source: normalSource,
+      prompt: "clean overlays",
+      output: { stage: "extend-cleanup", aspectRatio: "source" },
+    });
     const outpaint = await provider.editImage({
       source: outpaintSource,
       prompt: "extend",
@@ -149,6 +154,10 @@ describe("production provider adapters", () => {
       outcome: "successful",
       requestedModel: "gemini-3.1-flash-lite-image",
       resolvedModel: "resolved-gemini",
+    });
+    expect(cleanup).toMatchObject({
+      outcome: "successful",
+      requestedModel: "gemini-3.1-flash-image",
     });
     expect(outpaint).toMatchObject({
       outcome: "successful",
@@ -162,10 +171,39 @@ describe("production provider adapters", () => {
     });
     expect(editImage.mock.calls[1][2]).toEqual({
       model: "gemini-3.1-flash-image",
+      imageSize: "2K",
+      thinkingLevel: "high",
+      inputMediaResolution: "ultra_high",
+    });
+    expect(editImage.mock.calls[2][2]).toEqual({
+      model: "gemini-3.1-flash-image",
       aspectRatio: "16:9",
       imageSize: "2K",
       thinkingLevel: "high",
       inputMediaResolution: "ultra_high",
+    });
+  });
+
+  it("uses the explicit OpenAI 2048x1152 profile for 16:9 outpainting", async () => {
+    const generateImageMock = vi.fn().mockResolvedValue(imageResult(PNG_16X9));
+    const dependencies = openAIDependencies(generateImageMock);
+    const provider = new OpenAIImageProvider("secret", {
+      client: new OpenAIClient("secret", "gpt-image-2", dependencies),
+      createTimeoutSignal: () => new AbortController().signal,
+    });
+    const source = await validateImage(PNG_16X9);
+
+    const result = await provider.editImage({
+      source,
+      prompt: "extend",
+      output: { stage: "extend-outpaint", aspectRatio: "16:9" },
+    });
+
+    expect(result.outcome).toBe("successful");
+    expect(generateImageMock.mock.calls[0][0]).toMatchObject({
+      size: "2048x1152",
+      maxRetries: 0,
+      providerOptions: { openai: { quality: "low" } },
     });
   });
 
@@ -268,7 +306,7 @@ describe("production provider adapters", () => {
     });
   });
 
-  it("lets xAI preserve source geometry for normal edits without forcing a nearby ratio", async () => {
+  it("lets xAI preserve source geometry and uses 2K only for extend cleanup", async () => {
     const generateImageMock = vi.fn().mockResolvedValue(imageResult(PNG_2X1));
     const dependencies = xaiDependencies(generateImageMock);
     const provider = new XaiImageProvider("secret", {
@@ -282,10 +320,19 @@ describe("production provider adapters", () => {
       prompt: "add rain",
       output: { stage: "normal", aspectRatio: "source" },
     });
+    await provider.editImage({
+      source,
+      prompt: "clean overlays",
+      output: { stage: "extend-cleanup", aspectRatio: "source" },
+    });
 
     expect(generateImageMock.mock.calls[0][0]).not.toHaveProperty("aspectRatio");
     expect(generateImageMock.mock.calls[0][0]).toMatchObject({
       providerOptions: { xai: { resolution: "1k", quality: "low" } },
+    });
+    expect(generateImageMock.mock.calls[1][0]).not.toHaveProperty("aspectRatio");
+    expect(generateImageMock.mock.calls[1][0]).toMatchObject({
+      providerOptions: { xai: { resolution: "2k", quality: "low" } },
     });
   });
 

@@ -26,3 +26,4 @@ export {
   DEFAULT_XAI_IMAGE_MODEL,
 } from "./xai-client.js";
 export * from "./pipeline.js";
+export * from "./extend-artwork.js";
