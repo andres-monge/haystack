@@ -19,6 +19,10 @@ vi.mock("@google/genai", () => ({
       generateContent: mockGenerateContent,
     },
   })),
+  PartMediaResolutionLevel: {
+    MEDIA_RESOLUTION_ULTRA_HIGH: "MEDIA_RESOLUTION_ULTRA_HIGH",
+  },
+  ThinkingLevel: { HIGH: "HIGH" },
 }));
 
 /** Helper to set up a mock response with an image (and optional text). */
@@ -134,7 +138,9 @@ describe("GeminiClient", () => {
       expect(GoogleGenAI).toHaveBeenCalledWith({
         apiKey: "fake-key",
         httpOptions: {
+          apiVersion: "v1beta",
           timeout: 60_000,
+          retryOptions: { attempts: 1 },
         },
       });
     });
@@ -148,7 +154,9 @@ describe("GeminiClient", () => {
       expect(GoogleGenAI).toHaveBeenCalledWith({
         apiKey: "fake-key",
         httpOptions: {
+          apiVersion: "v1beta",
           timeout: 25_000,
+          retryOptions: { attempts: 1 },
         },
       });
     });
@@ -284,6 +292,56 @@ describe("GeminiClient", () => {
 
       const call = mockGenerateContent.mock.calls[0][0];
       expect(call.config.imageConfig).toEqual({ aspectRatio: "16:9" });
+    });
+
+    it("sends high thinking and ultra-high media resolution on every source image part", async () => {
+      mockImageResponse();
+
+      const client = new GeminiClient("fake-key");
+      await client.editImage(PNG_BUFFER, "test", {
+        model: "gemini-3.1-flash-image",
+        aspectRatio: "16:9",
+        imageSize: "2K",
+        thinkingLevel: "high",
+        inputMediaResolution: "ultra_high",
+      });
+
+      const call = mockGenerateContent.mock.calls[0][0];
+      expect(call.contents[1]).toMatchObject({
+        inlineData: { mimeType: "image/png" },
+        mediaResolution: { level: "MEDIA_RESOLUTION_ULTRA_HIGH" },
+      });
+      expect(call.config).toMatchObject({
+        thinkingConfig: {
+          thinkingLevel: "HIGH",
+        },
+        imageConfig: { aspectRatio: "16:9", imageSize: "2K" },
+      });
+    });
+
+    it("ignores thought images and returns the final non-thought image", async () => {
+      const thoughtImage = Buffer.from("interim-thought").toString("base64");
+      const finalImage = Buffer.from("final-image").toString("base64");
+      mockGenerateContent.mockResolvedValue({
+        candidates: [{
+          content: {
+            parts: [
+              { inlineData: { data: finalImage } },
+              { inlineData: { data: thoughtImage }, thought: true },
+            ],
+          },
+          finishReason: "STOP",
+        }],
+      });
+
+      const client = new GeminiClient("fake-key");
+      const result = await client.editImage(PNG_BUFFER, "test", {
+        model: "gemini-3.1-flash-image",
+        thinkingLevel: "high",
+        inputMediaResolution: "ultra_high",
+      });
+
+      expect(result.imageBuffer).toEqual(Buffer.from("final-image"));
     });
 
     it("passes seed when configured", async () => {

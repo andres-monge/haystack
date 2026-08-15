@@ -1,9 +1,28 @@
 // src/engine/gemini-client.ts — Gemini API wrapper for image editing
 
-import { GoogleGenAI } from "@google/genai";
+import {
+  GoogleGenAI,
+  PartMediaResolutionLevel,
+  ThinkingLevel,
+} from "@google/genai";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { GeminiConfig, UsageMetadata } from "./types.js";
+import type {
+  ImageEditStage,
+  ImageProviderAdapter,
+  ProviderEditFailure,
+  ProviderEditInput,
+  ProviderEditResult,
+} from "./provider-types.js";
+import {
+  DEFAULT_PROVIDER_TIMEOUT_MS,
+  normalizeProviderFailure,
+} from "./provider-types.js";
+import {
+  ImageValidationError,
+  validateImageOutput,
+} from "./image-validation.js";
 
 type SupportedMimeType = "image/png" | "image/jpeg" | "image/webp";
 
@@ -36,7 +55,7 @@ const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
 const API_TIMEOUT_MS = 60_000; // 60 seconds
 
 export interface GeminiClientOptions {
-  /** Per-request deadline. Production callers retain the 60-second default. */
+  /** Per-request deadline. Direct legacy callers retain the 60-second default. */
   timeoutMs?: number;
 }
 
@@ -106,7 +125,9 @@ export class GeminiClient implements ImageEditClient {
 
   constructor(apiKey?: string, options: GeminiClientOptions = {}) {
     const httpOptions = {
+      apiVersion: "v1beta",
       timeout: options.timeoutMs ?? API_TIMEOUT_MS,
+      retryOptions: { attempts: 1 },
     };
     // Only pass apiKey when explicitly provided, so the SDK can fall back
     // to GOOGLE_API_KEY / GEMINI_API_KEY from environment automatically.
@@ -156,16 +177,25 @@ export class GeminiClient implements ImageEditClient {
       imageConfig.imageSize = config.imageSize;
     }
 
+    const imagePart = {
+      inlineData: {
+        mimeType,
+        data: base64Image,
+      },
+      ...(config.inputMediaResolution === "ultra_high"
+        ? {
+            mediaResolution: {
+              level: PartMediaResolutionLevel.MEDIA_RESOLUTION_ULTRA_HIGH,
+            },
+          }
+        : {}),
+    };
+
     const apiPromise = this.client.models.generateContent({
       model: config.model,
       contents: [
         { text: prompt },
-        {
-          inlineData: {
-            mimeType,
-            data: base64Image,
-          },
-        },
+        imagePart,
       ],
       config: {
         responseModalities: ["TEXT", "IMAGE"],
@@ -173,6 +203,14 @@ export class GeminiClient implements ImageEditClient {
           ? { imageConfig }
           : {}),
         ...(config.seed !== undefined ? { seed: config.seed } : {}),
+        ...(config.abortSignal ? { abortSignal: config.abortSignal } : {}),
+        ...(config.thinkingLevel === "high"
+          ? {
+              thinkingConfig: {
+                thinkingLevel: ThinkingLevel.HIGH,
+              },
+            }
+          : {}),
       },
     });
 
@@ -191,6 +229,7 @@ export class GeminiClient implements ImageEditClient {
 
     const candidate = response.candidates?.[0];
     for (const part of candidate?.content?.parts ?? []) {
+      if (part.thought) continue;
       if (part.text) {
         resultText = part.text;
       } else if (part.inlineData?.data) {
@@ -241,5 +280,135 @@ export class GeminiClient implements ImageEditClient {
       return "image/webp";
     }
     return "image/png"; // Default fallback
+  }
+}
+
+export const DEFAULT_GEMINI_PROVIDER_MODELS = {
+  normal: "gemini-3.1-flash-lite-image",
+  "extend-cleanup": "gemini-3.1-flash-image",
+  "extend-outpaint": "gemini-3.1-flash-image",
+} as const;
+
+export interface GeminiImageProviderOptions {
+  client?: Pick<GeminiClient, "editImage">;
+  timeoutMs?: number;
+  models?: Partial<Record<ImageEditStage, GeminiConfig["model"]>>;
+}
+
+const SAFE_GEMINI_NO_IMAGE_CODES = new Set([
+  "NO_IMAGE",
+  "RECITATION",
+  "IMAGE_RECITATION",
+  "OTHER",
+  "IMAGE_OTHER",
+]);
+
+function geminiImageFailure(
+  model: string,
+  error: ImageValidationError,
+): ProviderEditFailure {
+  return {
+    outcome: "invalid_image",
+    provider: "gemini",
+    requestedModel: model,
+    safeCode: error.code,
+  };
+}
+
+/** Production Gemini adapter with the quality profile proven by the bake-off. */
+export class GeminiImageProvider implements ImageProviderAdapter {
+  readonly provider = "gemini" as const;
+  readonly model: string;
+  private readonly client: Pick<GeminiClient, "editImage">;
+  private readonly models: Record<ImageEditStage, GeminiConfig["model"]>;
+
+  constructor(apiKey: string, options: GeminiImageProviderOptions = {}) {
+    this.models = {
+      normal: options.models?.normal ?? DEFAULT_GEMINI_PROVIDER_MODELS.normal,
+      "extend-cleanup": options.models?.["extend-cleanup"]
+        ?? DEFAULT_GEMINI_PROVIDER_MODELS["extend-cleanup"],
+      "extend-outpaint": options.models?.["extend-outpaint"]
+        ?? DEFAULT_GEMINI_PROVIDER_MODELS["extend-outpaint"],
+    };
+    this.model = this.models.normal;
+    this.client = options.client
+      ?? new GeminiClient(apiKey, {
+        timeoutMs: options.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS,
+      });
+  }
+
+  async editImage(input: ProviderEditInput): Promise<ProviderEditResult> {
+    const model = this.models[input.output.stage];
+    const aspectRatio = input.output.aspectRatio === "source"
+      ? undefined
+      : input.output.aspectRatio as GeminiConfig["aspectRatio"];
+    if (input.abort?.signal.aborted) {
+      return normalizeProviderFailure("gemini", model, undefined, {
+        abort: input.abort,
+      });
+    }
+
+    try {
+      const result = await this.client.editImage(input.source.bytes, input.prompt, {
+        model,
+        ...(aspectRatio ? { aspectRatio } : {}),
+        imageSize: input.output.stage === "normal" ? "1K" : "2K",
+        thinkingLevel: "high",
+        inputMediaResolution: "ultra_high",
+        ...(input.abort ? { abortSignal: input.abort.signal } : {}),
+      });
+      try {
+        const image = await validateImageOutput(
+          result.imageBuffer,
+          input.source,
+          input.output,
+        );
+        return {
+          outcome: "successful",
+          provider: "gemini",
+          requestedModel: model,
+          resolvedModel: result.modelVersion,
+          image,
+          responseText: result.responseText,
+          requestId: result.responseId,
+          usage: result.usageMetadata
+            ? {
+                inputTokens: result.usageMetadata.promptTokenCount,
+                outputTokens: result.usageMetadata.candidatesTokenCount,
+                totalTokens: result.usageMetadata.totalTokenCount,
+              }
+            : undefined,
+          finishReason: result.finishReason,
+        };
+      } catch (error) {
+        if (error instanceof ImageValidationError) {
+          return geminiImageFailure(model, error);
+        }
+        throw error;
+      }
+    } catch (error) {
+      if (error instanceof GeminiNoImageError) {
+        if (error.policyReason) {
+          return {
+            outcome: "refusal",
+            provider: "gemini",
+            requestedModel: model,
+            safeCode: error.policyReason,
+          };
+        }
+        return {
+          outcome: "no_image",
+          provider: "gemini",
+          requestedModel: model,
+          safeCode: error.finishReason
+            && SAFE_GEMINI_NO_IMAGE_CODES.has(error.finishReason)
+            ? error.finishReason
+            : undefined,
+        };
+      }
+      return normalizeProviderFailure("gemini", model, error, {
+        abort: input.abort,
+      });
+    }
   }
 }

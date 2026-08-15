@@ -3,6 +3,8 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
 import { GeminiClient, GeminiNoImageError } from "../engine/gemini-client.js";
 import type { GeminiClientOptions } from "../engine/gemini-client.js";
+import { OpenAIClient } from "../engine/openai-client.js";
+import { XaiClient } from "../engine/xai-client.js";
 import { detectSupportedImage } from "./image-validation.js";
 import type {
   ComparisonErrorCategory,
@@ -210,24 +212,21 @@ export function createOpenAIComparisonProvider(
   apiKey: string,
   dependencies: OpenAIDependencies = {},
 ): ComparisonProvider {
-  const openai = (dependencies.createOpenAI ?? createOpenAI)({ apiKey });
-  const model = openai.image(ROUND1_MODELS.openai);
-  const generate = dependencies.generateImage ?? generateImage;
+  const client = new OpenAIClient(apiKey, ROUND1_MODELS.openai, {
+    createOpenAI: dependencies.createOpenAI,
+    generateImage: dependencies.generateImage,
+  });
 
   return {
     ...ROUND1_PROVIDER_SPECS.openai,
     async editImage(imageBuffer, prompt) {
       try {
-        const result = await generate({
-          model,
-          prompt: { images: [imageBuffer], text: prompt },
-          n: 1,
+        const result = await client.editImage(imageBuffer, prompt, {
           size: "1536x1024",
-          maxRetries: 0,
+          quality: "low",
           abortSignal: createComparisonAbortSignal(dependencies),
-          providerOptions: { openai: { quality: "low" } },
         });
-        return normalizeImage(result.images[0]?.uint8Array);
+        return normalizeImage(result.bytes);
       } catch (error) {
         return normalizeFailure(error);
       }
@@ -239,23 +238,21 @@ export function createXaiComparisonProvider(
   apiKey: string,
   dependencies: XaiDependencies = {},
 ): ComparisonProvider {
-  const xai = (dependencies.createXai ?? createXai)({ apiKey });
-  const model = xai.image(ROUND1_MODELS.xai);
-  const generate = dependencies.generateImage ?? generateImage;
+  const client = new XaiClient(apiKey, ROUND1_MODELS.xai, {
+    createXai: dependencies.createXai,
+    generateImage: dependencies.generateImage,
+  });
 
   return {
     ...ROUND1_PROVIDER_SPECS.xai,
     async editImage(imageBuffer, prompt) {
       try {
-        const result = await generate({
-          model,
-          prompt: { images: [imageBuffer], text: prompt },
-          n: 1,
-          maxRetries: 0,
+        const result = await client.editImage(imageBuffer, prompt, {
+          resolution: "1k",
+          quality: "low",
           abortSignal: createComparisonAbortSignal(dependencies),
-          providerOptions: { xai: { resolution: "1k", quality: "low" } },
         });
-        return normalizeImage(result.images[0]?.uint8Array);
+        return normalizeImage(result.bytes);
       } catch (error) {
         return normalizeFailure(error);
       }

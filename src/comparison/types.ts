@@ -1,7 +1,8 @@
 /** Providers included in the first comparison round. */
 export type Round1ProviderId = "gemini" | "openai" | "xai";
 
-export type SupportedImageMimeType = "image/png" | "image/jpeg" | "image/webp";
+export type { SupportedImageMimeType } from "../engine/provider-types.js";
+import type { SupportedImageMimeType } from "../engine/provider-types.js";
 
 export type ComparisonErrorCategory =
   | "configuration"
