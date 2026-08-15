@@ -141,7 +141,10 @@ export class XaiImageProvider implements ImageProviderAdapter {
     }
     const targetRatio = expectedAspectRatio(input.source, input.output);
     let aspectRatio: XaiEditAspectRatio | undefined;
-    if (input.output.stage === "extend-outpaint") {
+    if (
+      input.output.stage === "extend-outpaint"
+      || (input.output.stage === "normal" && input.output.aspectRatio !== "source")
+    ) {
       const sourceRatio = input.source.width / input.source.height;
       const tolerance = input.output.aspectRatioTolerance
         ?? DEFAULT_ASPECT_RATIO_TOLERANCE;
@@ -152,7 +155,16 @@ export class XaiImageProvider implements ImageProviderAdapter {
           "xai_edit_preserves_input_ratio",
         );
       }
-      aspectRatio = "16:9";
+      if (!XAI_EDIT_ASPECT_RATIOS.includes(
+        input.output.aspectRatio as XaiEditAspectRatio,
+      )) {
+        return failure(
+          this.model,
+          "unsupported_output_spec",
+          "xai_unsupported_aspect_ratio",
+        );
+      }
+      aspectRatio = input.output.aspectRatio as XaiEditAspectRatio;
     }
 
     const providerTimeoutSignal = this.createTimeoutSignal(this.timeoutMs);

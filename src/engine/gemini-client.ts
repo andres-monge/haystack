@@ -293,6 +293,8 @@ export interface GeminiImageProviderOptions {
   client?: Pick<GeminiClient, "editImage">;
   timeoutMs?: number;
   models?: Partial<Record<ImageEditStage, GeminiConfig["model"]>>;
+  /** Applied only to normal generation; extend stages deliberately omit it. */
+  seed?: number;
 }
 
 const SAFE_GEMINI_NO_IMAGE_CODES = new Set([
@@ -321,6 +323,7 @@ export class GeminiImageProvider implements ImageProviderAdapter {
   readonly model: string;
   private readonly client: Pick<GeminiClient, "editImage">;
   private readonly models: Record<ImageEditStage, GeminiConfig["model"]>;
+  private readonly seed: number | undefined;
 
   constructor(apiKey: string, options: GeminiImageProviderOptions = {}) {
     this.models = {
@@ -331,6 +334,7 @@ export class GeminiImageProvider implements ImageProviderAdapter {
         ?? DEFAULT_GEMINI_PROVIDER_MODELS["extend-outpaint"],
     };
     this.model = this.models.normal;
+    this.seed = options.seed;
     this.client = options.client
       ?? new GeminiClient(apiKey, {
         timeoutMs: options.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS,
@@ -355,6 +359,9 @@ export class GeminiImageProvider implements ImageProviderAdapter {
         imageSize: input.output.stage === "normal" ? "1K" : "2K",
         thinkingLevel: "high",
         inputMediaResolution: "ultra_high",
+        ...(input.output.stage === "normal" && this.seed !== undefined
+          ? { seed: this.seed }
+          : {}),
         ...(input.abort ? { abortSignal: input.abort.signal } : {}),
       });
       try {
@@ -379,6 +386,9 @@ export class GeminiImageProvider implements ImageProviderAdapter {
               }
             : undefined,
           finishReason: result.finishReason,
+          ...(input.output.stage === "normal" && this.seed !== undefined
+            ? { seed: this.seed }
+            : {}),
         };
       } catch (error) {
         if (error instanceof ImageValidationError) {

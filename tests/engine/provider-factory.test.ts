@@ -35,6 +35,7 @@ describe("createProviderRegistry", () => {
         normal: "gemini-3.1-flash-lite-image",
         extend: "gemini-3.1-flash-image",
       },
+      defaultSeed: 42,
     }, constructors);
 
     expect(registry.ids).toEqual(["xai", "gemini"]);
@@ -50,6 +51,7 @@ describe("createProviderRegistry", () => {
         "extend-cleanup": "gemini-3.1-flash-image",
         "extend-outpaint": "gemini-3.1-flash-image",
       },
+      seed: 42,
     });
     expect(constructors.openai).not.toHaveBeenCalled();
     expect(Object.isFrozen(registry)).toBe(true);
@@ -71,6 +73,25 @@ describe("createProviderRegistry", () => {
     expect(constructors.openai).not.toHaveBeenCalled();
     expect(constructors.xai).not.toHaveBeenCalled();
   });
+
+  it.each([-1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    "rejects invalid configured seed %s before constructing a client",
+    defaultSeed => {
+      const constructors = factories();
+
+      expect(() => createProviderRegistry({
+        providerOrder: ["gemini"],
+        providerKeys: { gemini: "google-secret" },
+        geminiModels: {
+          normal: "gemini-3.1-flash-lite-image",
+          extend: "gemini-3.1-flash-image",
+        },
+        defaultSeed,
+      }, constructors)).toThrow(/seed.*non-negative safe integer/i);
+
+      expect(constructors.gemini).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps credentials private and out of registry serialization", () => {
     const constructors = factories();

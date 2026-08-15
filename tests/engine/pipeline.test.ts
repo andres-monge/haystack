@@ -218,6 +218,50 @@ describe("Pipeline provider-chain integration", () => {
     expect(chain.editImage.mock.calls[0][0].source.bytes).toEqual(PNG_BUFFER);
   });
 
+  it("passes a configured normal ratio and records a seed only for the Gemini winner that used it", async () => {
+    const chain = mockChain(async input => ({
+      ...success(
+        input.chainId!,
+        "gemini",
+        ["gemini", "openai"],
+        [attempt("gemini", "successful", 1)],
+      ),
+      seed: 42,
+    }), ["gemini", "openai"]);
+    const pipeline = new Pipeline(
+      {
+        outputDir: tempDir,
+        geminiConfig: { aspectRatio: "16:9", seed: 42 },
+      },
+      {
+        chain,
+        terminalEventSink: event => { events.push(event); },
+        createId: () => "logical-edit-1",
+      },
+    );
+
+    const geminiResult = await pipeline.generate(testImagePath, createScenarioFromHour(18));
+    expect(chain.editImage.mock.calls[0][0].output).toEqual({
+      stage: "normal",
+      aspectRatio: "16:9",
+    });
+    expect(geminiResult.metadata.seed).toBe(42);
+
+    chain.editImage.mockImplementationOnce(async input => ({
+      ...success(
+        input.chainId!,
+        "openai",
+        ["gemini", "openai"],
+        [attempt("gemini", "refusal", 1), attempt("openai", "successful", 2)],
+      ),
+      // The pipeline must not trust or persist a seed claimed by a provider
+      // that does not receive Haystack's configured Gemini seed.
+      seed: 42,
+    }));
+    const fallbackResult = await pipeline.generate(testImagePath, createScenarioFromHour(19));
+    expect(fallbackResult.metadata).not.toHaveProperty("seed");
+  });
+
   it("uses one exact override prompt without recomposing it", async () => {
     const compose = vi.fn(() => "unused");
     const composeOverride = vi.fn(() => "exact override");
@@ -296,6 +340,7 @@ describe("Pipeline provider-chain integration", () => {
       ],
     ), ["gemini", "openai"]);
     const store = {
+      cleanupUncommitted: vi.fn(),
       save: vi.fn().mockRejectedValue(new Error("disk full /private/path")),
     } as unknown as OutputStore;
     const pipeline = makePipeline(chain, { store });
@@ -336,6 +381,73 @@ describe("Pipeline provider-chain integration", () => {
       safeCode: "source_read_failed",
       attempts: [],
     })]);
+  });
+
+  it("sanitizes source-validation failure, writes nothing, and releases the lock", async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    const chain = mockChain(async input => success(
+      input.chainId!, "gemini", ["gemini"], [attempt("gemini", "successful", 1)],
+    ), ["gemini"]);
+    const pipeline = makePipeline(chain, {
+      validateSource: vi.fn().mockRejectedValue(new Error("raw decoder /private/path")),
+      generationLock: {
+        acquire: vi.fn().mockResolvedValue({ token: "lease-token", release }),
+      },
+    });
+
+    await expect(
+      pipeline.generate(testImagePath, createScenarioFromHour(18)),
+    ).rejects.toMatchObject({
+      code: "PIPELINE_GENERATION_FAILED",
+      safeCode: "source_validation_failed",
+    });
+
+    expect(chain.editImage).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledOnce();
+    expect(fs.readdirSync(tempDir)).toEqual(["original.png"]);
+    expect(events).toEqual([expect.objectContaining({
+      outcome: "local_failure",
+      safeCode: "source_validation_failed",
+      attempts: [],
+    })]);
+    expect(JSON.stringify(events)).not.toContain("/private/path");
+  });
+
+  it("sanitizes cleanup failures, makes no provider call, and releases the lock", async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    const chain = mockChain(async input => success(
+      input.chainId!, "gemini", ["gemini"], [attempt("gemini", "successful", 1)],
+    ), ["gemini"]);
+    const store = {
+      cleanupUncommitted: vi.fn(() => {
+        throw new Error("/private/output cleanup failed");
+      }),
+      save: vi.fn(),
+    } as unknown as OutputStore;
+    const pipeline = makePipeline(chain, {
+      store,
+      generationLock: {
+        acquire: vi.fn().mockResolvedValue({ token: "lease-token", release }),
+      },
+    });
+
+    await expect(
+      pipeline.generate(testImagePath, createScenarioFromHour(18)),
+    ).rejects.toMatchObject({
+      code: "PIPELINE_GENERATION_FAILED",
+      safeCode: "storage_cleanup_failed",
+    });
+
+    expect(store.cleanupUncommitted).toHaveBeenCalledOnce();
+    expect(chain.editImage).not.toHaveBeenCalled();
+    expect(store.save).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledOnce();
+    expect(events).toEqual([expect.objectContaining({
+      outcome: "local_failure",
+      safeCode: "storage_cleanup_failed",
+      attempts: [],
+    })]);
+    expect(JSON.stringify(events)).not.toContain("/private/output");
   });
 
   it("returns busy before provider work and emits one safe terminal event", async () => {

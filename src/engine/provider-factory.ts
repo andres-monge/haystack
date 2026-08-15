@@ -31,6 +31,8 @@ export interface ProviderFactoryConfig {
     extend: GeminiConfig["model"];
   };
   providerTimeoutMs?: number;
+  /** Seed used only by normal Gemini edits. */
+  defaultSeed?: number;
 }
 
 export interface ProviderAdapterFactories {
@@ -129,6 +131,12 @@ export function createProviderRegistry(
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
     throw new Error("Provider timeout must be a positive number");
   }
+  if (
+    config.defaultSeed !== undefined
+    && (!Number.isSafeInteger(config.defaultSeed) || config.defaultSeed < 0)
+  ) {
+    throw new Error("Default seed must be a non-negative safe integer");
+  }
   const providers = providerOrder.map(provider => {
     const apiKey = config.providerKeys[provider] as string;
     switch (provider) {
@@ -140,6 +148,9 @@ export function createProviderRegistry(
             "extend-cleanup": config.geminiModels.extend,
             "extend-outpaint": config.geminiModels.extend,
           },
+          ...(config.defaultSeed !== undefined
+            ? { seed: config.defaultSeed }
+            : {}),
         });
       case "openai":
         return factories.openai(apiKey, { timeoutMs });

@@ -14,6 +14,7 @@ import {
 } from "./provider-types.js";
 import {
   ImageValidationError,
+  validateImage,
   validateImageOutput,
 } from "./image-validation.js";
 
@@ -109,6 +110,11 @@ function invalidImageFailure(
   };
 }
 
+function sizeAspectRatio(size: `${number}x${number}`): number {
+  const [width, height] = size.split("x").map(Number);
+  return width / height;
+}
+
 export class OpenAIImageProvider implements ImageProviderAdapter {
   readonly provider = "openai" as const;
   readonly model: string;
@@ -136,8 +142,9 @@ export class OpenAIImageProvider implements ImageProviderAdapter {
       : providerTimeoutSignal;
 
     try {
+      const size = openAIOutputSize(input);
       const result = await this.client.editImage(input.source.bytes, input.prompt, {
-        size: openAIOutputSize(input),
+        size,
         quality: "low",
         abortSignal,
       });
@@ -147,11 +154,18 @@ export class OpenAIImageProvider implements ImageProviderAdapter {
         });
       }
       try {
-        const image = await validateImageOutput(
-          Buffer.from(result.bytes),
-          input.source,
-          input.output,
-        );
+        const image = input.output.stage === "extend-outpaint"
+          ? await validateImageOutput(
+              Buffer.from(result.bytes),
+              input.source,
+              input.output,
+            )
+          : await validateImage(Buffer.from(result.bytes), {
+              // OpenAI requires multiples of 16. Validate the geometry it was
+              // actually asked to return instead of the pre-quantized ratio.
+              expectedAspectRatio: sizeAspectRatio(size),
+              aspectRatioTolerance: input.output.aspectRatioTolerance,
+            });
         return {
           outcome: "successful",
           provider: "openai",

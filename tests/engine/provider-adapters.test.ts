@@ -1,6 +1,7 @@
 import { NoImageGeneratedError, type GenerateImageResult, type generateImage } from "ai";
 import type { createOpenAI } from "@ai-sdk/openai";
 import type { createXai } from "@ai-sdk/xai";
+import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
 import {
   GeminiImageProvider,
@@ -130,7 +131,10 @@ describe("production provider adapters", () => {
         modelVersion: "resolved-gemini",
       }),
     );
-    const provider = new GeminiImageProvider("secret", { client: { editImage } });
+    const provider = new GeminiImageProvider("secret", {
+      client: { editImage },
+      seed: 42,
+    });
     const normalSource = await validateImage(PNG_2X1);
     const outpaintSource = await validateImage(PNG_16X9);
 
@@ -168,6 +172,7 @@ describe("production provider adapters", () => {
       imageSize: "1K",
       thinkingLevel: "high",
       inputMediaResolution: "ultra_high",
+      seed: 42,
     });
     expect(editImage.mock.calls[1][2]).toEqual({
       model: "gemini-3.1-flash-image",
@@ -182,6 +187,97 @@ describe("production provider adapters", () => {
       thinkingLevel: "high",
       inputMediaResolution: "ultra_high",
     });
+    expect(cleanup).not.toHaveProperty("seed");
+    expect(outpaint).not.toHaveProperty("seed");
+    expect(normal).toMatchObject({ seed: 42 });
+  });
+
+  it("translates a concrete normal ratio for every provider and rejects xAI mismatches locally", async () => {
+    const geminiEdit = vi.fn().mockResolvedValue({ imageBuffer: PNG_16X9 });
+    const gemini = new GeminiImageProvider("secret", { client: { editImage: geminiEdit } });
+    const source2x1 = await validateImage(PNG_2X1);
+
+    await expect(gemini.editImage({
+      source: source2x1,
+      prompt: "add fog",
+      output: { stage: "normal", aspectRatio: "16:9" },
+    })).resolves.toMatchObject({ outcome: "successful" });
+    expect(geminiEdit.mock.calls[0][2]).toMatchObject({ aspectRatio: "16:9" });
+
+    const openAIGenerate = vi.fn().mockResolvedValue(imageResult(PNG_16X9));
+    const openai = new OpenAIImageProvider("secret", {
+      client: new OpenAIClient(
+        "secret",
+        "gpt-image-2",
+        openAIDependencies(openAIGenerate),
+      ),
+      createTimeoutSignal: () => new AbortController().signal,
+    });
+    await expect(openai.editImage({
+      source: source2x1,
+      prompt: "add fog",
+      output: { stage: "normal", aspectRatio: "16:9" },
+    })).resolves.toMatchObject({ outcome: "successful" });
+    expect(openAIGenerate.mock.calls[0][0].size).toBe("2048x1152");
+
+    const xaiGenerate = vi.fn();
+    const xai = new XaiImageProvider("secret", {
+      client: new XaiClient("secret", "grok-imagine-image-2.0", xaiDependencies(xaiGenerate)),
+    });
+    await expect(xai.editImage({
+      source: source2x1,
+      prompt: "add fog",
+      output: { stage: "normal", aspectRatio: "16:9" },
+    })).resolves.toMatchObject({
+      outcome: "unsupported_output_spec",
+      safeCode: "xai_edit_preserves_input_ratio",
+    });
+    expect(xaiGenerate).not.toHaveBeenCalled();
+  });
+
+  it("sends xAI a supported configured ratio when it already matches the source", async () => {
+    const generateImageMock = vi.fn().mockResolvedValue(imageResult(PNG_16X9));
+    const provider = new XaiImageProvider("secret", {
+      client: new XaiClient(
+        "secret",
+        "grok-imagine-image-2.0",
+        xaiDependencies(generateImageMock),
+      ),
+      createTimeoutSignal: () => new AbortController().signal,
+    });
+
+    await expect(provider.editImage({
+      source: await validateImage(PNG_16X9),
+      prompt: "add fog",
+      output: { stage: "normal", aspectRatio: "16:9" },
+    })).resolves.toMatchObject({ outcome: "successful" });
+    expect(generateImageMock.mock.calls[0][0]).toMatchObject({ aspectRatio: "16:9" });
+  });
+
+  it("rejects an xAI ratio the edit API cannot express without a provider call", async () => {
+    const generateImageMock = vi.fn();
+    const provider = new XaiImageProvider("secret", {
+      client: new XaiClient(
+        "secret",
+        "grok-imagine-image-2.0",
+        xaiDependencies(generateImageMock),
+      ),
+    });
+    const source = {
+      ...await validateImage(PNG_2X1),
+      width: 4,
+      height: 5,
+    };
+
+    await expect(provider.editImage({
+      source,
+      prompt: "add fog",
+      output: { stage: "normal", aspectRatio: "4:5" },
+    })).resolves.toMatchObject({
+      outcome: "unsupported_output_spec",
+      safeCode: "xai_unsupported_aspect_ratio",
+    });
+    expect(generateImageMock).not.toHaveBeenCalled();
   });
 
   it("uses the explicit OpenAI 2048x1152 profile for 16:9 outpainting", async () => {
@@ -253,6 +349,46 @@ describe("production provider adapters", () => {
       provider: "openai",
       requestedModel: "gpt-image-2",
       image: { mimeType: "image/png", width: 2, height: 1 },
+    });
+  });
+
+  it("validates a quantized OpenAI source ratio against the exact requested size", async () => {
+    const output = await sharp({
+      create: { width: 2048, height: 864, channels: 3, background: "blue" },
+    }).png().toBuffer();
+    const generateImageMock = vi.fn().mockResolvedValue(imageResult(output));
+    const provider = new OpenAIImageProvider("secret", {
+      client: new OpenAIClient(
+        "secret",
+        "gpt-image-2",
+        openAIDependencies(generateImageMock),
+      ),
+      createTimeoutSignal: () => new AbortController().signal,
+    });
+    const source = {
+      ...await validateImage(PNG_2X1),
+      width: 2350,
+      height: 1000,
+    };
+
+    await expect(provider.editImage({
+      source,
+      prompt: "add snow",
+      output: { stage: "normal", aspectRatio: "source" },
+    })).resolves.toMatchObject({
+      outcome: "successful",
+      image: { width: 2048, height: 864 },
+    });
+    expect(generateImageMock.mock.calls[0][0].size).toBe("2048x864");
+
+    generateImageMock.mockResolvedValueOnce(imageResult(PNG_2X1));
+    await expect(provider.editImage({
+      source,
+      prompt: "add snow",
+      output: { stage: "normal", aspectRatio: "source" },
+    })).resolves.toMatchObject({
+      outcome: "invalid_image",
+      safeCode: "aspect_ratio_mismatch",
     });
   });
 
@@ -385,6 +521,48 @@ describe("production provider adapters", () => {
       outcome: "invalid_image",
       safeCode: "unsupported_signature",
     });
+  });
+
+  it("normalizes corrupt Gemini and wrong-ratio xAI output without raw response leakage", async () => {
+    const gemini = new GeminiImageProvider("secret", {
+      client: {
+        editImage: vi.fn().mockResolvedValue({
+          imageBuffer: Buffer.from("not-an-image"),
+          responseText: "private raw provider response",
+        }),
+      },
+    });
+    const source = await validateImage(PNG_2X1);
+    const geminiResult = await gemini.editImage({
+      source,
+      prompt: "test",
+      output: { stage: "normal", aspectRatio: "source" },
+    });
+    expect(geminiResult).toMatchObject({
+      outcome: "invalid_image",
+      safeCode: "unsupported_signature",
+    });
+    expect(JSON.stringify(geminiResult)).not.toContain("private raw provider response");
+
+    const generateImageMock = vi.fn().mockResolvedValue(imageResult(PNG_16X9));
+    const xai = new XaiImageProvider("secret", {
+      client: new XaiClient(
+        "secret",
+        "grok-imagine-image-2.0",
+        xaiDependencies(generateImageMock),
+      ),
+      createTimeoutSignal: () => new AbortController().signal,
+    });
+    const xaiResult = await xai.editImage({
+      source,
+      prompt: "test",
+      output: { stage: "normal", aspectRatio: "source" },
+    });
+    expect(xaiResult).toMatchObject({
+      outcome: "invalid_image",
+      safeCode: "aspect_ratio_mismatch",
+    });
+    expect(JSON.stringify(xaiResult)).not.toContain(PNG_16X9.toString("base64"));
   });
 
   it("stops an already-cancelled edit before calling a provider", async () => {

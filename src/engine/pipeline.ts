@@ -219,6 +219,12 @@ export class Pipeline {
         throw new PipelineGenerationError("lock_failed");
       }
 
+      try {
+        this.#store.cleanupUncommitted();
+      } catch {
+        throw new PipelineGenerationError("storage_cleanup_failed");
+      }
+
       let sourceBytes: Buffer;
       try {
         sourceBytes = await this.#readSource(imagePath);
@@ -253,7 +259,10 @@ export class Pipeline {
           chainId,
           source,
           prompt,
-          output: Object.freeze({ stage, aspectRatio: "source" }),
+          output: Object.freeze({
+            stage,
+            aspectRatio: this.#config.geminiConfig.aspectRatio ?? "source",
+          }),
           ...(options.signal ? { signal: options.signal } : {}),
         });
         run = providerResult.run;
@@ -299,7 +308,9 @@ export class Pipeline {
         createdAt: now.toISOString(),
         outputPath: "",
         responseText: providerResult.responseText,
-        seed: this.#config.geminiConfig.seed,
+        ...(providerResult.provider === "gemini" && providerResult.seed !== undefined
+          ? { seed: providerResult.seed }
+          : {}),
         responseId: providerResult.requestId,
         modelVersion: providerResult.resolvedModel,
         usageMetadata: providerResult.usage

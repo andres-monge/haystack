@@ -139,18 +139,55 @@ describe("OutputStore", () => {
     expect(await store.listAll()).toEqual([]);
     expect(await store.resolve("render-crash")).toBeNull();
 
-    new OutputStore(tempDir);
+    const recoveryStore = new OutputStore(tempDir);
+    expect(fs.existsSync(path.join(tempDir, "render-crash.png"))).toBe(true);
+
+    recoveryStore.cleanupUncommitted();
     expect(fs.existsSync(path.join(tempDir, "render-crash.png"))).toBe(false);
     expect(fs.readdirSync(tempDir).some(file => file.endsWith(".tmp"))).toBe(false);
   });
 
-  it("ignores malformed sidecars and removes stale temp files", async () => {
+  it("does not let a second store clean another store's in-flight commit", async () => {
+    let secondStore: OutputStore | undefined;
+    const firstStore = new OutputStore(tempDir, 24, {
+      beforeSidecarCommit: () => {
+        expect(fs.existsSync(path.join(tempDir, "render-in-flight.png"))).toBe(true);
+        expect(fs.existsSync(path.join(tempDir, ".render-in-flight.orphan"))).toBe(true);
+
+        secondStore = new OutputStore(tempDir);
+
+        expect(fs.existsSync(path.join(tempDir, "render-in-flight.png"))).toBe(true);
+        expect(fs.existsSync(path.join(tempDir, ".render-in-flight.orphan"))).toBe(true);
+      },
+    });
+
+    await expect(firstStore.save(
+      pngBuffer,
+      makeMetadata("render-in-flight"),
+    )).resolves.toBe(path.join(tempDir, "render-in-flight.png"));
+
+    expect(secondStore).toBeInstanceOf(OutputStore);
+    expect(await secondStore?.resolve("render-in-flight")).toMatchObject({
+      imagePath: path.join(tempDir, "render-in-flight.png"),
+      mimeType: "image/png",
+    });
+  });
+
+  it("ignores malformed sidecars and removes only Haystack-owned stale temp files", async () => {
     fs.writeFileSync(path.join(tempDir, "bad.json"), "not-json");
-    fs.writeFileSync(path.join(tempDir, ".render.image.tmp"), pngBuffer);
+    const ownedTemp = path.join(
+      tempDir,
+      ".render.01234567-89ab-4cde-8fab-0123456789ab.image.tmp",
+    );
+    const unrelatedTemp = path.join(tempDir, ".unrelated.tmp");
+    fs.writeFileSync(ownedTemp, pngBuffer);
+    fs.writeFileSync(unrelatedTemp, "keep me");
     const store = new OutputStore(tempDir);
 
+    store.cleanupUncommitted();
     expect(await store.listAll()).toEqual([]);
-    expect(fs.existsSync(path.join(tempDir, ".render.image.tmp"))).toBe(false);
+    expect(fs.existsSync(ownedTemp)).toBe(false);
+    expect(fs.readFileSync(unrelatedTemp, "utf8")).toBe("keep me");
   });
 
   it("does not delete unrelated artwork just because it has no sidecar", () => {

@@ -166,6 +166,23 @@ describe("ProviderChain", () => {
     expect(openai.editImage.mock.calls[0][0].prompt).toBe("add soft rain");
   });
 
+  it("accepts and snapshots a configured normal aspect ratio", async () => {
+    const seen: ProviderEditInput["output"][] = [];
+    const gemini = provider("gemini", async input => {
+      seen.push(input.output);
+      return success("gemini");
+    });
+    const chain = new ProviderChain(registry(gemini));
+
+    await chain.editImage({
+      ...editInput(),
+      output: { stage: "normal", aspectRatio: "16:9" },
+    });
+
+    expect(seen).toEqual([{ stage: "normal", aspectRatio: "16:9" }]);
+    expect(Object.isFrozen(seen[0])).toBe(true);
+  });
+
   it("throws one typed sanitized aggregate after complete exhaustion", async () => {
     const injectedSecret = "sk-injected-super-secret";
     const gemini = provider("gemini", async () => ({

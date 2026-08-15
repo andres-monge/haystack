@@ -11,6 +11,7 @@ import type {
   SupportedImageMimeType,
   ValidatedImage,
 } from "./provider-types.js";
+import { isConfiguredAspectRatio } from "./provider-types.js";
 import type { ImageProviderRegistry } from "./provider-factory.js";
 
 export const DEFAULT_PROVIDER_CHAIN_TIMEOUT_MS = 570_000;
@@ -206,8 +207,10 @@ function snapshotSource(source: ValidatedImage): ValidatedImage {
 }
 
 function snapshotOutput(output: ImageOutputSpec): ImageOutputSpec {
-  const validShape = output.stage === "normal" || output.stage === "extend-cleanup"
-    ? output.aspectRatio === "source"
+  const validShape = output.stage === "normal"
+    ? output.aspectRatio === "source" || isConfiguredAspectRatio(output.aspectRatio)
+    : output.stage === "extend-cleanup"
+      ? output.aspectRatio === "source"
     : output.stage === "extend-outpaint" && output.aspectRatio === "16:9";
   if (
     !validShape

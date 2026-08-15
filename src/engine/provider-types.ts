@@ -14,15 +14,51 @@ export type SupportedImageMimeType =
 
 export const DEFAULT_PROVIDER_TIMEOUT_MS = 180_000;
 
+export const CONFIGURED_ASPECT_RATIOS = [
+  "1:1",
+  "16:9",
+  "9:16",
+  "4:3",
+  "3:4",
+  "3:2",
+  "2:3",
+  "4:5",
+  "5:4",
+  "21:9",
+] as const;
+
+export type ConfiguredAspectRatio = typeof CONFIGURED_ASPECT_RATIOS[number];
+
+const CONFIGURED_ASPECT_RATIO_SET: ReadonlySet<string> = new Set(
+  CONFIGURED_ASPECT_RATIOS,
+);
+
+export function isConfiguredAspectRatio(
+  value: unknown,
+): value is ConfiguredAspectRatio {
+  return typeof value === "string" && CONFIGURED_ASPECT_RATIO_SET.has(value);
+}
+
+export function configuredAspectRatioValue(
+  ratio: ConfiguredAspectRatio,
+): number {
+  const [width, height] = ratio.split(":").map(Number);
+  return width / height;
+}
+
 interface ImageOutputSpecBase {
   /** Absolute ratio delta. Defaults to 0.01 (one percentage point). */
   aspectRatioTolerance?: number;
 }
 
-/** Normal and cleanup preserve source geometry; outpaint is always 16:9. */
+/** Normal can override geometry; cleanup preserves source; outpaint is 16:9. */
 export type ImageOutputSpec = ImageOutputSpecBase & (
   | {
-      stage: "normal" | "extend-cleanup";
+      stage: "normal";
+      aspectRatio: "source" | ConfiguredAspectRatio;
+    }
+  | {
+      stage: "extend-cleanup";
       aspectRatio: "source";
     }
   | {
@@ -90,6 +126,8 @@ export interface ProviderEditSuccess {
   requestId?: string;
   usage?: ProviderUsage;
   finishReason?: string;
+  /** Present only when this successful provider attempt actually sent a seed. */
+  seed?: number;
 }
 
 export interface ProviderEditFailure {
@@ -261,6 +299,5 @@ export function expectedAspectRatio(
   output: ImageOutputSpec,
 ): number {
   if (output.aspectRatio === "source") return source.width / source.height;
-
-  return 16 / 9;
+  return configuredAspectRatioValue(output.aspectRatio);
 }

@@ -67,6 +67,7 @@ export interface ExtendArtworkGenerationLock {
 }
 
 export interface ExtendArtworkStore {
+  cleanupUncommitted(): void;
   save(imageBuffer: Buffer, metadata: RenderMetadata): Promise<string>;
 }
 
@@ -328,6 +329,15 @@ export class ExtendArtworkService {
         await emit(eventFor(cleanupState, "local_failure", { safeCode }));
         if (busy) throw error;
         throw new ExtendArtworkError(safeCode);
+      }
+
+      try {
+        this.#store.cleanupUncommitted();
+      } catch {
+        await emit(eventFor(cleanupState, "local_failure", {
+          safeCode: "storage_cleanup_failed",
+        }));
+        throw new ExtendArtworkError("storage_cleanup_failed");
       }
 
       const renderId = deriveLandscapeId(imagePath);

@@ -503,6 +503,7 @@ describe("toProviderFactoryConfig", () => {
       imageProviderOrder: ["openai", "gemini"] as const,
       outputDir: "/out",
       defaultModel: "gemini-3.1-flash-lite-image" as const,
+      defaultSeed: 42,
       maxStoredOutputs: 24,
       bindHost: "127.0.0.1",
       extendModel: "gemini-3.1-flash-image" as const,
@@ -515,6 +516,7 @@ describe("toProviderFactoryConfig", () => {
         normal: "gemini-3.1-flash-lite-image",
         extend: "gemini-3.1-flash-image",
       },
+      defaultSeed: 42,
     });
     expect(JSON.stringify(toPipelineConfig(config))).not.toContain("secret");
   });

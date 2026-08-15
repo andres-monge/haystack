@@ -401,13 +401,67 @@ describe("ExtendArtworkService", () => {
       [attempt(input.output.stage, "gemini", "successful", 1)],
       input.output.stage === "extend-cleanup" ? cleanup : finalPng,
     ), {
-      store: { save: vi.fn().mockRejectedValue(new Error("/secret/disk")) },
+      store: {
+        cleanupUncommitted: vi.fn(),
+        save: vi.fn().mockRejectedValue(new Error("/secret/disk")),
+      },
     });
 
     await expect(storage.service.extend(sourcePath)).rejects.toBeInstanceOf(ExtendArtworkError);
     expect(events.map(event => event.outcome)).toEqual(["successful", "local_failure"]);
     expect(events[1]).toMatchObject({ safeCode: "storage_failed", winner: "gemini" });
     expect(JSON.stringify(events)).not.toContain("/secret/disk");
+  });
+
+  it("sanitizes source-validation failure, writes nothing, and releases the lock", async () => {
+    const { service, chain } = makeService(async () => {
+      throw new Error("provider must not run");
+    }, {
+      validateSource: vi.fn().mockRejectedValue(new Error("decoder /private/source")),
+    });
+
+    await expect(service.extend(sourcePath)).rejects.toMatchObject({
+      code: "EXTEND_ARTWORK_FAILED",
+      safeCode: "source_validation_failed",
+    });
+
+    expect(chain.editImage).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledOnce();
+    expect(fs.readdirSync(imageDir)).toEqual([]);
+    expect(events).toEqual([expect.objectContaining({
+      stage: "extend-cleanup",
+      outcome: "local_failure",
+      safeCode: "source_validation_failed",
+      attempts: [],
+    })]);
+    expect(JSON.stringify(events)).not.toContain("/private/source");
+  });
+
+  it("sanitizes cleanup failures, makes no provider call, and releases the lock", async () => {
+    const cleanupUncommitted = vi.fn(() => {
+      throw new Error("/private/artworks cleanup failed");
+    });
+    const { service, chain } = makeService(async () => {
+      throw new Error("provider must not run");
+    }, {
+      store: { cleanupUncommitted, save: vi.fn() },
+    });
+
+    await expect(service.extend(sourcePath)).rejects.toMatchObject({
+      code: "EXTEND_ARTWORK_FAILED",
+      safeCode: "storage_cleanup_failed",
+    });
+
+    expect(cleanupUncommitted).toHaveBeenCalledOnce();
+    expect(chain.editImage).not.toHaveBeenCalled();
+    expect(release).toHaveBeenCalledOnce();
+    expect(events).toEqual([expect.objectContaining({
+      stage: "extend-cleanup",
+      outcome: "local_failure",
+      safeCode: "storage_cleanup_failed",
+      attempts: [],
+    })]);
+    expect(JSON.stringify(events)).not.toContain("/private/artworks");
   });
 
   it.each([

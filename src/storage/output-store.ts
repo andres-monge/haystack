@@ -11,6 +11,7 @@ import type { SupportedImageMimeType } from "../engine/provider-types.js";
 
 const VALID_ID_PATTERN = /^[a-zA-Z0-9_-]+$/;
 const IMAGE_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".webp"] as const;
+const HAYSTACK_TEMP_FILE_PATTERN = /^\.[a-zA-Z0-9_-]+\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:image|json)\.tmp$/i;
 
 const EXTENSION_BY_MIME: Record<SupportedImageMimeType, ".png" | ".jpg" | ".webp"> = {
   "image/png": ".png",
@@ -98,7 +99,31 @@ export class OutputStore {
     this.maxOutputs = maxOutputs;
     this.hooks = hooks;
     fs.mkdirSync(this.baseDir, { recursive: true });
-    this.cleanupUncommitted();
+  }
+
+  /**
+   * Recover files left by an interrupted save. The caller must hold Haystack's
+   * shared generation lock so cleanup cannot race another process's commit.
+   */
+  cleanupUncommitted(): void {
+    const files = fs.readdirSync(this.baseDir);
+    for (const file of files) {
+      if (HAYSTACK_TEMP_FILE_PATTERN.test(file)) {
+        this.unlinkBestEffort(this.pathFor(file));
+      }
+    }
+    for (const file of files) {
+      const match = /^\.([a-zA-Z0-9_-]+)\.orphan$/.exec(file);
+      if (!match) continue;
+      const id = match[1];
+      const metadataPath = this.pathFor(`${id}.json`);
+      if (!this.loadMetadata(metadataPath, id)) {
+        for (const imagePath of this.findImageSiblings(id)) {
+          this.unlinkBestEffort(imagePath);
+        }
+      }
+      this.unlinkBestEffort(this.pathFor(file));
+    }
   }
 
   /** Save an image, promoting the sidecar last as the commit point. */
@@ -250,27 +275,6 @@ export class OutputStore {
           return false;
         }
       });
-  }
-
-  private cleanupUncommitted(): void {
-    const files = fs.readdirSync(this.baseDir);
-    for (const file of files) {
-      if (file.endsWith(".tmp")) {
-        this.unlinkBestEffort(this.pathFor(file));
-      }
-    }
-    for (const file of files) {
-      const match = /^\.([a-zA-Z0-9_-]+)\.orphan$/.exec(file);
-      if (!match) continue;
-      const id = match[1];
-      const metadataPath = this.pathFor(`${id}.json`);
-      if (!this.loadMetadata(metadataPath, id)) {
-        for (const imagePath of this.findImageSiblings(id)) {
-          this.unlinkBestEffort(imagePath);
-        }
-      }
-      this.unlinkBestEffort(this.pathFor(file));
-    }
   }
 
   private async purgeOldOutputs(): Promise<void> {

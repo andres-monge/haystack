@@ -2,6 +2,7 @@
 
 import type { ProviderAttemptRecord } from "./provider-chain.js";
 import type {
+  ConfiguredAspectRatio,
   ImageProviderId,
   SupportedImageMimeType,
 } from "./provider-types.js";
@@ -90,17 +91,7 @@ export interface SerializedScenario {
   sunset?: string; // ISO 8601
 }
 
-export type AspectRatio =
-  | "1:1"
-  | "16:9"
-  | "9:16"
-  | "4:3"
-  | "3:4"
-  | "3:2"
-  | "2:3"
-  | "4:5"
-  | "5:4"
-  | "21:9";
+export type AspectRatio = ConfiguredAspectRatio;
 
 export interface GeminiConfig {
   model:

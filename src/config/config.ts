@@ -3,7 +3,10 @@
 import * as path from "node:path";
 import * as os from "node:os";
 import type { PipelineConfig, GeminiConfig, AspectRatio } from "../engine/types.js";
-import type { ImageProviderId } from "../engine/provider-types.js";
+import {
+  CONFIGURED_ASPECT_RATIOS,
+  type ImageProviderId,
+} from "../engine/provider-types.js";
 import {
   PROVIDER_KEY_NAMES,
   isProviderApiKeyPresent,
@@ -31,7 +34,7 @@ const PREFERRED_PROVIDER_ORDER = Object.freeze([
 ] as const satisfies readonly ImageProviderId[]);
 
 const VALID_ASPECT_RATIOS: ReadonlySet<AspectRatio> = new Set([
-  "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9",
+  ...CONFIGURED_ASPECT_RATIOS,
 ]);
 
 export interface HaystackConfig {
@@ -328,5 +331,8 @@ export function toProviderFactoryConfig(config: HaystackConfig): ProviderFactory
       normal: config.defaultModel,
       extend: config.extendModel,
     },
+    ...(config.defaultSeed !== undefined
+      ? { defaultSeed: config.defaultSeed }
+      : {}),
   };
 }
