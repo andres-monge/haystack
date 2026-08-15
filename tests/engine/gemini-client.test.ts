@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -54,6 +54,10 @@ describe("GeminiClient", () => {
     mockGenerateContent.mockReset();
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   describe("editImage", () => {
     it("returns image buffer and response text from API", async () => {
       const fakeImageData = Buffer.from("fake-output-image").toString("base64");
@@ -106,6 +110,28 @@ describe("GeminiClient", () => {
       await expect(
         client.editImage(PNG_BUFFER, "Edit this image"),
       ).rejects.toThrow("Gemini did not return an image");
+    });
+
+    it("keeps the 60-second production timeout by default", async () => {
+      vi.useFakeTimers();
+      mockImageResponse();
+      const timerSpy = vi.spyOn(globalThis, "setTimeout");
+
+      const client = new GeminiClient("fake-key");
+      await client.editImage(PNG_BUFFER, "test");
+
+      expect(timerSpy).toHaveBeenCalledWith(expect.any(Function), 60_000);
+    });
+
+    it("accepts an injectable comparison timeout", async () => {
+      vi.useFakeTimers();
+      mockImageResponse();
+      const timerSpy = vi.spyOn(globalThis, "setTimeout");
+
+      const client = new GeminiClient("fake-key", { timeoutMs: 25_000 });
+      await client.editImage(PNG_BUFFER, "test");
+
+      expect(timerSpy).toHaveBeenCalledWith(expect.any(Function), 25_000);
     });
 
     it("throws for buffers smaller than 12 bytes", async () => {

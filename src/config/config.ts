@@ -3,6 +3,7 @@
 import * as path from "node:path";
 import * as os from "node:os";
 import type { PipelineConfig, GeminiConfig, AspectRatio } from "../engine/types.js";
+import type { ComparisonProviderKeys } from "../comparison/types.js";
 
 const VALID_MODELS: ReadonlySet<GeminiConfig["model"]> = new Set([
   "gemini-3.1-flash-lite-image",
@@ -36,6 +37,20 @@ export interface HaystackConfig {
   activeEnd?: number;
   /** Model used by extend-artwork script (defaults to gemini-3.1-flash-image-preview). */
   extendModel: GeminiConfig["model"];
+}
+
+/**
+ * Load the direct-provider credentials used only by the local comparison tool.
+ * Keeping these separate prevents challenger keys from entering PipelineConfig.
+ */
+export function loadComparisonKeysFromEnv(
+  env: NodeJS.ProcessEnv = process.env,
+): ComparisonProviderKeys {
+  return {
+    googleApiKey: env.GOOGLE_API_KEY ?? env.GEMINI_API_KEY,
+    openaiApiKey: env.OPENAI_API_KEY,
+    xaiApiKey: env.XAI_API_KEY,
+  };
 }
 
 function parseIntStrict(raw: string | undefined, fallback: number, name: string): number {

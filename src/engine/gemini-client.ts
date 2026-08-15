@@ -35,14 +35,21 @@ export const DEFAULT_GEMINI_CONFIG: GeminiConfig = {
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
 const API_TIMEOUT_MS = 60_000; // 60 seconds
 
+export interface GeminiClientOptions {
+  /** Per-request deadline. Production callers retain the 60-second default. */
+  timeoutMs?: number;
+}
+
 /** Wraps the @google/genai SDK for image editing operations. */
 export class GeminiClient implements ImageEditClient {
   private client: GoogleGenAI;
+  private timeoutMs: number;
 
-  constructor(apiKey?: string) {
+  constructor(apiKey?: string, options: GeminiClientOptions = {}) {
     // Only pass apiKey when explicitly provided, so the SDK can fall back
     // to GOOGLE_API_KEY / GEMINI_API_KEY from environment automatically.
     this.client = apiKey ? new GoogleGenAI({ apiKey }) : new GoogleGenAI({});
+    this.timeoutMs = options.timeoutMs ?? API_TIMEOUT_MS;
   }
 
   /**
@@ -109,7 +116,7 @@ export class GeminiClient implements ImageEditClient {
     const response = await Promise.race([
       apiPromise,
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Gemini API call timed out")), API_TIMEOUT_MS),
+        setTimeout(() => reject(new Error("Gemini API call timed out")), this.timeoutMs),
       ),
     ]);
 

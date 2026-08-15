@@ -20,7 +20,10 @@
     "lab:ui": "cd lab-ui && npm run dev"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^3.0.97",
+    "@ai-sdk/xai": "^3.0.122",
     "@google/genai": "^1.0.0",
+    "ai": "^6.0.256",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
     "multer": "^2.0.2",

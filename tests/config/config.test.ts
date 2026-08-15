@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { loadConfigFromEnv, toPipelineConfig } from "../../src/config/config.js";
+import {
+  loadComparisonKeysFromEnv,
+  loadConfigFromEnv,
+  toPipelineConfig,
+} from "../../src/config/config.js";
 
 describe("loadConfigFromEnv", () => {
   const originalEnv = { ...process.env };
@@ -8,6 +12,8 @@ describe("loadConfigFromEnv", () => {
     // Clear all HAYSTACK_ and API key vars before each test
     delete process.env.GOOGLE_API_KEY;
     delete process.env.GEMINI_API_KEY;
+    delete process.env.OPENAI_API_KEY;
+    delete process.env.XAI_API_KEY;
     delete process.env.HAYSTACK_OUTPUT_DIR;
     delete process.env.HAYSTACK_MODEL;
     delete process.env.HAYSTACK_ASPECT_RATIO;
@@ -273,6 +279,34 @@ describe("loadConfigFromEnv", () => {
     process.env.HAYSTACK_ACTIVE_START = "nine";
     process.env.HAYSTACK_ACTIVE_END = "21";
     expect(() => loadConfigFromEnv()).toThrow(/HAYSTACK_ACTIVE_START.*not a valid integer/);
+  });
+});
+
+describe("loadComparisonKeysFromEnv", () => {
+  it("loads optional direct-provider keys without changing production config", () => {
+    const env = {
+      GOOGLE_API_KEY: "google-secret",
+      OPENAI_API_KEY: "openai-secret",
+      XAI_API_KEY: "xai-secret",
+    };
+
+    expect(loadComparisonKeysFromEnv(env)).toEqual({
+      googleApiKey: "google-secret",
+      openaiApiKey: "openai-secret",
+      xaiApiKey: "xai-secret",
+    });
+
+    const production = loadConfigFromEnv();
+    expect(production).not.toHaveProperty("openaiApiKey");
+    expect(production).not.toHaveProperty("xaiApiKey");
+  });
+
+  it("supports GEMINI_API_KEY fallback and leaves missing challenger keys undefined", () => {
+    expect(loadComparisonKeysFromEnv({ GEMINI_API_KEY: "gemini-secret" })).toEqual({
+      googleApiKey: "gemini-secret",
+      openaiApiKey: undefined,
+      xaiApiKey: undefined,
+    });
   });
 });
 
