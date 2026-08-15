@@ -5,6 +5,16 @@ import type { Pipeline } from "../../src/engine/pipeline.js";
 import type { OutputStore } from "../../src/storage/output-store.js";
 import type { WeatherProvider, HourlyConditions } from "../../src/weather/types.js";
 import type { RenderMetadata, GenerateResult } from "../../src/engine/types.js";
+import type {
+  ComparisonProvider,
+  ComparisonProviderResult,
+  Round1ProviderId,
+} from "../../src/comparison/types.js";
+
+export const TEST_PNG_BUFFER = Buffer.from([
+  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+  0x00, 0x00, 0x00, 0x0d,
+]);
 
 /** Base hourly weather conditions reused across all mock shapes. */
 export const BASE_CONDITIONS: HourlyConditions = {
@@ -103,5 +113,35 @@ export function getGenerateCallArgs(pipeline: Pipeline, callIndex = 0) {
     imagePath: calls[callIndex][0] as string,
     scenario: calls[callIndex][1],
     promptOverride: calls[callIndex][2] as string | undefined,
+  };
+}
+
+export function createMockComparisonProvider(
+  provider: Round1ProviderId,
+  result: ComparisonProviderResult = {
+    status: "successful",
+    imageBuffer: TEST_PNG_BUFFER,
+    mimeType: "image/png",
+  },
+): ComparisonProvider {
+  const details = {
+    gemini: {
+      model: "gemini-3.1-flash-lite-image",
+      outputSetting: "input-matched / default",
+    },
+    openai: {
+      model: "gpt-image-2",
+      outputSetting: "1536x1024 / low",
+    },
+    xai: {
+      model: "grok-imagine-image-2.0",
+      outputSetting: "1K / low",
+    },
+  } as const;
+
+  return {
+    provider,
+    ...details[provider],
+    editImage: vi.fn().mockResolvedValue(result),
   };
 }
