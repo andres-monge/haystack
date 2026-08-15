@@ -1,170 +1,389 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
-import * as path from "node:path";
 import * as os from "node:os";
-import { Pipeline } from "../../src/engine/pipeline.js";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  Pipeline,
+  PipelineGenerationError,
+  type GenerationTerminalEvent,
+  type ImageEditChain,
+} from "../../src/engine/pipeline.js";
+import {
+  ProviderChainExhaustedError,
+  ProviderChainTerminatedError,
+  type ProviderAttemptRecord,
+  type ProviderChainRunData,
+  type ProviderChainSuccess,
+} from "../../src/engine/provider-chain.js";
+import type {
+  ImageProviderId,
+  ProviderAttemptOutcome,
+  ValidatedImage,
+} from "../../src/engine/provider-types.js";
 import { createScenarioFromHour } from "../../src/engine/scenario.js";
+import type { OutputStore } from "../../src/storage/output-store.js";
 
-// Mock the @google/genai SDK
-const mockGenerateContent = vi.fn();
-
-vi.mock("@google/genai", () => ({
-  GoogleGenAI: vi.fn().mockImplementation(() => ({
-    models: {
-      generateContent: mockGenerateContent,
-    },
-  })),
-}));
-
-/** Small fully formed PNG used for both source and mocked provider output. */
 const PNG_BUFFER = Buffer.from(
   "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000970485973000003e8000003e801b57b526b0000000c49444154789c63606060000000040001f61738550000000049454e44ae426082",
   "hex",
 );
 
-function mockImageResponse(text?: string) {
-  const fakeImageData = PNG_BUFFER.toString("base64");
-  mockGenerateContent.mockResolvedValue({
-    candidates: [
-      {
-        content: {
-          parts: [
-            ...(text ? [{ text }] : []),
-            { inlineData: { data: fakeImageData } },
-          ],
-        },
-        finishReason: "STOP",
-      },
-    ],
-    usageMetadata: {
-      promptTokenCount: 100,
-      candidatesTokenCount: 1290,
-      totalTokenCount: 1390,
-    },
-    responseId: "mock-response-id",
-    modelVersion: "gemini-2.5-flash-image-001",
-  });
+function validated(bytes = PNG_BUFFER): ValidatedImage {
+  return {
+    bytes: Buffer.from(bytes),
+    mimeType: "image/png",
+    width: 1,
+    height: 1,
+    byteCount: bytes.length,
+    sha256: createHash("sha256").update(bytes).digest("hex"),
+  };
 }
 
-describe("Pipeline", () => {
+function attempt(
+  provider: ImageProviderId,
+  outcome: ProviderAttemptOutcome,
+  ordinal: number,
+): ProviderAttemptRecord {
+  return {
+    attemptId: `attempt-${ordinal}`,
+    stage: "normal",
+    ordinal,
+    provider,
+    requestedModel: `${provider}-model`,
+    startedAt: "2026-08-15T12:00:00.000Z",
+    completedAt: "2026-08-15T12:00:01.000Z",
+    durationMs: 1000,
+    outcome,
+  };
+}
+
+function run(
+  chainId: string,
+  providerOrder: readonly ImageProviderId[],
+  attempts: readonly ProviderAttemptRecord[],
+  terminalOutcome: ProviderChainRunData["terminalOutcome"],
+  winner?: ImageProviderId,
+): ProviderChainRunData {
+  return {
+    chainId,
+    stage: "normal",
+    providerOrder,
+    startedAt: "2026-08-15T12:00:00.000Z",
+    completedAt: "2026-08-15T12:00:02.000Z",
+    durationMs: 2000,
+    terminalOutcome,
+    ...(winner ? { winner } : {}),
+    attempts,
+  };
+}
+
+function success(
+  chainId: string,
+  winner: ImageProviderId,
+  providerOrder: readonly ImageProviderId[],
+  attempts: readonly ProviderAttemptRecord[],
+): ProviderChainSuccess {
+  return {
+    outcome: "successful",
+    provider: winner,
+    requestedModel: `${winner}-model`,
+    ...(winner === "gemini" ? { resolvedModel: "gemini-resolved-model" } : {}),
+    image: validated(),
+    responseText: "Edited scene",
+    requestId: "safe-request-id",
+    usage: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
+    finishReason: "STOP",
+    run: run(chainId, providerOrder, attempts, "successful", winner),
+  };
+}
+
+function mockChain(
+  implementation: ImageEditChain["editImage"],
+  order: readonly ImageProviderId[] = ["gemini", "openai", "xai"],
+): ImageEditChain & { editImage: ReturnType<typeof vi.fn> } {
+  return {
+    getProviderOrder: () => order,
+    editImage: vi.fn(implementation),
+  };
+}
+
+describe("Pipeline provider-chain integration", () => {
   let tempDir: string;
   let testImagePath: string;
+  let events: GenerationTerminalEvent[];
 
   beforeEach(() => {
-    mockGenerateContent.mockReset();
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "haystack-pipeline-"));
-    testImagePath = path.join(tempDir, "test.png");
+    testImagePath = path.join(tempDir, "original.png");
     fs.writeFileSync(testImagePath, PNG_BUFFER);
+    events = [];
   });
 
   afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it("generates output and saves metadata", async () => {
-    mockImageResponse("Edited for evening");
-
-    const pipeline = new Pipeline({ outputDir: tempDir }, "fake-key");
-    const scenario = createScenarioFromHour(18);
-    const result = await pipeline.generate(testImagePath, scenario);
-
-    expect(result.imagePath).toContain(".png");
-    expect(result.imageBuffer).toEqual(PNG_BUFFER);
-    expect(fs.existsSync(result.imagePath)).toBe(true);
-
-    // Verify metadata sidecar was written
-    const metaPath = result.imagePath.replace(".png", ".json");
-    expect(fs.existsSync(metaPath)).toBe(true);
-  });
-
-  it("metadata contains expected fields", async () => {
-    mockImageResponse("Here is your image");
-
-    const pipeline = new Pipeline({ outputDir: tempDir }, "fake-key");
-    const scenario = createScenarioFromHour(14);
-    const result = await pipeline.generate(testImagePath, scenario);
-
-    const { metadata } = result;
-    expect(metadata.model).toBe("gemini-3.1-flash-lite-image");
-    expect(metadata.artworkSource).toBe(testImagePath);
-    expect(metadata.outputPath).toBe(result.imagePath);
-    expect(metadata.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(metadata.responseText).toBe("Here is your image");
-
-    // Scenario serialization
-    expect(metadata.scenario.hour).toBe(14);
-    expect(metadata.scenario.isDay).toBe(true);
-    expect(typeof metadata.scenario.timestampLocal).toBe("string");
-
-    // Observability fields from mocked response
-    expect(metadata.responseId).toBe("mock-response-id");
-    expect(metadata.modelVersion).toBe("gemini-2.5-flash-image-001");
-    expect(metadata.usageMetadata?.totalTokenCount).toBe(1390);
-    expect(metadata.finishReason).toBe("STOP");
-  });
-
-  it("uses prompt override when provided", async () => {
-    mockImageResponse();
-
-    const pipeline = new Pipeline({ outputDir: tempDir }, "fake-key");
-    const scenario = createScenarioFromHour(12);
-    const customPrompt = "Make it look like a watercolor painting";
-
-    const result = await pipeline.generate(testImagePath, scenario, customPrompt);
-    expect(result.metadata.prompt).toBe(customPrompt);
-
-    // Verify the custom prompt was sent to the API
-    const call = mockGenerateContent.mock.calls[0][0];
-    expect(call.contents[0].text).toBe(customPrompt);
-  });
-
-  it("composes prompt from scenario when no override given", async () => {
-    mockImageResponse();
-
-    const pipeline = new Pipeline({ outputDir: tempDir }, "fake-key");
-    const scenario = createScenarioFromHour(22);
-    const result = await pipeline.generate(testImagePath, scenario);
-
-    // Prompt should contain scenario-derived text (dusk/twilight for hour 22)
-    expect(result.metadata.prompt).toContain("night");
-  });
-
-  it("passes seed through to metadata and deep-merges geminiConfig", async () => {
-    mockImageResponse();
-
-    // Only pass seed — model should inherit from DEFAULT_GEMINI_CONFIG
-    const pipeline = new Pipeline(
-      { outputDir: tempDir, geminiConfig: { seed: 42 } },
-      "fake-key",
+  function makePipeline(chain: ImageEditChain, overrides: Record<string, unknown> = {}) {
+    return new Pipeline(
+      { outputDir: tempDir },
+      {
+        chain,
+        terminalEventSink: event => { events.push(event); },
+        createId: () => "logical-edit-1",
+        ...overrides,
+      },
     );
-    const scenario = createScenarioFromHour(10);
-    const result = await pipeline.generate(testImagePath, scenario);
+  }
 
-    expect(result.metadata.seed).toBe(42);
-    expect(result.metadata.model).toBe("gemini-3.1-flash-lite-image");
+  it.each(["gemini", "openai", "xai"] as const)(
+    "persists one truthful %s winner with MIME-aware metadata",
+    async winner => {
+      const order: ImageProviderId[] = ["gemini", "openai", "xai"];
+      const attempts = order.slice(0, order.indexOf(winner) + 1).map((provider, index) =>
+        attempt(provider, provider === winner ? "successful" : "refusal", index + 1));
+      const chain = mockChain(async input => success(input.chainId!, winner, order, attempts));
+      const pipeline = makePipeline(chain);
+
+      const result = await pipeline.generate(testImagePath, createScenarioFromHour(18));
+
+      expect(chain.editImage).toHaveBeenCalledOnce();
+      expect(result.metadata).toMatchObject({
+        provider: winner,
+        model: `${winner}-model`,
+        mimeType: "image/png",
+        width: 1,
+        height: 1,
+        byteCount: PNG_BUFFER.length,
+        sha256: validated().sha256,
+        providerOrder: order,
+        attempts,
+        responseText: "Edited scene",
+        responseId: "safe-request-id",
+        usageMetadata: {
+          promptTokenCount: 100,
+          candidatesTokenCount: 200,
+          totalTokenCount: 300,
+        },
+      });
+      expect(result.metadata.resolvedModel).toBe(
+        winner === "gemini" ? "gemini-resolved-model" : undefined,
+      );
+      expect(fs.existsSync(result.imagePath)).toBe(true);
+      expect(events).toHaveLength(1);
+      expect(events[0]).toMatchObject({
+        chainId: "logical-edit-1",
+        stage: "normal",
+        providerOrder: order,
+        outcome: "successful",
+        winner,
+        renderId: result.metadata.id,
+      });
+      expect(events[0].attempts).toEqual(attempts.map(item => ({
+        provider: item.provider,
+        outcome: item.outcome,
+        durationMs: item.durationMs,
+      })));
+    },
+  );
+
+  it("reads and validates the original once, composes one prompt, and gives the chain one immutable snapshot", async () => {
+    const readSource = vi.fn(async () => Buffer.from(PNG_BUFFER));
+    const validateSource = vi.fn(async (bytes: Buffer) => validated(bytes));
+    const compose = vi.fn(() => "one composed prompt");
+    const chain = mockChain(async input => success(
+      input.chainId!,
+      "openai",
+      ["gemini", "openai"],
+      [attempt("gemini", "refusal", 1), attempt("openai", "successful", 2)],
+    ), ["gemini", "openai"]);
+    const pipeline = makePipeline(chain, {
+      readSource,
+      validateSource,
+      composePrompt: compose,
+    });
+
+    await pipeline.generate(testImagePath, createScenarioFromHour(12));
+
+    expect(readSource).toHaveBeenCalledOnce();
+    expect(readSource).toHaveBeenCalledWith(testImagePath);
+    expect(validateSource).toHaveBeenCalledOnce();
+    expect(compose).toHaveBeenCalledOnce();
+    expect(chain.editImage).toHaveBeenCalledOnce();
+    expect(chain.editImage.mock.calls[0][0]).toMatchObject({
+      chainId: "logical-edit-1",
+      prompt: "one composed prompt",
+      output: { stage: "normal", aspectRatio: "source" },
+    });
+    expect(chain.editImage.mock.calls[0][0].source.bytes).toEqual(PNG_BUFFER);
   });
 
-  it("getStore returns the output store", async () => {
-    mockImageResponse();
+  it("uses one exact override prompt without recomposing it", async () => {
+    const compose = vi.fn(() => "unused");
+    const composeOverride = vi.fn(() => "exact override");
+    const chain = mockChain(async input => success(
+      input.chainId!, "gemini", ["gemini"], [attempt("gemini", "successful", 1)],
+    ), ["gemini"]);
+    const pipeline = makePipeline(chain, {
+      composePrompt: compose,
+      composePromptFromText: composeOverride,
+    });
 
-    const pipeline = new Pipeline({ outputDir: tempDir }, "fake-key");
-    const scenario = createScenarioFromHour(8);
-    await pipeline.generate(testImagePath, scenario);
+    const result = await pipeline.generate(
+      testImagePath,
+      createScenarioFromHour(12),
+      "exact override",
+    );
 
-    const store = pipeline.getStore();
-    const latest = await store.getLatest();
-    expect(latest).not.toBeNull();
-    expect(latest!.model).toBe("gemini-3.1-flash-lite-image");
+    expect(compose).not.toHaveBeenCalled();
+    expect(composeOverride).toHaveBeenCalledOnce();
+    expect(chain.editImage.mock.calls[0][0].prompt).toBe("exact override");
+    expect(result.metadata.prompt).toBe("exact override");
   });
 
-  it("render ID has expected format", async () => {
-    mockImageResponse();
+  it("persists nothing and emits one sanitized event on full exhaustion", async () => {
+    const order: ImageProviderId[] = ["gemini", "openai", "xai"];
+    const attempts = order.map((provider, index) => attempt(provider, "refusal", index + 1));
+    const chain = mockChain(async input => {
+      throw new ProviderChainExhaustedError(
+        run(input.chainId!, order, attempts, "exhausted"),
+      );
+    });
+    const pipeline = makePipeline(chain);
 
-    const pipeline = new Pipeline({ outputDir: tempDir }, "fake-key");
-    const scenario = createScenarioFromHour(15);
-    const result = await pipeline.generate(testImagePath, scenario);
+    await expect(
+      pipeline.generate(testImagePath, createScenarioFromHour(18)),
+    ).rejects.toBeInstanceOf(ProviderChainExhaustedError);
 
-    // ID format: YYYYMMDD_HHmmss_<8-char uuid>
-    expect(result.metadata.id).toMatch(/^\d{8}_\d{6}_[a-f0-9]{8}$/);
+    expect(fs.readdirSync(tempDir).filter(file => /\.(json|jpg|webp)$/.test(file))).toEqual([]);
+    expect(events).toEqual([expect.objectContaining({
+      chainId: "logical-edit-1",
+      outcome: "exhausted",
+      attempts: attempts.map(item => ({
+        provider: item.provider,
+        outcome: item.outcome,
+        durationMs: item.durationMs,
+      })),
+    })]);
+    expect(JSON.stringify(events)).not.toMatch(/request|usage|prompt|source|base64/i);
+  });
+
+  it.each(["caller_cancelled", "chain_deadline"] as const)(
+    "emits one %s event and saves nothing",
+    async outcome => {
+      const chain = mockChain(async input => {
+        throw new ProviderChainTerminatedError(
+          outcome,
+          run(input.chainId!, ["gemini"], [], outcome),
+        );
+      }, ["gemini"]);
+      const pipeline = makePipeline(chain);
+
+      await expect(
+        pipeline.generate(testImagePath, createScenarioFromHour(18)),
+      ).rejects.toBeInstanceOf(ProviderChainTerminatedError);
+
+      expect(events).toEqual([expect.objectContaining({ outcome })]);
+      expect(fs.readdirSync(tempDir).filter(file => file.endsWith(".json"))).toEqual([]);
+    },
+  );
+
+  it("does not call another provider after a successful chain when storage fails", async () => {
+    const chain = mockChain(async input => success(
+      input.chainId!, "openai", ["gemini", "openai"], [
+        attempt("gemini", "refusal", 1),
+        attempt("openai", "successful", 2),
+      ],
+    ), ["gemini", "openai"]);
+    const store = {
+      save: vi.fn().mockRejectedValue(new Error("disk full /private/path")),
+    } as unknown as OutputStore;
+    const pipeline = makePipeline(chain, { store });
+
+    await expect(
+      pipeline.generate(testImagePath, createScenarioFromHour(18)),
+    ).rejects.toMatchObject({ code: "PIPELINE_GENERATION_FAILED", safeCode: "storage_failed" });
+
+    expect(chain.editImage).toHaveBeenCalledOnce();
+    expect(store.save).toHaveBeenCalledOnce();
+    expect(events).toEqual([expect.objectContaining({
+      outcome: "local_failure",
+      safeCode: "storage_failed",
+      winner: "openai",
+    })]);
+    expect(JSON.stringify(events)).not.toContain("/private/path");
+  });
+
+  it("emits one local failure when the source cannot be read and never calls a provider", async () => {
+    const chain = mockChain(async input => success(
+      input.chainId!, "gemini", ["gemini"], [attempt("gemini", "successful", 1)],
+    ), ["gemini"]);
+    const pipeline = makePipeline(chain, {
+      readSource: vi.fn().mockRejectedValue(new Error("/private/source missing")),
+    });
+
+    const caught = await pipeline.generate(
+      testImagePath,
+      createScenarioFromHour(18),
+    ).catch(error => error);
+
+    expect(caught).toBeInstanceOf(PipelineGenerationError);
+    expect(caught.safeCode).toBe("source_read_failed");
+    expect(chain.editImage).not.toHaveBeenCalled();
+    expect(events).toEqual([expect.objectContaining({
+      chainId: "logical-edit-1",
+      outcome: "local_failure",
+      safeCode: "source_read_failed",
+      attempts: [],
+    })]);
+  });
+
+  it("returns busy before provider work and emits one safe terminal event", async () => {
+    const chain = mockChain(async input => success(
+      input.chainId!, "gemini", ["gemini"], [attempt("gemini", "successful", 1)],
+    ), ["gemini"]);
+    const pipeline = makePipeline(chain, {
+      generationLock: {
+        acquire: vi.fn().mockRejectedValue(Object.assign(new Error("busy"), {
+          code: "GENERATION_BUSY",
+        })),
+      },
+    });
+
+    await expect(
+      pipeline.generate(testImagePath, createScenarioFromHour(18)),
+    ).rejects.toMatchObject({ code: "GENERATION_BUSY" });
+
+    expect(chain.editImage).not.toHaveBeenCalled();
+    expect(events).toEqual([expect.objectContaining({
+      outcome: "local_failure",
+      safeCode: "generation_busy",
+    })]);
+  });
+
+  it("releases the shared lock after both success and failure", async () => {
+    const release = vi.fn().mockResolvedValue(undefined);
+    const acquire = vi.fn().mockResolvedValue({ token: "lease-token", release });
+    const chain = mockChain(async input => success(
+      input.chainId!, "gemini", ["gemini"], [attempt("gemini", "successful", 1)],
+    ), ["gemini"]);
+    const pipeline = makePipeline(chain, { generationLock: { acquire } });
+
+    await pipeline.generate(testImagePath, createScenarioFromHour(18));
+    expect(release).toHaveBeenCalledTimes(1);
+
+    chain.editImage.mockRejectedValueOnce(new ProviderChainExhaustedError(
+      run(
+        "logical-edit-1",
+        ["gemini"],
+        [attempt("gemini", "refusal", 1)],
+        "exhausted",
+      ),
+    ));
+    await expect(
+      pipeline.generate(testImagePath, createScenarioFromHour(19)),
+    ).rejects.toBeInstanceOf(ProviderChainExhaustedError);
+    expect(release).toHaveBeenCalledTimes(2);
+    expect(acquire).toHaveBeenCalledTimes(2);
   });
 });

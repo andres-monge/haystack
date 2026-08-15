@@ -10,7 +10,16 @@
  *   hour        Optional hour (0-23) to simulate. Defaults to 18 (evening).
  */
 
-import { Pipeline, createScenarioFromHour } from "../src/index.js";
+import dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
+
+import {
+  createProductionPipeline,
+  createScenarioFromHour,
+  loadConfigFromEnv,
+  toPipelineConfig,
+  toProviderFactoryConfig,
+} from "../src/index.js";
 
 async function main(): Promise<void> {
   const imagePath = process.argv[2];
@@ -21,7 +30,11 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const pipeline = new Pipeline();
+  const config = loadConfigFromEnv();
+  const pipeline = createProductionPipeline(
+    toPipelineConfig(config),
+    toProviderFactoryConfig(config),
+  );
   const scenario = createScenarioFromHour(hour);
 
   console.log(`Generating for hour ${hour}...`);

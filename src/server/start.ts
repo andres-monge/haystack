@@ -3,13 +3,20 @@
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 import { createApp } from "./server.js";
-import { Pipeline } from "../engine/pipeline.js";
+import { createProductionPipeline } from "../engine/pipeline.js";
 import { OpenMeteoProvider } from "../weather/open-meteo.js";
-import { loadConfigFromEnv, toPipelineConfig } from "../config/config.js";
+import {
+  loadConfigFromEnv,
+  toPipelineConfig,
+  toProviderFactoryConfig,
+} from "../config/config.js";
 import { HourlyScheduler } from "./scheduler.js";
 
 const config = loadConfigFromEnv();
-const pipeline = new Pipeline(toPipelineConfig(config), config.googleApiKey);
+const pipeline = createProductionPipeline(
+  toPipelineConfig(config),
+  toProviderFactoryConfig(config),
+);
 const weatherProvider = new OpenMeteoProvider();
 const port = parseInt(process.env.HAYSTACK_LAB_PORT ?? "4321", 10);
 
@@ -31,6 +38,7 @@ const app = createApp({
   weatherProvider,
   outputDir: config.outputDir,
   scheduler,
+  labPort: port,
 });
 
 const server = app.listen(port, config.bindHost, () => {

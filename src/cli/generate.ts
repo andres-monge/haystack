@@ -7,11 +7,15 @@ dotenv.config({ path: ".env.local" });
 
 import * as fs from "node:fs";
 import {
-  Pipeline,
+  createProductionPipeline,
   createScenarioFromHour,
   createScenarioFromNow,
 } from "../index.js";
-import { loadConfigFromEnv, toPipelineConfig } from "../config/index.js";
+import {
+  loadConfigFromEnv,
+  toPipelineConfig,
+  toProviderFactoryConfig,
+} from "../config/index.js";
 
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -44,14 +48,10 @@ async function main(): Promise<void> {
 
   const config = loadConfigFromEnv();
 
-  if (!config.googleApiKey) {
-    console.error(
-      "Error: GOOGLE_API_KEY or GEMINI_API_KEY environment variable is required",
-    );
-    process.exit(1);
-  }
-
-  const pipeline = new Pipeline(toPipelineConfig(config), config.googleApiKey);
+  const pipeline = createProductionPipeline(
+    toPipelineConfig(config),
+    toProviderFactoryConfig(config),
+  );
 
   const scenario =
     hourRaw !== undefined

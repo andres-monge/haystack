@@ -18,6 +18,8 @@ import {
   getGenerateCallArgs,
 } from "../helpers/mock-factories.js";
 import { clearWeatherCache } from "../../src/server/scenario-builder.js";
+import { ProviderChainExhaustedError } from "../../src/engine/provider-chain.js";
+import type { ProviderChainRunData } from "../../src/engine/provider-chain.js";
 
 /** Create a small valid PNG buffer (1x1 pixel) for upload tests. */
 function createTestPng(): Buffer {
@@ -82,6 +84,32 @@ describe("Express API Server", () => {
 
   function createTestApp() {
     return createApp({ pipeline, weatherProvider, outputDir });
+  }
+
+  function exhaustedWith(outcomes: Array<"rate_limited" | "provider_error">) {
+    const providerOrder = outcomes.map((_, index) =>
+      (["gemini", "openai", "xai"] as const)[index]);
+    const run: ProviderChainRunData = {
+      chainId: "safe-chain-id",
+      stage: "normal",
+      providerOrder,
+      startedAt: "2026-08-15T12:00:00.000Z",
+      completedAt: "2026-08-15T12:00:03.000Z",
+      durationMs: 3000,
+      terminalOutcome: "exhausted",
+      attempts: outcomes.map((outcome, index) => ({
+        attemptId: `attempt-${index + 1}`,
+        stage: "normal",
+        ordinal: index + 1,
+        provider: providerOrder[index],
+        requestedModel: `${providerOrder[index]}-model`,
+        startedAt: "2026-08-15T12:00:00.000Z",
+        completedAt: "2026-08-15T12:00:01.000Z",
+        durationMs: 1000,
+        outcome,
+      })),
+    };
+    return new ProviderChainExhaustedError(run);
   }
 
   // --- POST /api/generate ---
@@ -231,6 +259,47 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe("Generation failed");
+    });
+
+    it("returns 429 only when every exhausted provider attempt was rate limited", async () => {
+      vi.mocked(pipeline.generate).mockRejectedValue(
+        exhaustedWith(["rate_limited", "rate_limited"]),
+      );
+
+      const res = await request(createTestApp())
+        .post("/api/generate")
+        .attach("image", testPngPath)
+        .field("hour", "12");
+
+      expect(res.status).toBe(429);
+      expect(res.body).toEqual({ error: "Rate limited — try again later" });
+
+      vi.mocked(pipeline.generate).mockRejectedValue(
+        exhaustedWith(["rate_limited", "provider_error"]),
+      );
+      const mixed = await request(createTestApp())
+        .post("/api/generate")
+        .attach("image", testPngPath)
+        .field("hour", "12");
+      expect(mixed.status).toBe(500);
+      expect(mixed.body).toEqual({ error: "Generation failed" });
+    });
+
+    it("returns a safe busy response for cross-process lock contention", async () => {
+      vi.mocked(pipeline.generate).mockRejectedValue(
+        Object.assign(new Error("internal lock detail"), {
+          code: "GENERATION_BUSY",
+        }),
+      );
+
+      const res = await request(createTestApp())
+        .post("/api/generate")
+        .attach("image", testPngPath)
+        .field("hour", "12");
+
+      expect(res.status).toBe(409);
+      expect(res.body).toEqual({ error: "Generation already in progress" });
+      expect(JSON.stringify(res.body)).not.toContain("internal lock detail");
     });
 
     it("cleans up temp file after generation", async () => {
@@ -1003,7 +1072,7 @@ describe("Express API Server", () => {
     it("returns 429 when generation fails with rate limit error", async () => {
       const { app, mockScheduler } = createAppWithTriggerScheduler();
       vi.mocked(mockScheduler.runNowIfNoRecentRender).mockRejectedValue(
-        new Error('{"error":{"code":429,"message":"Resource has been exhausted (e.g. check quota).","status":"RESOURCE_EXHAUSTED"}}'),
+        exhaustedWith(["rate_limited", "rate_limited"]),
       );
 
       const res = await request(app).post("/api/scheduler/trigger");
@@ -1181,7 +1250,7 @@ describe("Express API Server", () => {
     it("returns 429 when scheduler.runNow throws with rate limit error", async () => {
       const { app, mockScheduler } = createAppWithScheduler();
       vi.mocked(mockScheduler.runNow).mockRejectedValue(
-        new Error('{"error":{"code":429,"message":"Resource has been exhausted (e.g. check quota).","status":"RESOURCE_EXHAUSTED"}}'),
+        exhaustedWith(["rate_limited", "rate_limited"]),
       );
 
       const res = await request(app)
@@ -1303,6 +1372,114 @@ describe("Express API Server", () => {
         expect(res.body.running).toBe(true);
         expect(mockScheduler.start).toHaveBeenCalled();
       });
+    });
+  });
+
+  describe("local mutation guard", () => {
+    function createGuardedApp(remoteAddress: string) {
+      const mockScheduler = {
+        start: vi.fn(),
+        stop: vi.fn(),
+        runNow: vi.fn().mockResolvedValue(makeGenerateResult()),
+        runNowIfNoRecentRender: vi.fn().mockResolvedValue({
+          generated: true,
+          result: makeGenerateResult(),
+        }),
+        isRunning: vi.fn().mockReturnValue(true),
+        isInActiveHours: vi.fn().mockReturnValue(true),
+        isRecentRenderForCurrentPeriod: vi.fn().mockReturnValue(false),
+      } as unknown as HourlyScheduler;
+      return {
+        app: createApp({
+          pipeline,
+          weatherProvider,
+          outputDir,
+          scheduler: mockScheduler,
+          labPort: 4321,
+          getSocketPeerAddress: () => remoteAddress,
+        }),
+        mockScheduler,
+      };
+    }
+
+    it.each(["127.0.0.1", "::1", "::ffff:127.0.0.1"])(
+      "accepts socket-derived loopback address %s and ignores forwarding headers",
+      async remoteAddress => {
+        const { app } = createGuardedApp(remoteAddress);
+        const res = await request(app)
+          .post("/api/generate")
+          .set("X-Forwarded-For", "203.0.113.40")
+          .attach("image", testPngPath)
+          .field("hour", "12");
+
+        expect(res.status).toBe(200);
+        expect(pipeline.generate).toHaveBeenCalledOnce();
+      },
+    );
+
+    it("rejects a LAN peer before multer or provider work while keeping read-only routes available", async () => {
+      const { app, mockScheduler } = createGuardedApp("192.168.0.44");
+
+      // No body is needed: 403 (rather than the route's normal 400 for a
+      // missing upload) proves the guard ran before multer.
+      const mutation = await request(app).post("/api/generate");
+      const trigger = await request(app).post("/api/scheduler/trigger");
+      const readOnly = await request(app).get("/api/history");
+
+      expect(mutation.status).toBe(403);
+      expect(trigger.status).toBe(403);
+      expect(readOnly.status).toBe(200);
+      expect(pipeline.generate).not.toHaveBeenCalled();
+      expect(mockScheduler.runNowIfNoRecentRender).not.toHaveBeenCalled();
+    });
+
+    it("rejects an untrusted browser Origin before JSON parsing and scheduler work", async () => {
+      const { app, mockScheduler } = createGuardedApp("127.0.0.1");
+
+      const res = await request(app)
+        .post("/api/override")
+        .set("Origin", "https://evil.example")
+        .set("Content-Type", "application/json")
+        .send("{not valid json");
+
+      expect(res.status).toBe(403);
+      expect(mockScheduler.runNow).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      "http://localhost:4321",
+      "http://127.0.0.1:4321",
+      "http://[::1]:4321",
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://[::1]:5173",
+    ])("allows the explicit local Lab origin %s", async origin => {
+      const { app, mockScheduler } = createGuardedApp("127.0.0.1");
+
+      const res = await request(app)
+        .post("/api/override")
+        .set("Origin", origin)
+        .send({ scenario: "Soft rain" });
+
+      expect(res.status).toBe(200);
+      expect(mockScheduler.runNow).toHaveBeenCalledOnce();
+    });
+
+    it.each([
+      "/api/scheduler/pause",
+      "/api/scheduler/resume",
+      "/api/scheduler/trigger",
+      "/api/override",
+    ])("protects state-changing scheduler route %s", async route => {
+      const { app, mockScheduler } = createGuardedApp("10.0.0.50");
+
+      const res = await request(app).post(route).send({ scenario: "Rain" });
+
+      expect(res.status).toBe(403);
+      expect(mockScheduler.start).not.toHaveBeenCalled();
+      expect(mockScheduler.stop).not.toHaveBeenCalled();
+      expect(mockScheduler.runNow).not.toHaveBeenCalled();
+      expect(mockScheduler.runNowIfNoRecentRender).not.toHaveBeenCalled();
     });
   });
 

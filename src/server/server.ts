@@ -3,7 +3,12 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import express, { type Express, type Request, type Response } from "express";
+import express, {
+  type Express,
+  type NextFunction,
+  type Request,
+  type Response,
+} from "express";
 import multer from "multer";
 import type { Pipeline } from "../engine/pipeline.js";
 import type { RenderMetadata } from "../engine/types.js";
@@ -13,6 +18,10 @@ import { createScenarioFromHour, describeScenario } from "../engine/scenario.js"
 import { DEFAULT_TEMPLATE } from "../engine/prompt.js";
 import { buildScenario, computeSunMoon } from "./scenario-builder.js";
 import { getInstantForHourInTimezone } from "./timezone.js";
+import {
+  ProviderChainExhaustedError,
+} from "../engine/provider-chain.js";
+import { GenerationLockBusyError } from "../engine/generation-lock.js";
 
 const VALID_ID_PATTERN = /^[a-zA-Z0-9_\-]+$/;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -85,18 +94,72 @@ export interface CreateAppConfig {
   weatherProvider: WeatherProvider;
   outputDir: string;
   scheduler?: HourlyScheduler;
+  /** Actual Express port, used to construct the explicit local browser allowlist. */
+  labPort?: number;
+  /** Test seam; production always reads req.socket.remoteAddress directly. */
+  getSocketPeerAddress?: (req: Request) => string | undefined;
 }
 
-/** Detect Gemini rate-limit / quota errors so we can return 429 instead of 500. */
-function isRateLimitError(message: string): boolean {
-  return message.includes("RESOURCE_EXHAUSTED") || message.includes('"code":429');
+function isEntireChainRateLimited(error: unknown): boolean {
+  return error instanceof ProviderChainExhaustedError
+    && error.run.attempts.length > 0
+    && error.run.attempts.every(attempt => attempt.outcome === "rate_limited");
+}
+
+function isGenerationBusy(error: unknown): boolean {
+  return error instanceof GenerationLockBusyError
+    || (
+      typeof error === "object"
+      && error !== null
+      && (error as { code?: unknown }).code === "GENERATION_BUSY"
+    );
+}
+
+export function isLoopbackSocketAddress(address: string | undefined): boolean {
+  if (!address) return false;
+  const normalized = address.toLowerCase();
+  if (normalized === "::1" || normalized === "0:0:0:0:0:0:0:1") return true;
+  if (normalized === "::ffff:7f00:1") return true;
+  const ipv4 = normalized.startsWith("::ffff:")
+    ? normalized.slice("::ffff:".length)
+    : normalized;
+  return /^127(?:\.\d{1,3}){3}$/.test(ipv4)
+    && ipv4.split(".").slice(1).every(part => Number(part) <= 255);
+}
+
+function localLabOrigins(labPort: number): ReadonlySet<string> {
+  const origins = new Set<string>();
+  for (const port of new Set([labPort, 5173])) {
+    for (const host of ["localhost", "127.0.0.1", "[::1]"]) {
+      origins.add(`http://${host}:${port}`);
+    }
+  }
+  return origins;
 }
 
 export function createApp(config: CreateAppConfig): Express {
   const { pipeline, weatherProvider, scheduler } = config;
   const app = express();
-
-  app.use(express.json());
+  const jsonBody = express.json();
+  const allowedOrigins = localLabOrigins(config.labPort ?? 4321);
+  const getSocketPeerAddress = config.getSocketPeerAddress
+    ?? ((req: Request) => req.socket.remoteAddress);
+  const localMutationGuard = (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
+    if (!isLoopbackSocketAddress(getSocketPeerAddress(req))) {
+      res.status(403).json({ error: "Local access required" });
+      return;
+    }
+    const origin = req.get("Origin");
+    if (origin !== undefined && !allowedOrigins.has(origin)) {
+      res.status(403).json({ error: "Local Lab origin required" });
+      return;
+    }
+    next();
+  };
 
   // Serve Lab UI production build (if it exists)
   const labUiDist = path.resolve("lab-ui/dist");
@@ -115,6 +178,7 @@ export function createApp(config: CreateAppConfig): Express {
   // --- POST /api/generate ---
   app.post(
     "/api/generate",
+    localMutationGuard,
     upload.single("image"),
     async (req: Request, res: Response) => {
       try {
@@ -166,7 +230,13 @@ export function createApp(config: CreateAppConfig): Express {
           `[${new Date().toISOString()}] Generate error:`,
           err instanceof Error ? err.message : err,
         );
-        res.status(500).json({ error: "Generation failed" });
+        if (isEntireChainRateLimited(err)) {
+          res.status(429).json({ error: "Rate limited — try again later" });
+        } else if (isGenerationBusy(err)) {
+          res.status(409).json({ error: "Generation already in progress" });
+        } else {
+          res.status(500).json({ error: "Generation failed" });
+        }
       }
     },
   );
@@ -228,6 +298,7 @@ export function createApp(config: CreateAppConfig): Express {
   // --- POST /api/location/search ---
   app.post(
     "/api/location/search",
+    jsonBody,
     async (req: Request, res: Response) => {
       try {
         const { query } = req.body;
@@ -281,6 +352,7 @@ export function createApp(config: CreateAppConfig): Express {
   // --- POST /api/scenario-preview ---
   app.post(
     "/api/scenario-preview",
+    jsonBody,
     async (req: Request, res: Response) => {
       try {
         const { hour, isDay, lat, lon, timezone, weather } = req.body;
@@ -379,7 +451,7 @@ export function createApp(config: CreateAppConfig): Express {
   });
 
   // --- POST /api/scheduler/pause ---
-  app.post("/api/scheduler/pause", (_req: Request, res: Response) => {
+  app.post("/api/scheduler/pause", localMutationGuard, (_req: Request, res: Response) => {
     if (!scheduler) {
       res.status(503).json({ error: "Scheduler not configured" });
       return;
@@ -390,7 +462,7 @@ export function createApp(config: CreateAppConfig): Express {
   });
 
   // --- POST /api/scheduler/resume ---
-  app.post("/api/scheduler/resume", (_req: Request, res: Response) => {
+  app.post("/api/scheduler/resume", localMutationGuard, (_req: Request, res: Response) => {
     if (!scheduler) {
       res.status(503).json({ error: "Scheduler not configured" });
       return;
@@ -403,7 +475,7 @@ export function createApp(config: CreateAppConfig): Express {
   // --- POST /api/scheduler/trigger ---
   let triggerInFlight = false;
 
-  app.post("/api/scheduler/trigger", async (_req: Request, res: Response) => {
+  app.post("/api/scheduler/trigger", localMutationGuard, async (_req: Request, res: Response) => {
     if (!scheduler) {
       res.status(503).json({ error: "Scheduler not configured" });
       return;
@@ -466,8 +538,10 @@ export function createApp(config: CreateAppConfig): Express {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[${new Date().toISOString()}] Trigger error:`, message);
-      if (isRateLimitError(message)) {
+      if (isEntireChainRateLimited(err)) {
         res.status(429).json({ error: "Rate limited — try again later" });
+      } else if (isGenerationBusy(err)) {
+        res.status(409).json({ error: "Generation already in progress" });
       } else {
         res.status(500).json({ error: "Trigger generation failed" });
       }
@@ -477,7 +551,7 @@ export function createApp(config: CreateAppConfig): Express {
   });
 
   // --- POST /api/override ---
-  app.post("/api/override", async (req: Request, res: Response) => {
+  app.post("/api/override", localMutationGuard, jsonBody, async (req: Request, res: Response) => {
     try {
       const { scenario } = req.body;
       if (!scenario || typeof scenario !== "string") {
@@ -508,8 +582,10 @@ export function createApp(config: CreateAppConfig): Express {
         `[${new Date().toISOString()}] Override error:`,
         message,
       );
-      if (isRateLimitError(message)) {
+      if (isEntireChainRateLimited(err)) {
         res.status(429).json({ error: "Rate limited — try again later" });
+      } else if (isGenerationBusy(err)) {
+        res.status(409).json({ error: "Generation already in progress" });
       } else {
         res.status(500).json({ error: "Override generation failed" });
       }

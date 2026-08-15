@@ -5,6 +5,7 @@ export * from "./provider-types.js";
 export * from "./image-validation.js";
 export * from "./provider-factory.js";
 export * from "./provider-chain.js";
+export * from "./generation-lock.js";
 export * from "./scenario.js";
 export * from "./prompt.js";
 export {
@@ -24,4 +25,4 @@ export {
   XaiImageProvider,
   DEFAULT_XAI_IMAGE_MODEL,
 } from "./xai-client.js";
-export { Pipeline, DEFAULT_PIPELINE_CONFIG } from "./pipeline.js";
+export * from "./pipeline.js";

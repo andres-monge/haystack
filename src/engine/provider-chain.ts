@@ -79,6 +79,8 @@ export interface ProviderChainRunData {
 }
 
 export interface ProviderChainEditInput {
+  /** Optional application-owned ID used to correlate pre/post-chain failures. */
+  chainId?: string;
   source: ValidatedImage;
   prompt: string;
   output: ImageOutputSpec;
@@ -328,8 +330,12 @@ export class ProviderChain {
     this.#createId = options.createId ?? randomUUID;
   }
 
+  getProviderOrder(): readonly ImageProviderId[] {
+    return Object.freeze([...this.#providerOrder]);
+  }
+
   async editImage(input: ProviderChainEditInput): Promise<ProviderChainSuccess> {
-    const chainId = this.#createId();
+    const chainId = safeToken(input.chainId, 200) ?? this.#createId();
     const startedMs = this.#now();
     const providerOrder = Object.freeze([...this.#providerOrder]);
     const attempts: ProviderAttemptRecord[] = [];

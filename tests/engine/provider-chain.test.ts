@@ -100,6 +100,18 @@ describe("ProviderChain", () => {
     expect(result.run.terminalOutcome).toBe("successful");
   });
 
+  it("uses a caller-preallocated chain ID for end-to-end terminal correlation", async () => {
+    const gemini = provider("gemini", async () => success("gemini"));
+    const chain = new ProviderChain(registry(gemini));
+
+    const result = await chain.editImage({
+      ...editInput(),
+      chainId: "logical-edit-preallocated",
+    });
+
+    expect(result.run.chainId).toBe("logical-edit-preallocated");
+  });
+
   it.each([
     "refusal",
     "no_image",
