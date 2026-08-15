@@ -3,21 +3,26 @@ import * as path from "node:path";
 import { composePrompt } from "../engine/prompt.js";
 import { serializeScenario } from "../engine/types.js";
 import type { Scenario, SerializedScenario } from "../engine/types.js";
-import { ROUND1_MODELS } from "./providers.js";
+import { atomicWriteFile } from "./artifacts.js";
+import { detectSupportedImage } from "./image-validation.js";
+import {
+  ROUND1_MODELS,
+  ROUND1_PRICE_AS_OF,
+  ROUND1_PROVIDER_SPECS,
+} from "./providers.js";
 import type {
   ComparisonErrorCategory,
   ComparisonProvider,
   ComparisonProviderKeys,
   ComparisonProviderResult,
+  ComparisonUnsuccessfulReason,
   Round1ProviderId,
   SupportedImageMimeType,
 } from "./types.js";
 import { writeGallery } from "./gallery.js";
 
-export const ROUND1_PRICE_AS_OF = "2026-08-15";
 export const ROUND1_PLANNED_CELL_COUNT = 18;
 
-const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 const SAFE_RUN_ID = /^(?=.*[^.])[A-Za-z0-9._-]{1,128}$/;
 
 export const ROUND1_ARTWORKS = [
@@ -112,12 +117,6 @@ export const ROUND1_WEATHER_CASES: ReadonlyArray<{
   },
 ];
 
-const PRICE_ESTIMATES: Record<Round1ProviderId, string> = {
-  gemini: "~$0.0336 output + input tokens",
-  openai: "~$0.005 output + input text/image tokens",
-  xai: "~$0.05 ($0.04 output + $0.01 input image)",
-};
-
 export type BakeOffErrorCategory = ComparisonErrorCategory | "interrupted";
 
 interface BakeOffCellBase {
@@ -146,7 +145,7 @@ export type BakeOffCell = BakeOffCellBase & (
     }
   | {
       status: "unsuccessful";
-      reason: "no_image" | "policy" | "unusable_image";
+      reason: ComparisonUnsuccessfulReason;
     }
   | {
       status: "error";
@@ -275,28 +274,6 @@ export function createRound1Matrix(
   );
 }
 
-function detectImageMimeType(bytes: Buffer): SupportedImageMimeType | undefined {
-  if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) return undefined;
-  if (
-    bytes.length >= 8
-    && bytes.subarray(0, 8).equals(Buffer.from([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-    ]))
-  ) return "image/png";
-  if (
-    bytes.length >= 3
-    && bytes[0] === 0xff
-    && bytes[1] === 0xd8
-    && bytes[2] === 0xff
-  ) return "image/jpeg";
-  if (
-    bytes.length >= 12
-    && bytes.subarray(0, 4).toString("ascii") === "RIFF"
-    && bytes.subarray(8, 12).toString("ascii") === "WEBP"
-  ) return "image/webp";
-  return undefined;
-}
-
 export function resolveRound1RunDirectory(
   comparisonRoot: string,
   runId: string,
@@ -305,12 +282,6 @@ export function resolveRound1RunDirectory(
     throw new Error("Invalid run ID: use 1-128 letters, numbers, dots, dashes, or underscores");
   }
   return path.join(comparisonRoot, runId);
-}
-
-function atomicWriteFile(filePath: string, contents: string | Buffer): void {
-  const temporaryPath = `${filePath}.tmp`;
-  fs.writeFileSync(temporaryPath, contents);
-  fs.renameSync(temporaryPath, filePath);
 }
 
 function writeManifest(filePath: string, manifest: BakeOffManifest): void {
@@ -381,7 +352,7 @@ function baseCell(
     provider: planned.provider.provider,
     model: planned.provider.model,
     outputSetting: planned.provider.outputSetting,
-    priceEstimate: PRICE_ESTIMATES[planned.provider.provider],
+    priceEstimate: ROUND1_PROVIDER_SPECS[planned.provider.provider].priceEstimate,
     priceAsOf: ROUND1_PRICE_AS_OF,
     elapsedMs,
     createdAt: now.toISOString(),
@@ -399,7 +370,7 @@ function writeSuccessfulArtifact(
   base: BakeOffCellBase,
   result: Extract<ComparisonProviderResult, { status: "successful" }>,
 ): BakeOffCell {
-  const detectedMimeType = detectImageMimeType(result.imageBuffer);
+  const detectedMimeType = detectSupportedImage(result.imageBuffer);
   if (!detectedMimeType || detectedMimeType !== result.mimeType) {
     return { ...base, status: "unsuccessful", reason: "unusable_image" };
   }
@@ -596,7 +567,7 @@ function inputIssues(repoRoot: string): PreflightIssue[] {
       issues.push({ artworkId: artwork.id, reason: "unreadable_input" });
       continue;
     }
-    if (!detectImageMimeType(bytes)) {
+    if (!detectSupportedImage(bytes)) {
       issues.push({ artworkId: artwork.id, reason: "unsupported_input" });
     }
   }

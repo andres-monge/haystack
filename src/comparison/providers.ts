@@ -1,15 +1,15 @@
 import { NoImageGeneratedError, generateImage } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createXai } from "@ai-sdk/xai";
-import { GeminiClient } from "../engine/gemini-client.js";
+import { GeminiClient, GeminiNoImageError } from "../engine/gemini-client.js";
 import type { GeminiClientOptions } from "../engine/gemini-client.js";
+import { detectSupportedImage } from "./image-validation.js";
 import type {
   ComparisonErrorCategory,
   ComparisonProvider,
   ComparisonProviderKeys,
   ComparisonProviderResult,
   Round1ProviderKeys,
-  SupportedImageMimeType,
 } from "./types.js";
 
 export const ROUND1_MODELS = {
@@ -18,10 +18,31 @@ export const ROUND1_MODELS = {
   xai: "grok-imagine-image-2.0",
 } as const;
 
+export const ROUND1_PRICE_AS_OF = "2026-08-15";
+
+export const ROUND1_PROVIDER_SPECS = {
+  gemini: {
+    provider: "gemini",
+    model: ROUND1_MODELS.gemini,
+    outputSetting: "input-matched / default",
+    priceEstimate: "~$0.0336 output + input tokens",
+  },
+  openai: {
+    provider: "openai",
+    model: ROUND1_MODELS.openai,
+    outputSetting: "1536x1024 / low",
+    priceEstimate: "~$0.005 output + input text/image tokens",
+  },
+  xai: {
+    provider: "xai",
+    model: ROUND1_MODELS.xai,
+    outputSetting: "1K / low",
+    priceEstimate: "~$0.05 ($0.04 output + $0.01 input image)",
+  },
+} as const;
+
 /** Paid comparison calls get a longer deadline than production generation. */
 export const COMPARISON_TIMEOUT_MS = 180_000;
-
-const MAX_OUTPUT_IMAGE_SIZE = 20 * 1024 * 1024;
 
 interface GeneratedImageDependencies {
   generateImage?: typeof generateImage;
@@ -62,43 +83,6 @@ function createComparisonAbortSignal(
   return createSignal(
     dependencies.comparisonTimeoutMs ?? COMPARISON_TIMEOUT_MS,
   );
-}
-
-function detectSupportedImage(bytes: Buffer): SupportedImageMimeType | undefined {
-  if (bytes.length === 0 || bytes.length > MAX_OUTPUT_IMAGE_SIZE) return undefined;
-
-  if (
-    bytes.length >= 8 &&
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47 &&
-    bytes[4] === 0x0d &&
-    bytes[5] === 0x0a &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0x0a
-  ) {
-    return "image/png";
-  }
-
-  if (
-    bytes.length >= 3 &&
-    bytes[0] === 0xff &&
-    bytes[1] === 0xd8 &&
-    bytes[2] === 0xff
-  ) {
-    return "image/jpeg";
-  }
-
-  if (
-    bytes.length >= 12 &&
-    bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
-    bytes.subarray(8, 12).toString("ascii") === "WEBP"
-  ) {
-    return "image/webp";
-  }
-
-  return undefined;
 }
 
 function normalizeImage(bytes: Uint8Array | undefined): ComparisonProviderResult {
@@ -227,9 +211,7 @@ export function createOpenAIComparisonProvider(
   const generate = dependencies.generateImage ?? generateImage;
 
   return {
-    provider: "openai",
-    model: ROUND1_MODELS.openai,
-    outputSetting: "1536x1024 / low",
+    ...ROUND1_PROVIDER_SPECS.openai,
     async editImage(imageBuffer, prompt) {
       try {
         const result = await generate({
@@ -258,9 +240,7 @@ export function createXaiComparisonProvider(
   const generate = dependencies.generateImage ?? generateImage;
 
   return {
-    provider: "xai",
-    model: ROUND1_MODELS.xai,
-    outputSetting: "1K / low",
+    ...ROUND1_PROVIDER_SPECS.xai,
     async editImage(imageBuffer, prompt) {
       try {
         const result = await generate({
@@ -290,9 +270,7 @@ export function createGeminiComparisonProvider(
     ?? createClient(apiKey, { timeoutMs });
 
   return {
-    provider: "gemini",
-    model: ROUND1_MODELS.gemini,
-    outputSetting: "input-matched / default",
+    ...ROUND1_PROVIDER_SPECS.gemini,
     async editImage(imageBuffer, prompt) {
       try {
         const result = await client.editImage(imageBuffer, prompt, {
@@ -300,11 +278,10 @@ export function createGeminiComparisonProvider(
         });
         return normalizeImage(result.imageBuffer);
       } catch (error) {
-        const message = error instanceof Error ? error.message : "";
-        if (message.startsWith("Gemini did not return an image")) {
+        if (error instanceof GeminiNoImageError) {
           return {
             status: "unsuccessful",
-            reason: message.includes("finishReason: SAFETY") ? "policy" : "no_image",
+            reason: error.finishReason === "SAFETY" ? "policy" : "no_image",
           };
         }
         return normalizeFailure(error);

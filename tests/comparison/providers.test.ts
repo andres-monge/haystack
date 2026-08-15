@@ -8,10 +8,8 @@ import {
   createRound1Providers,
   createXaiComparisonProvider,
 } from "../../src/comparison/providers.js";
-
-const PNG_BUFFER = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
-]);
+import { GeminiNoImageError } from "../../src/engine/gemini-client.js";
+import { TEST_PNG_BUFFER as PNG_BUFFER } from "../helpers/mock-factories.js";
 
 function imageResult(bytes: Uint8Array = PNG_BUFFER): GenerateImageResult {
   const image = {
@@ -162,9 +160,7 @@ describe("Round 1 comparison providers", () => {
   it("maps Gemini safety refusals to policy without returning response text", async () => {
     const client = {
       editImage: vi.fn().mockRejectedValue(
-        new Error(
-          "Gemini did not return an image (finishReason: SAFETY): synthetic-secret",
-        ),
+        new GeminiNoImageError("SAFETY", "synthetic-secret"),
       ),
     };
     const provider = createGeminiComparisonProvider("google-secret", { client });

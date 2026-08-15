@@ -40,6 +40,18 @@ export interface GeminiClientOptions {
   timeoutMs?: number;
 }
 
+export class GeminiNoImageError extends Error {
+  constructor(
+    public readonly finishReason?: string,
+    responseText?: string,
+  ) {
+    const reason = finishReason ? ` (finishReason: ${finishReason})` : "";
+    const detail = responseText ? `: ${responseText}` : "";
+    super(`Gemini did not return an image${reason}${detail}`);
+    this.name = "GeminiNoImageError";
+  }
+}
+
 /** Wraps the @google/genai SDK for image editing operations. */
 export class GeminiClient implements ImageEditClient {
   private client: GoogleGenAI;
@@ -113,12 +125,21 @@ export class GeminiClient implements ImageEditClient {
       },
     });
 
-    const response = await Promise.race([
-      apiPromise,
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Gemini API call timed out")), this.timeoutMs),
-      ),
-    ]);
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    let response: Awaited<typeof apiPromise>;
+    try {
+      response = await Promise.race([
+        apiPromise,
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(
+            () => reject(new Error("Gemini API call timed out")),
+            this.timeoutMs,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    }
 
     let resultBuffer: Buffer | null = null;
     let resultText: string | undefined;
@@ -133,11 +154,10 @@ export class GeminiClient implements ImageEditClient {
     }
 
     if (!resultBuffer) {
-      const detail = resultText ? `: ${resultText}` : "";
-      const reason = candidate?.finishReason
-        ? ` (finishReason: ${candidate.finishReason})`
-        : "";
-      throw new Error(`Gemini did not return an image${reason}${detail}`);
+      throw new GeminiNoImageError(
+        candidate?.finishReason as string | undefined,
+        resultText,
+      );
     }
 
     return {

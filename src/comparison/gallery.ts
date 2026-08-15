@@ -1,5 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { atomicWriteFile } from "./artifacts.js";
+import { ROUND1_PRICE_AS_OF, ROUND1_PROVIDER_SPECS } from "./providers.js";
 import type { BakeOffCell, BakeOffManifest } from "./bake-off.js";
 
 function escapeHtml(value: string): string {
@@ -150,9 +152,7 @@ export function renderGallery(manifest: BakeOffManifest): string {
 
 export function writeGallery(manifest: BakeOffManifest, outputPath: string): void {
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-  const temporaryPath = `${outputPath}.tmp`;
-  fs.writeFileSync(temporaryPath, renderGallery(manifest));
-  fs.renameSync(temporaryPath, outputPath);
+  atomicWriteFile(outputPath, renderGallery(manifest));
 }
 
 const FIXTURE_PNG = Buffer.from(
@@ -162,11 +162,7 @@ const FIXTURE_PNG = Buffer.from(
 
 export function createFixtureManifest(): BakeOffManifest {
   const createdAt = "2026-08-15T12:00:00.000Z";
-  const models = [
-    ["gemini", "gemini-3.1-flash-lite-image", "input-matched / default", "~$0.0336 output + input tokens"],
-    ["openai", "gpt-image-2", "1536x1024 / low", "~$0.005 output + input text/image tokens"],
-    ["xai", "grok-imagine-image-2.0", "1K / low", "~$0.05 ($0.04 output + $0.01 input image)"],
-  ] as const;
+  const models = Object.values(ROUND1_PROVIDER_SPECS);
   const cases = [
     ["hopper", "Hopper", "heavy-rain", "Heavy rain"],
     ["hopper", "Hopper", "heavy-snow", "Heavy snow"],
@@ -183,7 +179,7 @@ export function createFixtureManifest(): BakeOffManifest {
   const cells: BakeOffCell[] = cases.flatMap((caseDetails, caseIndex) =>
     models.map((modelDetails, modelIndex): BakeOffCell => {
       const [artworkId, artworkLabel, weatherId, weatherLabel] = caseDetails;
-      const [provider, model, outputSetting, priceEstimate] = modelDetails;
+      const { provider, model, outputSetting, priceEstimate } = modelDetails;
       const base = {
         id: `${artworkId}--${weatherId}--${provider}`,
         artworkId,
@@ -197,7 +193,7 @@ export function createFixtureManifest(): BakeOffManifest {
         model,
         outputSetting,
         priceEstimate,
-        priceAsOf: "2026-08-15",
+        priceAsOf: ROUND1_PRICE_AS_OF,
         elapsedMs: 1_200 + (caseIndex * 100) + modelIndex,
         createdAt,
       };
@@ -224,7 +220,7 @@ export function createFixtureManifest(): BakeOffManifest {
     createdAt,
     updatedAt: createdAt,
     completedAt: createdAt,
-    priceAsOf: "2026-08-15",
+    priceAsOf: ROUND1_PRICE_AS_OF,
     plannedCellCount: 18,
     cells,
   };
@@ -240,13 +236,11 @@ export function writeFixtureGallery(runDir: string): {
   fs.mkdirSync(imageDirectory, { recursive: true });
   for (const cell of manifest.cells) {
     if (cell.status === "successful") {
-      fs.writeFileSync(path.join(runDir, cell.imagePath), FIXTURE_PNG);
+      atomicWriteFile(path.join(runDir, cell.imagePath), FIXTURE_PNG);
     }
   }
   const manifestPath = path.join(runDir, "manifest.json");
-  const manifestTemporaryPath = `${manifestPath}.tmp`;
-  fs.writeFileSync(manifestTemporaryPath, `${JSON.stringify(manifest, null, 2)}\n`);
-  fs.renameSync(manifestTemporaryPath, manifestPath);
+  atomicWriteFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   const galleryPath = path.join(runDir, "gallery.html");
   writeGallery(manifest, galleryPath);
   return { manifest, manifestPath, galleryPath };

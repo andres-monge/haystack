@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { GeminiClient, DEFAULT_GEMINI_CONFIG } from "../../src/engine/gemini-client.js";
+import {
+  GeminiClient,
+  GeminiNoImageError,
+  DEFAULT_GEMINI_CONFIG,
+} from "../../src/engine/gemini-client.js";
 
 // Mock the @google/genai SDK
 const mockGenerateContent = vi.fn();
@@ -110,6 +114,11 @@ describe("GeminiClient", () => {
       await expect(
         client.editImage(PNG_BUFFER, "Edit this image"),
       ).rejects.toThrow("Gemini did not return an image");
+      await expect(
+        client.editImage(PNG_BUFFER, "Edit this image"),
+      ).rejects.toMatchObject<Partial<GeminiNoImageError>>({
+        finishReason: "SAFETY",
+      });
     });
 
     it("keeps the 60-second production timeout by default", async () => {
@@ -132,6 +141,18 @@ describe("GeminiClient", () => {
       await client.editImage(PNG_BUFFER, "test");
 
       expect(timerSpy).toHaveBeenCalledWith(expect.any(Function), 25_000);
+    });
+
+    it("clears the timeout after a response completes", async () => {
+      vi.useFakeTimers();
+      mockImageResponse();
+      const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+
+      const client = new GeminiClient("fake-key", { timeoutMs: 180_000 });
+      await client.editImage(PNG_BUFFER, "test");
+
+      expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
     });
 
     it("throws for buffers smaller than 12 bytes", async () => {

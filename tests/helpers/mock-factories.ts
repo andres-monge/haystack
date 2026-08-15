@@ -10,6 +10,7 @@ import type {
   ComparisonProviderResult,
   Round1ProviderId,
 } from "../../src/comparison/types.js";
+import { ROUND1_PROVIDER_SPECS } from "../../src/comparison/providers.js";
 
 export const TEST_PNG_BUFFER = Buffer.from([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -124,24 +125,8 @@ export function createMockComparisonProvider(
     mimeType: "image/png",
   },
 ): ComparisonProvider {
-  const details = {
-    gemini: {
-      model: "gemini-3.1-flash-lite-image",
-      outputSetting: "input-matched / default",
-    },
-    openai: {
-      model: "gpt-image-2",
-      outputSetting: "1536x1024 / low",
-    },
-    xai: {
-      model: "grok-imagine-image-2.0",
-      outputSetting: "1K / low",
-    },
-  } as const;
-
   return {
-    provider,
-    ...details[provider],
+    ...ROUND1_PROVIDER_SPECS[provider],
     editImage: vi.fn().mockResolvedValue(result),
   };
 }

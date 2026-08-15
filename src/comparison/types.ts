@@ -13,6 +13,11 @@ export type ComparisonErrorCategory =
   | "provider"
   | "unknown";
 
+export type ComparisonUnsuccessfulReason =
+  | "no_image"
+  | "policy"
+  | "unusable_image";
+
 export type ComparisonProviderResult =
   | {
       status: "successful";
@@ -21,7 +26,7 @@ export type ComparisonProviderResult =
     }
   | {
       status: "unsuccessful";
-      reason: "no_image" | "policy" | "unusable_image";
+      reason: ComparisonUnsuccessfulReason;
     }
   | {
       status: "error";

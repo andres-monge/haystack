@@ -12,7 +12,10 @@ import {
   runRound1,
   type PreflightIssue,
 } from "../src/comparison/bake-off.js";
-import { createRound1Providers } from "../src/comparison/providers.js";
+import {
+  createRound1Providers,
+  ROUND1_PROVIDER_SPECS,
+} from "../src/comparison/providers.js";
 import { writeFixtureGallery } from "../src/comparison/gallery.js";
 import { loadComparisonKeysFromEnv } from "../src/config/config.js";
 import type { ComparisonProvider } from "../src/comparison/types.js";
@@ -20,26 +23,14 @@ import type { ComparisonProvider } from "../src/comparison/types.js";
 const repoRoot = process.cwd();
 const comparisonRoot = path.join(os.homedir(), ".haystack", "comparisons");
 
-const REPLAY_PROVIDER_CATALOG: readonly ComparisonProvider[] = [
-  {
-    provider: "gemini",
-    model: "gemini-3.1-flash-lite-image",
-    outputSetting: "input-matched / default",
-    editImage: async () => { throw new Error("Replay provider must not be called"); },
-  },
-  {
-    provider: "openai",
-    model: "gpt-image-2",
-    outputSetting: "1536x1024 / low",
-    editImage: async () => { throw new Error("Replay provider must not be called"); },
-  },
-  {
-    provider: "xai",
-    model: "grok-imagine-image-2.0",
-    outputSetting: "1K / low",
-    editImage: async () => { throw new Error("Replay provider must not be called"); },
-  },
-];
+const REPLAY_PROVIDER_CATALOG: readonly ComparisonProvider[] = Object.values(
+  ROUND1_PROVIDER_SPECS,
+).map(spec => ({
+  provider: spec.provider,
+  model: spec.model,
+  outputSetting: spec.outputSetting,
+  editImage: async () => { throw new Error("Replay provider must not be called"); },
+}));
 
 function usage(): string {
   return [
