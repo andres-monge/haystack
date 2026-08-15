@@ -152,7 +152,12 @@ Auto-start the server on login and keep it alive across reboots.
 
 **What it does:**
 - `com.haystack.server` — starts Express server on login, restarts on crash
-- `com.haystack.hourly` — curls `POST /api/scheduler/trigger` at HH:05 (backup for in-process scheduler)
+- `com.haystack.hourly` — curls `POST /api/scheduler/trigger` at HH:05 (backup for in-process scheduler), waits up to 660 seconds, and has no curl transport retry
+
+After any file under `launchd/` changes, rerun `./scripts/launchd-install.sh`.
+Editing the repository template does not update the installed copy. The install
+script verifies `~/Library/LaunchAgents/com.haystack.hourly.plist` contains the
+660-second wait and no retry flags.
 
 **Logs:**
 ```bash
@@ -162,9 +167,14 @@ tail -f ~/.haystack/launchd-hourly.log   # hourly trigger output
 
 **Troubleshooting:**
 - Check status: `launchctl list | grep haystack`
+- Verify installed trigger: `grep -A1 -- '--max-time' ~/Library/LaunchAgents/com.haystack.hourly.plist`
 - Manual trigger: `curl -X POST http://127.0.0.1:4321/api/scheduler/trigger`
 - If server won't start: check `~/.haystack/launchd-server.log` and verify `.env.local` has `GOOGLE_API_KEY`
 - To stop temporarily: `launchctl bootout gui/$(id -u)/com.haystack.server`
+- The 660-second curl wait covers one full provider chain with margin. Curl has
+  no retry because the server may continue after a client disconnect: a curl
+  timeout does not cancel server work. The scheduler mutex and current-hour
+  deduplication prevent a repeated backup trigger from starting a duplicate.
 
 ## Phased roadmap
 

@@ -3,6 +3,7 @@
 import type { Pipeline } from "../engine/pipeline.js";
 import type { GenerateResult, RenderMetadata } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
+import { ProviderChainExhaustedError } from "../engine/provider-chain.js";
 import { composePromptFromText } from "../engine/prompt.js";
 import { describeScenario } from "../engine/scenario.js";
 import { getImageForToday, getAlternateImages } from "./image-rotation.js";
@@ -214,9 +215,9 @@ export class HourlyScheduler {
   /**
    * Run a single generation tick.
    *
-   * When the primary image is rejected by Gemini (IMAGE_OTHER — typically
-   * copyrighted artwork), automatically tries alternate images from the
-   * rotation queue before giving up.
+   * Each Pipeline call owns the complete configured provider chain for one
+   * artwork. Only typed, complete chain exhaustion advances to an alternate;
+   * cancellation, deadlines, local failures, and busy results stop the run.
    */
   private async tick(scenarioOverride?: string): Promise<GenerateResult> {
     const { pipeline, weatherProvider, imageDir, location } = this.config;
@@ -242,12 +243,15 @@ export class HourlyScheduler {
       ? composePromptFromText(scenarioOverride)
       : undefined;
 
-    // Try the primary image first, then fall back to alternates on IMAGE_OTHER
-    const imagesToTry = [imagePath];
-    let lastError: Error | undefined;
+    // This list is invocation-local. Every later invocation starts again from
+    // today's selected artwork, regardless of what happened to alternates here.
+    const imagesToTry = [
+      imagePath,
+      ...getAlternateImages(imageDir, [imagePath]),
+    ];
+    let lastExhaustion: ProviderChainExhaustedError | undefined;
 
-    for (let i = 0; i < imagesToTry.length; i++) {
-      const img = imagesToTry[i];
+    for (const img of imagesToTry) {
       try {
         console.log(
           `[${new Date().toISOString()}] Generating: ${describeScenario(scenario)} | image: ${img}`,
@@ -255,36 +259,19 @@ export class HourlyScheduler {
 
         return await pipeline.generate(img, scenario, prompt);
       } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-
-        if (!isImageRejection(lastError)) {
-          // Non-rejection error (timeout, network, etc.) — don't try other images
-          throw lastError;
+        if (!(err instanceof ProviderChainExhaustedError)) {
+          throw err;
         }
 
-        // IMAGE_OTHER: this artwork was rejected — try alternates
+        lastExhaustion = err;
         console.warn(
-          `[${new Date().toISOString()}] Image rejected by Gemini: ${img} — trying fallback`,
+          `[${new Date().toISOString()}] Provider chain exhausted for artwork: ${img} — trying next artwork`,
         );
-
-        // Lazily populate alternates only on first rejection
-        if (imagesToTry.length === 1) {
-          const alternates = getAlternateImages(imageDir, [img]);
-          imagesToTry.push(...alternates);
-        }
       }
     }
 
-    // All images exhausted
-    throw lastError ?? new Error("No images available for generation");
+    // Every artwork received one full provider chain. Preserve the last typed,
+    // sanitized aggregate so callers can handle exhaustion without parsing text.
+    throw lastExhaustion ?? new Error("No images available for generation");
   }
-}
-
-/**
- * Detect whether a pipeline error is an image rejection (IMAGE_OTHER)
- * as opposed to a transient failure (timeout, network error, etc.).
- * Only rejection errors should trigger fallback to an alternate image.
- */
-function isImageRejection(err: Error): boolean {
-  return err.message.includes("IMAGE_OTHER");
 }

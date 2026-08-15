@@ -37,6 +37,22 @@ for plist in com.haystack.server.plist com.haystack.hourly.plist; do
   echo "  Loaded: $plist"
 done
 
+# Verify the installed copy, not just the repository template. The hourly
+# request may wait for a full three-provider chain; curl must never retry it.
+INSTALLED_HOURLY_PLIST="$PLIST_DIR/com.haystack.hourly.plist"
+if ! grep -A1 '<string>--max-time</string>' "$INSTALLED_HOURLY_PLIST" \
+    | grep -q '<string>660</string>'; then
+  echo "ERROR: installed hourly plist is missing --max-time 660" >&2
+  exit 1
+fi
+if grep -Eq '<string>--retry(-delay|-connrefused)?</string>' \
+    "$INSTALLED_HOURLY_PLIST"; then
+  echo "ERROR: installed hourly plist contains a curl retry flag" >&2
+  exit 1
+fi
+echo "  Verified installed hourly trigger: --max-time 660, no curl transport retries"
+echo "  Installed plist: ~/Library/LaunchAgents/com.haystack.hourly.plist"
+
 # Log rotation (optional, requires sudo)
 if [ -w /etc/newsyslog.d ] || sudo -n true 2>/dev/null; then
   sed "s|__USER__|$(whoami)|g" "$PROJECT_DIR/launchd/haystack.newsyslog.conf" \
@@ -50,6 +66,7 @@ echo ""
 echo "Done! Haystack agents installed."
 echo "  Server daemon: com.haystack.server (auto-starts, KeepAlive)"
 echo "  Hourly trigger: com.haystack.hourly (fires at HH:05)"
+echo "  Rerun ./scripts/launchd-install.sh after any launchd plist change."
 echo ""
 echo "Useful commands:"
 echo "  launchctl list | grep haystack       # check status"

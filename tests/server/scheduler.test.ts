@@ -13,6 +13,17 @@ import { HourlyScheduler, type SchedulerConfig } from "../../src/server/schedule
 import { resetImageCache, setStateDir, resetStateDir } from "../../src/server/image-rotation.js";
 import { clearWeatherCache } from "../../src/server/scenario-builder.js";
 import {
+  ProviderChainExhaustedError,
+  ProviderChainTerminatedError,
+  type ProviderChainRunData,
+} from "../../src/engine/provider-chain.js";
+import { PipelineGenerationError } from "../../src/engine/pipeline.js";
+import { GenerationLockBusyError } from "../../src/engine/generation-lock.js";
+import type {
+  ImageProviderId,
+  ProviderAttemptOutcome,
+} from "../../src/engine/provider-types.js";
+import {
   makeGenerateResult,
   createMockPipeline,
   createMockWeatherProvider,
@@ -27,6 +38,53 @@ function createSchedulerConfig(overrides: Partial<SchedulerConfig> = {}): Schedu
     location: { lat: 34.05, lon: -118.25, timezone: "America/Los_Angeles" },
     ...overrides,
   };
+}
+
+function exhausted(
+  outcomes: readonly Exclude<ProviderAttemptOutcome, "successful">[] = [
+    "refusal",
+    "provider_timeout",
+    "provider_error",
+  ],
+): ProviderChainExhaustedError {
+  const providers: readonly ImageProviderId[] = ["gemini", "openai", "xai"];
+  const run: ProviderChainRunData = {
+    chainId: `chain-${outcomes.join("-")}`,
+    stage: "normal",
+    providerOrder: providers,
+    startedAt: "2026-02-14T12:00:00.000Z",
+    completedAt: "2026-02-14T12:00:03.000Z",
+    durationMs: 3_000,
+    terminalOutcome: "exhausted",
+    attempts: outcomes.map((outcome, index) => ({
+      attemptId: `attempt-${index + 1}`,
+      stage: "normal",
+      ordinal: index + 1,
+      provider: providers[index] ?? "xai",
+      requestedModel: `model-${index + 1}`,
+      startedAt: "2026-02-14T12:00:00.000Z",
+      completedAt: "2026-02-14T12:00:01.000Z",
+      durationMs: 1_000,
+      outcome,
+    })),
+  };
+  return new ProviderChainExhaustedError(run);
+}
+
+function terminated(
+  outcome: "caller_cancelled" | "chain_deadline" | "local_failure",
+): ProviderChainTerminatedError {
+  const run: ProviderChainRunData = {
+    chainId: `chain-${outcome}`,
+    stage: "normal",
+    providerOrder: ["gemini", "openai", "xai"],
+    startedAt: "2026-02-14T12:00:00.000Z",
+    completedAt: "2026-02-14T12:00:01.000Z",
+    durationMs: 1_000,
+    terminalOutcome: outcome,
+    attempts: [],
+  };
+  return new ProviderChainTerminatedError(outcome, run);
 }
 
 describe("HourlyScheduler", () => {
@@ -373,19 +431,16 @@ describe("HourlyScheduler", () => {
       scheduler.stop();
     });
 
-    it("falls back to alternate image on IMAGE_OTHER rejection", async () => {
+    it("rotates artwork only after the complete provider chain exhausts", async () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
       vi.mocked(config.pipeline.generate)
-        .mockRejectedValueOnce(
-          new Error("Gemini did not return an image (finishReason: IMAGE_OTHER)"),
-        )
+        .mockRejectedValueOnce(exhausted())
         .mockResolvedValueOnce(makeGenerateResult({ id: "fallback_success" }));
 
       const scheduler = new HourlyScheduler(config);
 
       const result = await scheduler.runNow();
 
-      // First call failed (art1.jpg), second call succeeded (art2.png)
       expect(config.pipeline.generate).toHaveBeenCalledTimes(2);
       expect(result.metadata.id).toBe("fallback_success");
 
@@ -396,55 +451,94 @@ describe("HourlyScheduler", () => {
       expect(firstImage).not.toBe(secondImage);
     });
 
-    it("does NOT fallback on non-rejection errors (e.g. timeout)", async () => {
+    it("does not rotate when a fallback provider succeeds inside one Pipeline call", async () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
-      vi.mocked(config.pipeline.generate).mockRejectedValue(
-        new Error("Gemini API call timed out"),
+      vi.mocked(config.pipeline.generate).mockResolvedValueOnce(
+        makeGenerateResult({ id: "openai_success", provider: "openai" }),
       );
 
       const scheduler = new HourlyScheduler(config);
+      const result = await scheduler.runNow();
 
-      await expect(scheduler.runNow()).rejects.toThrow("timed out");
-      // Should only try once — no fallback for transient errors
+      expect(result.metadata.provider).toBe("openai");
       expect(config.pipeline.generate).toHaveBeenCalledOnce();
     });
 
-    it("throws when all images are rejected with IMAGE_OTHER", async () => {
+    it.each([
+      ["refusal-only", ["refusal", "refusal", "refusal"]],
+      ["technical-only", ["provider_timeout", "rate_limited", "provider_error"]],
+      ["mixed", ["refusal", "invalid_image", "quota"]],
+    ] as const)("rotates after %s exhaustion", async (_label, outcomes) => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
-      vi.mocked(config.pipeline.generate).mockRejectedValue(
-        new Error("Gemini did not return an image (finishReason: IMAGE_OTHER)"),
-      );
+      vi.mocked(config.pipeline.generate)
+        .mockRejectedValueOnce(exhausted(outcomes))
+        .mockResolvedValueOnce(makeGenerateResult({ id: "alternate_success" }));
+
+      const scheduler = new HourlyScheduler(config);
+      await expect(scheduler.runNow()).resolves.toMatchObject({
+        metadata: { id: "alternate_success" },
+      });
+
+      const calls = vi.mocked(config.pipeline.generate).mock.calls;
+      expect(calls).toHaveLength(2);
+      expect(calls[0][0]).not.toBe(calls[1][0]);
+    });
+
+    it.each([
+      ["caller cancellation", terminated("caller_cancelled")],
+      ["chain deadline", terminated("chain_deadline")],
+      ["local chain failure", terminated("local_failure")],
+      ["pipeline storage/input/config failure", new PipelineGenerationError("storage_failed")],
+      ["generation busy", new GenerationLockBusyError()],
+      ["unknown failure", new Error("unexpected scheduler failure")],
+    ])("does not rotate after %s", async (_label, error) => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      vi.mocked(config.pipeline.generate).mockRejectedValue(error);
 
       const scheduler = new HourlyScheduler(config);
 
-      await expect(scheduler.runNow()).rejects.toThrow("IMAGE_OTHER");
-      // Should try primary + all alternates (2 files total in tmpDir)
-      expect(config.pipeline.generate).toHaveBeenCalledTimes(2);
+      await expect(scheduler.runNow()).rejects.toBe(error);
+      expect(config.pipeline.generate).toHaveBeenCalledOnce();
     });
 
-    it("logs a warning when falling back to alternate image", async () => {
+    it("tries every artwork exactly once and rethrows the last typed exhaustion", async () => {
+      fs.writeFileSync(path.join(tmpDir, "art3.webp"), "fake-image-data");
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      const failures = [exhausted(["refusal"]), exhausted(["quota"]), exhausted(["provider_error"])];
+      vi.mocked(config.pipeline.generate)
+        .mockRejectedValueOnce(failures[0])
+        .mockRejectedValueOnce(failures[1])
+        .mockRejectedValueOnce(failures[2]);
+
+      const scheduler = new HourlyScheduler(config);
+
+      await expect(scheduler.runNow()).rejects.toBe(failures[2]);
+      expect(config.pipeline.generate).toHaveBeenCalledTimes(3);
+      const attempted = vi.mocked(config.pipeline.generate).mock.calls
+        .map(([imagePath]) => path.basename(imagePath as string));
+      expect(attempted).toHaveLength(new Set(attempted).size);
+      expect(attempted).toEqual(["art1.jpg", "art2.png", "art3.webp"]);
+    });
+
+    it("logs a safe warning when rotating after typed exhaustion", async () => {
       const consoleWarnSpy = vi.spyOn(console, "warn");
       const config = createSchedulerConfig({ imageDir: tmpDir });
       vi.mocked(config.pipeline.generate)
-        .mockRejectedValueOnce(
-          new Error("Gemini did not return an image (finishReason: IMAGE_OTHER)"),
-        )
+        .mockRejectedValueOnce(exhausted())
         .mockResolvedValueOnce(makeGenerateResult());
 
       const scheduler = new HourlyScheduler(config);
       await scheduler.runNow();
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
-        expect.stringContaining("Image rejected by Gemini"),
+        expect.stringContaining("Provider chain exhausted"),
       );
     });
 
-    it("falls back to alternate image with scenarioOverride on IMAGE_OTHER", async () => {
+    it("passes the same override prompt to every artwork chain", async () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
       vi.mocked(config.pipeline.generate)
-        .mockRejectedValueOnce(
-          new Error("Gemini did not return an image (finishReason: IMAGE_OTHER)"),
-        )
+        .mockRejectedValueOnce(exhausted())
         .mockResolvedValueOnce(makeGenerateResult({ id: "override_fallback" }));
 
       const scheduler = new HourlyScheduler(config);
@@ -463,6 +557,23 @@ describe("HourlyScheduler", () => {
       const firstImage = calls[0][0] as string;
       const secondImage = calls[1][0] as string;
       expect(firstImage).not.toBe(secondImage);
+    });
+
+    it("starts consecutive invocations from today's selected artwork", async () => {
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      vi.mocked(config.pipeline.generate)
+        .mockRejectedValueOnce(exhausted())
+        .mockResolvedValueOnce(makeGenerateResult({ id: "alternate_success" }))
+        .mockResolvedValueOnce(makeGenerateResult({ id: "primary_success" }));
+
+      const scheduler = new HourlyScheduler(config);
+      await scheduler.runNow();
+      await scheduler.runNow();
+
+      const calls = vi.mocked(config.pipeline.generate).mock.calls;
+      expect(calls).toHaveLength(3);
+      expect(calls[0][0]).not.toBe(calls[1][0]);
+      expect(calls[2][0]).toBe(calls[0][0]);
     });
 
     it("falls back to time-only scenario when weather fetch fails", async () => {
