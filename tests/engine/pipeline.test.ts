@@ -16,13 +16,14 @@ vi.mock("@google/genai", () => ({
   })),
 }));
 
-/** Minimal valid PNG buffer (>= 12 bytes for mime detection). */
-const PNG_BUFFER = Buffer.from([
-  0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
-]);
+/** Small fully formed PNG used for both source and mocked provider output. */
+const PNG_BUFFER = Buffer.from(
+  "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000970485973000003e8000003e801b57b526b0000000c49444154789c63606060000000040001f61738550000000049454e44ae426082",
+  "hex",
+);
 
 function mockImageResponse(text?: string) {
-  const fakeImageData = Buffer.from("fake-output-image").toString("base64");
+  const fakeImageData = PNG_BUFFER.toString("base64");
   mockGenerateContent.mockResolvedValue({
     candidates: [
       {
@@ -68,7 +69,7 @@ describe("Pipeline", () => {
     const result = await pipeline.generate(testImagePath, scenario);
 
     expect(result.imagePath).toContain(".png");
-    expect(result.imageBuffer).toEqual(Buffer.from("fake-output-image"));
+    expect(result.imageBuffer).toEqual(PNG_BUFFER);
     expect(fs.existsSync(result.imagePath)).toBe(true);
 
     // Verify metadata sidecar was written
@@ -151,7 +152,7 @@ describe("Pipeline", () => {
     await pipeline.generate(testImagePath, scenario);
 
     const store = pipeline.getStore();
-    const latest = store.getLatest();
+    const latest = await store.getLatest();
     expect(latest).not.toBeNull();
     expect(latest!.model).toBe("gemini-3.1-flash-lite-image");
   });

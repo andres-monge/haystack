@@ -2,9 +2,9 @@ import type { RenderMetadata } from "../types";
 import { WMO_SHORT } from "../utils/scenario";
 
 interface Props {
-  renders: Array<RenderMetadata & { imageUrl: string }>;
+  renders: Array<RenderMetadata & { imageUrl: string; downloadUrl: string }>;
   isLoading: boolean;
-  onSelect: (render: RenderMetadata & { imageUrl: string }) => void;
+  onSelect: (render: RenderMetadata & { imageUrl: string; downloadUrl: string }) => void;
 }
 
 function formatTime(iso: string): string {
@@ -45,6 +45,7 @@ export function HistoryPanel({ renders, isLoading, onSelect }: Props) {
               <div className="history-item-info">
                 <span>{formatTime(render.createdAt)}</span>
                 <span>{render.scenario.hour}:00</span>
+                <span>{render.provider ? `${render.provider} · ` : ""}{render.resolvedModel ?? render.model}</span>
                 {render.scenario.weatherCode !== undefined && (
                   <span className="weather-badge">
                     {WMO_SHORT[render.scenario.weatherCode] ??

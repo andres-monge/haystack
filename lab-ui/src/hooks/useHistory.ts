@@ -4,7 +4,7 @@ import type { RenderMetadata } from "../types";
 
 export function useHistory() {
   const [renders, setRenders] = useState<
-    Array<RenderMetadata & { imageUrl: string }>
+    Array<RenderMetadata & { imageUrl: string; downloadUrl: string }>
   >([]);
   const [isLoading, setIsLoading] = useState(false);
 

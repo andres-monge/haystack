@@ -136,7 +136,7 @@ export class HourlyScheduler {
     dedupWindowMs: number,
   ): Promise<ConditionalRunResult> {
     return this.runWithMutex(async () => {
-      const latest = this.config.pipeline.getStore().getLatest();
+      const latest = await this.config.pipeline.getStore().getLatest();
       if (
         latest &&
         this.isRecentRenderForCurrentPeriod(latest, dedupWindowMs)

@@ -67,8 +67,9 @@ export function makeGenerateResult(
 
 export function createMockPipeline(): Pipeline {
   const mockStore = {
-    listAll: vi.fn().mockReturnValue([]),
-    getLatest: vi.fn().mockReturnValue(null),
+    listAll: vi.fn().mockResolvedValue([]),
+    getLatest: vi.fn().mockResolvedValue(null),
+    resolve: vi.fn().mockResolvedValue(null),
     save: vi.fn(),
   } as unknown as OutputStore;
 

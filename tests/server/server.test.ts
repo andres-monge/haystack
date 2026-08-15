@@ -1,10 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
 import request from "supertest";
+import sharp from "sharp";
 import { createApp } from "../../src/server/server.js";
+import { OutputStore } from "../../src/storage/output-store.js";
 import type { Pipeline } from "../../src/engine/pipeline.js";
 import type { WeatherProvider } from "../../src/weather/types.js";
 import type { HourlyScheduler } from "../../src/server/scheduler.js";
@@ -20,10 +22,32 @@ import { clearWeatherCache } from "../../src/server/scenario-builder.js";
 /** Create a small valid PNG buffer (1x1 pixel) for upload tests. */
 function createTestPng(): Buffer {
   return Buffer.from(
-    "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000c4944415478016360000000000200012721cd2a0000000049454e44ae426082",
+    "89504e470d0a1a0a0000000d4948445200000001000000010802000000907753de0000000970485973000003e8000003e801b57b526b0000000c49444154789c63606060000000040001f61738550000000049454e44ae426082",
     "hex",
   );
 }
+
+let testJpeg: Buffer;
+let testWebp: Buffer;
+
+beforeAll(async () => {
+  testJpeg = await sharp({
+    create: {
+      width: 2,
+      height: 1,
+      channels: 3,
+      background: { r: 200, g: 100, b: 40 },
+    },
+  }).jpeg().toBuffer();
+  testWebp = await sharp({
+    create: {
+      width: 2,
+      height: 1,
+      channels: 3,
+      background: { r: 40, g: 120, b: 200 },
+    },
+  }).webp().toBuffer();
+});
 
 describe("Express API Server", () => {
   let outputDir: string;
@@ -38,7 +62,15 @@ describe("Express API Server", () => {
     weatherProvider = createMockWeatherProvider();
 
     const pngBuffer = createTestPng();
-    fs.writeFileSync(path.join(outputDir, "20260214_120000_abc12345.png"), pngBuffer);
+    const renderId = "20260214_120000_abc12345";
+    fs.writeFileSync(path.join(outputDir, `${renderId}.png`), pngBuffer);
+    fs.writeFileSync(
+      path.join(outputDir, `${renderId}.json`),
+      JSON.stringify(makeMetadata({ id: renderId })),
+    );
+    vi.mocked(pipeline.getStore().resolve).mockImplementation(
+      id => new OutputStore(outputDir).resolve(id),
+    );
 
     testPngPath = path.join(outputDir, "upload-test.png");
     fs.writeFileSync(testPngPath, pngBuffer);
@@ -66,6 +98,9 @@ describe("Express API Server", () => {
       expect(res.status).toBe(200);
       expect(res.body.metadata).toBeDefined();
       expect(res.body.metadata.id).toBe("20260214_120000_abc12345");
+      expect(res.body.metadata).not.toHaveProperty("artworkSource");
+      expect(res.body.metadata).not.toHaveProperty("outputPath");
+      expect(res.body.metadata).not.toHaveProperty("prompt");
       expect(res.body.imageUrl).toBe("/api/outputs/20260214_120000_abc12345");
       expect(pipeline.generate).toHaveBeenCalledOnce();
     });
@@ -339,6 +374,69 @@ describe("Express API Server", () => {
       expect(res.body.renders).toEqual([]);
     });
 
+    it("serializes an explicit presentation allowlist", async () => {
+      vi.mocked(pipeline.getStore().listAll).mockReturnValue([
+        makeMetadata({
+          provider: "openai",
+          model: "gpt-image-2",
+          resolvedModel: "gpt-image-2-2026-08-01",
+          mimeType: "image/jpeg",
+          width: 2048,
+          height: 1152,
+          byteCount: 1234,
+          sha256: "a".repeat(64),
+          providerOrder: ["gemini", "openai", "xai"],
+          attempts: [{
+            attemptId: "private-request-id",
+            stage: "normal",
+            ordinal: 1,
+            provider: "gemini",
+            requestedModel: "gemini-3.1-flash-lite-image",
+            startedAt: "2026-02-14T12:00:00.000Z",
+            completedAt: "2026-02-14T12:00:01.000Z",
+            durationMs: 1000,
+            outcome: "refusal",
+            requestId: "provider-request-id",
+            usage: { inputTokens: 500, costInUsdTicks: 100 },
+          }],
+          artworkSource: "/private/source/hopper.jpg",
+          outputPath: "/private/outputs/render.jpg",
+          prompt: "private prompt",
+          responseId: "private-response-id",
+          responseText: "raw provider response",
+          usageMetadata: { totalTokenCount: 900 },
+          finishReason: "STOP",
+          scenario: {
+            ...makeMetadata().scenario,
+            weatherSource: "live",
+            privateDiagnostic: "nested-secret",
+          } as RenderMetadata["scenario"],
+        }),
+      ]);
+
+      const res = await request(createTestApp()).get("/api/history");
+
+      expect(res.status).toBe(200);
+      expect(res.body.renders[0]).toEqual({
+        id: "20260214_120000_abc12345",
+        scenario: expect.objectContaining({ hour: 12, isDay: true }),
+        model: "gpt-image-2",
+        resolvedModel: "gpt-image-2-2026-08-01",
+        provider: "openai",
+        mimeType: "image/jpeg",
+        width: 2048,
+        height: 1152,
+        createdAt: "2026-02-14T12:00:00.000Z",
+        imageUrl: "/api/outputs/20260214_120000_abc12345",
+        downloadUrl: "/api/outputs/20260214_120000_abc12345?download=1",
+      });
+      expect(JSON.stringify(res.body)).not.toMatch(
+        /attempt|request|usage|cost|artworkSource|outputPath|prompt|response|finishReason/i,
+      );
+      expect(JSON.stringify(res.body)).not.toContain("nested-secret");
+      expect(res.body.renders[0].scenario.weatherSource).toBe("live");
+    });
+
     it("handles negative limit by returning empty array", async () => {
       const renders = [makeMetadata()];
       vi.mocked(pipeline.getStore().listAll).mockReturnValue(renders);
@@ -378,6 +476,79 @@ describe("Express API Server", () => {
       expect(res.headers["content-type"]).toMatch(/image\/png/);
       expect(res.body).toBeInstanceOf(Buffer);
       expect(res.body.length).toBeGreaterThan(0);
+    });
+
+    it("serves a legacy .png containing JPEG bytes as JPEG", async () => {
+      const id = "legacy_jpeg";
+      fs.writeFileSync(path.join(outputDir, `${id}.png`), testJpeg);
+      fs.writeFileSync(
+        path.join(outputDir, `${id}.json`),
+        JSON.stringify(makeMetadata({ id })),
+      );
+
+      const res = await request(createTestApp()).get(`/api/outputs/${id}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers["content-type"]).toMatch(/image\/jpeg/);
+      expect(res.body).toEqual(testJpeg);
+    });
+
+    it.each([
+      ["JPEG", "new_jpeg", () => testJpeg, "image/jpeg", ".jpg"],
+      ["WebP", "new_webp", () => testWebp, "image/webp", ".webp"],
+    ] as const)("serves and downloads a new %s render truthfully", async (_label, id, getBytes, mimeType, extension) => {
+      const store = new OutputStore(outputDir);
+      await store.save(getBytes(), makeMetadata({ id }));
+
+      const display = await request(createTestApp()).get(`/api/outputs/${id}`);
+      expect(display.status).toBe(200);
+      expect(display.headers["content-type"]).toMatch(new RegExp(mimeType));
+      expect(display.body).toEqual(getBytes());
+
+      const download = await request(createTestApp()).get(
+        `/api/outputs/${id}?download=1`,
+      );
+      expect(download.status).toBe(200);
+      expect(download.headers["content-type"]).toMatch(new RegExp(mimeType));
+      expect(download.headers["content-disposition"]).toBe(
+        `attachment; filename="haystack-${id}${extension}"`,
+      );
+    });
+
+    it("downloads using the extension detected from bytes", async () => {
+      const id = "legacy_download";
+      fs.writeFileSync(path.join(outputDir, `${id}.png`), testJpeg);
+      fs.writeFileSync(
+        path.join(outputDir, `${id}.json`),
+        JSON.stringify(makeMetadata({ id })),
+      );
+
+      const res = await request(createTestApp()).get(
+        `/api/outputs/${id}?download=1`,
+      );
+
+      expect(res.status).toBe(200);
+      expect(res.headers["content-type"]).toMatch(/image\/jpeg/);
+      expect(res.headers["content-disposition"]).toBe(
+        `attachment; filename="haystack-${id}.jpg"`,
+      );
+    });
+
+    it("ignores malicious outputPath metadata and serves only the local sibling", async () => {
+      const id = "safe_local";
+      const outside = path.join(outputDir, "..", "server-secret.jpg");
+      fs.writeFileSync(outside, testJpeg);
+      fs.writeFileSync(path.join(outputDir, `${id}.png`), createTestPng());
+      fs.writeFileSync(
+        path.join(outputDir, `${id}.json`),
+        JSON.stringify(makeMetadata({ id, outputPath: outside })),
+      );
+
+      const res = await request(createTestApp()).get(`/api/outputs/${id}`);
+
+      expect(res.status).toBe(200);
+      expect(res.headers["content-type"]).toMatch(/image\/png/);
+      fs.rmSync(outside, { force: true });
     });
 
     it("returns 404 for non-existent output", async () => {
@@ -598,7 +769,14 @@ describe("Express API Server", () => {
 
   describe("GET /api/latest", () => {
     it("returns latest render with metadata and imageUrl", async () => {
-      const latestMeta = makeMetadata({ id: "20260214_150000_xyz99999" });
+      const latestMeta = makeMetadata({
+        id: "20260214_150000_xyz99999",
+        provider: "xai",
+        mimeType: "image/webp",
+        attempts: [],
+        artworkSource: "/private/art.jpg",
+        prompt: "private prompt",
+      });
       vi.mocked(pipeline.getStore().getLatest).mockReturnValue(latestMeta);
 
       const app = createTestApp();
@@ -607,6 +785,11 @@ describe("Express API Server", () => {
       expect(res.status).toBe(200);
       expect(res.body.metadata).toBeDefined();
       expect(res.body.metadata.id).toBe("20260214_150000_xyz99999");
+      expect(res.body.metadata.provider).toBe("xai");
+      expect(res.body.metadata.mimeType).toBe("image/webp");
+      expect(res.body.metadata).not.toHaveProperty("attempts");
+      expect(res.body.metadata).not.toHaveProperty("artworkSource");
+      expect(res.body.metadata).not.toHaveProperty("prompt");
       expect(res.body.imageUrl).toBe("/api/outputs/20260214_150000_xyz99999");
     });
 

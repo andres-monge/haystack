@@ -1,5 +1,11 @@
 // src/engine/types.ts — Shared type definitions for the Haystack engine
 
+import type { ProviderAttemptRecord } from "./provider-chain.js";
+import type {
+  ImageProviderId,
+  SupportedImageMimeType,
+} from "./provider-types.js";
+
 export type WeatherSource = "live" | "cache" | "none";
 
 export type SolarPhase =
@@ -142,6 +148,17 @@ export interface RenderMetadata {
   modelVersion?: string;
   usageMetadata?: UsageMetadata;
   finishReason?: string;
+
+  // Provider-neutral output provenance. Optional for legacy sidecars.
+  provider?: ImageProviderId;
+  resolvedModel?: string;
+  mimeType?: SupportedImageMimeType;
+  width?: number;
+  height?: number;
+  byteCount?: number;
+  sha256?: string;
+  providerOrder?: readonly ImageProviderId[];
+  attempts?: readonly ProviderAttemptRecord[];
 }
 
 export interface GenerateResult {

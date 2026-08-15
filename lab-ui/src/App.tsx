@@ -133,7 +133,7 @@ export function App() {
   );
 
   const handleHistorySelect = useCallback(
-    (render: RenderMetadata & { imageUrl: string }) => {
+    (render: RenderMetadata & { imageUrl: string; downloadUrl: string }) => {
       setSelectedResult({ metadata: render, imageUrl: render.imageUrl });
     },
     [],

@@ -6,6 +6,7 @@ import * as path from "node:path";
 import express, { type Express, type Request, type Response } from "express";
 import multer from "multer";
 import type { Pipeline } from "../engine/pipeline.js";
+import type { RenderMetadata } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
 import type { HourlyScheduler } from "./scheduler.js";
 import { createScenarioFromHour, describeScenario } from "../engine/scenario.js";
@@ -16,6 +17,68 @@ import { getInstantForHourInTimezone } from "./timezone.js";
 const VALID_ID_PATTERN = /^[a-zA-Z0-9_\-]+$/;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
 const DEDUP_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+
+function toPresentationScenario(scenario: RenderMetadata["scenario"]) {
+  return {
+    timestampLocal: scenario.timestampLocal,
+    hour: scenario.hour,
+    isDay: scenario.isDay,
+    ...(scenario.minute !== undefined ? { minute: scenario.minute } : {}),
+    ...(scenario.weatherSource !== undefined
+      ? { weatherSource: scenario.weatherSource }
+      : {}),
+    ...(scenario.weatherCode !== undefined ? { weatherCode: scenario.weatherCode } : {}),
+    ...(scenario.cloudPercent !== undefined ? { cloudPercent: scenario.cloudPercent } : {}),
+    ...(scenario.precipProbability !== undefined
+      ? { precipProbability: scenario.precipProbability }
+      : {}),
+    ...(scenario.temperature !== undefined ? { temperature: scenario.temperature } : {}),
+    ...(scenario.humidity !== undefined ? { humidity: scenario.humidity } : {}),
+    ...(scenario.windSpeed !== undefined ? { windSpeed: scenario.windSpeed } : {}),
+    ...(scenario.windGusts !== undefined ? { windGusts: scenario.windGusts } : {}),
+    ...(scenario.visibility !== undefined ? { visibility: scenario.visibility } : {}),
+    ...(scenario.precipitation !== undefined ? { precipitation: scenario.precipitation } : {}),
+    ...(scenario.rain !== undefined ? { rain: scenario.rain } : {}),
+    ...(scenario.snowfall !== undefined ? { snowfall: scenario.snowfall } : {}),
+    ...(scenario.snowDepth !== undefined ? { snowDepth: scenario.snowDepth } : {}),
+    ...(scenario.directRadiation !== undefined
+      ? { directRadiation: scenario.directRadiation }
+      : {}),
+    ...(scenario.diffuseRadiation !== undefined
+      ? { diffuseRadiation: scenario.diffuseRadiation }
+      : {}),
+    ...(scenario.sunElevation !== undefined ? { sunElevation: scenario.sunElevation } : {}),
+    ...(scenario.sunAzimuth !== undefined ? { sunAzimuth: scenario.sunAzimuth } : {}),
+    ...(scenario.solarPhase !== undefined ? { solarPhase: scenario.solarPhase } : {}),
+    ...(scenario.solarTrend !== undefined ? { solarTrend: scenario.solarTrend } : {}),
+    ...(scenario.moonFraction !== undefined ? { moonFraction: scenario.moonFraction } : {}),
+    ...(scenario.moonAltitude !== undefined ? { moonAltitude: scenario.moonAltitude } : {}),
+    ...(scenario.sunrise !== undefined ? { sunrise: scenario.sunrise } : {}),
+    ...(scenario.sunset !== undefined ? { sunset: scenario.sunset } : {}),
+  };
+}
+
+/** Explicit LAN-safe presentation shape. Never spread storage metadata here. */
+function toPresentationMetadata(metadata: RenderMetadata) {
+  return {
+    id: metadata.id,
+    scenario: toPresentationScenario(metadata.scenario),
+    model: metadata.model,
+    ...(metadata.resolvedModel ? { resolvedModel: metadata.resolvedModel } : {}),
+    ...(metadata.provider ? { provider: metadata.provider } : {}),
+    ...(metadata.mimeType ? { mimeType: metadata.mimeType } : {}),
+    ...(metadata.width !== undefined ? { width: metadata.width } : {}),
+    ...(metadata.height !== undefined ? { height: metadata.height } : {}),
+    createdAt: metadata.createdAt,
+  };
+}
+
+function presentationUrls(id: string) {
+  return {
+    imageUrl: `/api/outputs/${id}`,
+    downloadUrl: `/api/outputs/${id}?download=1`,
+  };
+}
 
 export interface CreateAppConfig {
   pipeline: Pipeline;
@@ -30,7 +93,7 @@ function isRateLimitError(message: string): boolean {
 }
 
 export function createApp(config: CreateAppConfig): Express {
-  const { pipeline, weatherProvider, outputDir, scheduler } = config;
+  const { pipeline, weatherProvider, scheduler } = config;
   const app = express();
 
   app.use(express.json());
@@ -91,8 +154,8 @@ export function createApp(config: CreateAppConfig): Express {
           );
 
           res.json({
-            metadata: result.metadata,
-            imageUrl: `/api/outputs/${result.metadata.id}`,
+            metadata: toPresentationMetadata(result.metadata),
+            ...presentationUrls(result.metadata.id),
           });
         } finally {
           // Clean up temp file (fire-and-forget, non-blocking)
@@ -109,16 +172,16 @@ export function createApp(config: CreateAppConfig): Express {
   );
 
   // --- GET /api/history ---
-  app.get("/api/history", (req: Request, res: Response) => {
+  app.get("/api/history", async (req: Request, res: Response) => {
     try {
       const limit = req.query.limit
         ? parseInt(req.query.limit as string, 10)
         : 24;
 
-      const allRenders = pipeline.getStore().listAll();
+      const allRenders = await pipeline.getStore().listAll();
       const renders = allRenders.slice(0, limit).map((meta) => ({
-        ...meta,
-        imageUrl: `/api/outputs/${meta.id}`,
+        ...toPresentationMetadata(meta),
+        ...presentationUrls(meta.id),
       }));
 
       res.json({ renders });
@@ -141,15 +204,19 @@ export function createApp(config: CreateAppConfig): Express {
       return;
     }
 
-    const imagePath = path.join(outputDir, `${id}.png`);
-    try {
-      await fs.promises.access(imagePath);
-    } catch {
+    const output = await pipeline.getStore().resolve(id);
+    if (!output) {
       res.status(404).json({ error: "Output not found" });
       return;
     }
-    res.setHeader("Content-Type", "image/png");
-    const stream = fs.createReadStream(imagePath);
+    res.setHeader("Content-Type", output.mimeType);
+    if (req.query.download === "1") {
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${output.downloadFilename}"`,
+      );
+    }
+    const stream = fs.createReadStream(output.imagePath);
     stream.on("error", () => {
       if (!res.headersSent) {
         res.status(404).json({ error: "Output not found" });
@@ -272,16 +339,16 @@ export function createApp(config: CreateAppConfig): Express {
   );
 
   // --- GET /api/latest ---
-  app.get("/api/latest", (_req: Request, res: Response) => {
+  app.get("/api/latest", async (_req: Request, res: Response) => {
     try {
-      const latest = pipeline.getStore().getLatest();
+      const latest = await pipeline.getStore().getLatest();
       if (!latest) {
         res.status(404).json({ error: "No renders available" });
         return;
       }
       res.json({
-        metadata: latest,
-        imageUrl: `/api/outputs/${latest.id}`,
+        metadata: toPresentationMetadata(latest),
+        ...presentationUrls(latest.id),
       });
     } catch (err) {
       console.error(
@@ -357,7 +424,7 @@ export function createApp(config: CreateAppConfig): Express {
     }
 
     // Dedup: skip if a render happened within the last 30 minutes
-    const latest = pipeline.getStore().getLatest();
+    const latest = await pipeline.getStore().getLatest();
     if (
       latest &&
       scheduler.isRecentRenderForCurrentPeriod(latest, DEDUP_WINDOW_MS)
@@ -393,8 +460,8 @@ export function createApp(config: CreateAppConfig): Express {
       console.log(`[${new Date().toISOString()}] Trigger generation complete: ${result.metadata.id}`);
       res.json({
         triggered: true,
-        metadata: result.metadata,
-        imageUrl: `/api/outputs/${result.metadata.id}`,
+        metadata: toPresentationMetadata(result.metadata),
+        ...presentationUrls(result.metadata.id),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -432,8 +499,8 @@ export function createApp(config: CreateAppConfig): Express {
 
       const result = await scheduler.runNow(scenario);
       res.json({
-        metadata: result.metadata,
-        imageUrl: `/api/outputs/${result.metadata.id}`,
+        metadata: toPresentationMetadata(result.metadata),
+        ...presentationUrls(result.metadata.id),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

@@ -84,7 +84,7 @@ export class Pipeline {
       finishReason: result.finishReason,
     };
 
-    const outputPath = this.store.save(result.imageBuffer, metadata);
+    const outputPath = await this.store.save(result.imageBuffer, metadata);
     metadata.outputPath = outputPath;
 
     return {

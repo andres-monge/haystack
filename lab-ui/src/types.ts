@@ -5,6 +5,7 @@ export type WeatherSource = "live" | "cache" | "none";
 export interface SerializedScenario {
   timestampLocal: string;
   hour: number;
+  minute?: number;
   isDay: boolean;
   weatherSource?: WeatherSource;
   weatherCode?: number;
@@ -23,32 +24,28 @@ export interface SerializedScenario {
   diffuseRadiation?: number;
   sunElevation?: number;
   sunAzimuth?: number;
+  solarPhase?: "daylight" | "golden-hour" | "civil-twilight" | "nautical-twilight" | "astronomical-twilight" | "night";
+  solarTrend?: "rising" | "setting";
   moonFraction?: number;
   moonAltitude?: number;
   sunrise?: string;
   sunset?: string;
 }
 
-export interface UsageMetadata {
-  promptTokenCount?: number;
-  candidatesTokenCount?: number;
-  totalTokenCount?: number;
-}
+export type ImageProviderId = "gemini" | "openai" | "xai";
+export type SupportedImageMimeType = "image/png" | "image/jpeg" | "image/webp";
 
+/** LAN-safe render presentation returned by the server. */
 export interface RenderMetadata {
   id: string;
-  artworkSource: string;
   scenario: SerializedScenario;
-  prompt: string;
   model: string;
+  resolvedModel?: string;
+  provider?: ImageProviderId;
+  mimeType?: SupportedImageMimeType;
+  width?: number;
+  height?: number;
   createdAt: string;
-  outputPath: string;
-  responseText?: string;
-  seed?: number;
-  responseId?: string;
-  modelVersion?: string;
-  usageMetadata?: UsageMetadata;
-  finishReason?: string;
 }
 
 export interface Location {
@@ -87,10 +84,11 @@ export interface CurrentConditions extends HourlyConditions {
 export interface GenerateResult {
   metadata: RenderMetadata;
   imageUrl: string;
+  downloadUrl: string;
 }
 
 export interface HistoryResult {
-  renders: Array<RenderMetadata & { imageUrl: string }>;
+  renders: Array<RenderMetadata & { imageUrl: string; downloadUrl: string }>;
 }
 
 export type OverrideResult = GenerateResult;

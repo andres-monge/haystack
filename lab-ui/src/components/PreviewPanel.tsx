@@ -26,6 +26,12 @@ export function PreviewPanel({ metadata, imageUrl, error }: Props) {
     );
   }
 
+  const downloadExtension = metadata.mimeType === "image/jpeg"
+    ? "jpg"
+    : metadata.mimeType === "image/webp"
+      ? "webp"
+      : "png";
+
   return (
     <div className="preview-panel">
       <img
@@ -42,8 +48,8 @@ export function PreviewPanel({ metadata, imageUrl, error }: Props) {
         </button>
         <a
           className="btn-download"
-          href={imageUrl}
-          download={`haystack-${metadata.id}.png`}
+          href={`${imageUrl}?download=1`}
+          download={`haystack-${metadata.id}.${downloadExtension}`}
         >
           Download
         </a>
@@ -51,8 +57,14 @@ export function PreviewPanel({ metadata, imageUrl, error }: Props) {
       {showDetails && (
         <div className="preview-metadata">
           <dl>
+            {metadata.provider && (
+              <>
+                <dt>Provider</dt>
+                <dd>{metadata.provider}</dd>
+              </>
+            )}
             <dt>Model</dt>
-            <dd>{metadata.model}</dd>
+            <dd>{metadata.resolvedModel ?? metadata.model}</dd>
             <dt>Created</dt>
             <dd>{new Date(metadata.createdAt).toLocaleString()}</dd>
             <dt>Hour</dt>
@@ -73,25 +85,19 @@ export function PreviewPanel({ metadata, imageUrl, error }: Props) {
                 </dd>
               </>
             )}
-            {metadata.usageMetadata && (
+            {metadata.mimeType && (
               <>
-                <dt>Tokens</dt>
-                <dd>
-                  {metadata.usageMetadata.totalTokenCount ?? "—"}
-                </dd>
+                <dt>Format</dt>
+                <dd>{metadata.mimeType.replace("image/", "").toUpperCase()}</dd>
               </>
             )}
-            {metadata.responseText && (
+            {metadata.width !== undefined && metadata.height !== undefined && (
               <>
-                <dt>Response</dt>
-                <dd className="response-text">{metadata.responseText}</dd>
+                <dt>Dimensions</dt>
+                <dd>{metadata.width} × {metadata.height}</dd>
               </>
             )}
           </dl>
-          <details>
-            <summary>Full prompt</summary>
-            <pre className="prompt-display">{metadata.prompt}</pre>
-          </details>
         </div>
       )}
     </div>
