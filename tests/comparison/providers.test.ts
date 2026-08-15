@@ -8,7 +8,10 @@ import {
   createRound1Providers,
   createXaiComparisonProvider,
 } from "../../src/comparison/providers.js";
-import { GeminiNoImageError } from "../../src/engine/gemini-client.js";
+import {
+  GeminiNoImageError,
+  GeminiTimeoutError,
+} from "../../src/engine/gemini-client.js";
 import { TEST_PNG_BUFFER as PNG_BUFFER } from "../helpers/mock-factories.js";
 
 function imageResult(bytes: Uint8Array = PNG_BUFFER): GenerateImageResult {
@@ -169,6 +172,53 @@ describe("Round 1 comparison providers", () => {
 
     expect(result).toEqual({ status: "unsuccessful", reason: "policy" });
     expect(JSON.stringify(result)).not.toContain("synthetic-secret");
+  });
+
+  it.each([
+    new GeminiNoImageError("IMAGE_SAFETY", "synthetic-secret"),
+    new GeminiNoImageError(undefined, "synthetic-secret", "PROHIBITED_CONTENT"),
+    new GeminiNoImageError(undefined, "synthetic-secret", "MODEL_ARMOR"),
+    new GeminiNoImageError(undefined, "synthetic-secret", "JAILBREAK"),
+  ])("maps Gemini image and prompt-feedback policy blocks to policy", async (failure) => {
+    const client = { editImage: vi.fn().mockRejectedValue(failure) };
+    const provider = createGeminiComparisonProvider("google-secret", { client });
+
+    const result = await provider.editImage(PNG_BUFFER, "test");
+
+    expect(result).toEqual({ status: "unsuccessful", reason: "policy" });
+    expect(JSON.stringify(result)).not.toContain("synthetic-secret");
+  });
+
+  it.each([
+    "NO_IMAGE",
+    "RECITATION",
+    "IMAGE_RECITATION",
+    "OTHER",
+    "IMAGE_OTHER",
+  ])("keeps Gemini %s outcomes classified as no-image", async (finishReason) => {
+    const client = {
+      editImage: vi.fn().mockRejectedValue(
+        new GeminiNoImageError(finishReason, "synthetic-secret"),
+      ),
+    };
+    const provider = createGeminiComparisonProvider("google-secret", { client });
+
+    await expect(provider.editImage(PNG_BUFFER, "test")).resolves.toEqual({
+      status: "unsuccessful",
+      reason: "no_image",
+    });
+  });
+
+  it("maps the stable Gemini transport timeout to timeout", async () => {
+    const client = {
+      editImage: vi.fn().mockRejectedValue(new GeminiTimeoutError()),
+    };
+    const provider = createGeminiComparisonProvider("google-secret", { client });
+
+    await expect(provider.editImage(PNG_BUFFER, "test")).resolves.toEqual({
+      status: "error",
+      category: "timeout",
+    });
   });
 
   it("maps unusable bytes to unsuccessful", async () => {

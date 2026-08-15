@@ -287,6 +287,47 @@ describe("Round 1 bake-off", () => {
     }
   });
 
+  it("atomically allows only one concurrent fresh run to reach providers", async () => {
+    const providerCalls = vi.fn();
+    const providers = (["gemini", "openai", "xai"] as const).map(provider => ({
+      ...createMockComparisonProvider(provider),
+      editImage: vi.fn(async () => {
+        providerCalls(provider);
+        return {
+          status: "successful" as const,
+          imageBuffer: TEST_PNG_BUFFER,
+          mimeType: "image/png" as const,
+        };
+      }),
+    }));
+    const options = {
+      repoRoot,
+      comparisonRoot,
+      runId: "concurrent-run",
+      providers,
+      now: () => FIXED_NOW,
+    };
+
+    const results = await Promise.allSettled([
+      runRound1(options),
+      runRound1(options),
+    ]);
+
+    expect(results.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter(result => result.status === "rejected")).toHaveLength(1);
+    const rejected = results.find(result => result.status === "rejected");
+    expect(rejected).toMatchObject({
+      status: "rejected",
+      reason: expect.objectContaining({ message: expect.stringContaining("already claimed") }),
+    });
+    expect(providerCalls).toHaveBeenCalledTimes(18);
+    const manifest = JSON.parse(
+      fs.readFileSync(manifestPath(comparisonRoot, "concurrent-run"), "utf8"),
+    ) as BakeOffManifest;
+    expect(manifest.state).toBe("completed");
+    expect(manifest.cells).toHaveLength(18);
+  });
+
   it("marks unfinished cells interrupted on re-open and never resumes them", async () => {
     const runId = "interrupted-run";
     const runDir = path.join(comparisonRoot, runId);
@@ -394,6 +435,13 @@ describe("Round 1 bake-off", () => {
       expect.stringContaining("gpt-image-2"),
       expect.stringContaining("grok-imagine-image-2.0"),
     ]);
+    const requestedUrls = fetchImpl.mock.calls.map(call => String(call[0]));
+    expect(requestedUrls.every(url => !url.includes("google-secret"))).toBe(true);
+    expect(requestedUrls[0]).not.toContain("?key=");
+    const geminiRequest = fetchImpl.mock.calls[0][1] as RequestInit;
+    expect(new Headers(geminiRequest.headers).get("x-goog-api-key"))
+      .toBe("google-secret");
+    expect(JSON.stringify(report)).not.toContain("google-secret");
     expect(report.unavailable).toEqual([{
       provider: "openai",
       model: "gpt-image-2",

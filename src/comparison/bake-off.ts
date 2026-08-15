@@ -463,11 +463,18 @@ export async function runRound1(
     return completedResult(existing, runDir, manifestPath, true);
   }
 
-  if (fs.existsSync(runDir)) {
-    throw new Error(`Comparison run directory already exists without a manifest: ${runDir}`);
+  await fs.promises.mkdir(options.comparisonRoot, { recursive: true });
+  try {
+    // A non-recursive mkdir is the exclusive claim for a fresh run. Two
+    // processes may both observe that the manifest is absent, but only one can
+    // create this directory and proceed to paid provider calls.
+    await fs.promises.mkdir(runDir);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      throw new Error(`Comparison run directory is already claimed: ${runDir}`);
+    }
+    throw error;
   }
-
-  fs.mkdirSync(runDir, { recursive: true });
   const startedAt = now();
   const manifest: BakeOffManifest = {
     schemaVersion: 1,
@@ -586,7 +593,8 @@ function modelChecks(
     {
       provider: "gemini",
       model: ROUND1_MODELS.gemini,
-      url: `https://generativelanguage.googleapis.com/v1beta/models/${ROUND1_MODELS.gemini}?key=${encodeURIComponent(keys.googleApiKey)}`,
+      url: `https://generativelanguage.googleapis.com/v1beta/models/${ROUND1_MODELS.gemini}`,
+      headers: { "x-goog-api-key": keys.googleApiKey },
     },
     {
       provider: "openai",

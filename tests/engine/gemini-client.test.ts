@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { GoogleGenAI } from "@google/genai";
 import {
   GeminiClient,
   GeminiNoImageError,
+  GeminiTimeoutError,
   DEFAULT_GEMINI_CONFIG,
 } from "../../src/engine/gemini-client.js";
 
@@ -56,6 +58,7 @@ const PNG_BUFFER = Buffer.from([
 describe("GeminiClient", () => {
   beforeEach(() => {
     mockGenerateContent.mockReset();
+    vi.mocked(GoogleGenAI).mockClear();
   });
 
   afterEach(() => {
@@ -118,41 +121,81 @@ describe("GeminiClient", () => {
         client.editImage(PNG_BUFFER, "Edit this image"),
       ).rejects.toMatchObject<Partial<GeminiNoImageError>>({
         finishReason: "SAFETY",
+        policyReason: "SAFETY",
       });
     });
 
-    it("keeps the 60-second production timeout by default", async () => {
-      vi.useFakeTimers();
+    it("configures the SDK transport with the 60-second production timeout by default", async () => {
       mockImageResponse();
-      const timerSpy = vi.spyOn(globalThis, "setTimeout");
 
       const client = new GeminiClient("fake-key");
       await client.editImage(PNG_BUFFER, "test");
 
-      expect(timerSpy).toHaveBeenCalledWith(expect.any(Function), 60_000);
+      expect(GoogleGenAI).toHaveBeenCalledWith({
+        apiKey: "fake-key",
+        httpOptions: {
+          timeout: 60_000,
+        },
+      });
     });
 
-    it("accepts an injectable comparison timeout", async () => {
-      vi.useFakeTimers();
+    it("configures the SDK transport with an injectable comparison timeout", async () => {
       mockImageResponse();
-      const timerSpy = vi.spyOn(globalThis, "setTimeout");
 
       const client = new GeminiClient("fake-key", { timeoutMs: 25_000 });
       await client.editImage(PNG_BUFFER, "test");
 
-      expect(timerSpy).toHaveBeenCalledWith(expect.any(Function), 25_000);
+      expect(GoogleGenAI).toHaveBeenCalledWith({
+        apiKey: "fake-key",
+        httpOptions: {
+          timeout: 25_000,
+        },
+      });
     });
 
-    it("clears the timeout after a response completes", async () => {
-      vi.useFakeTimers();
+    it("does not create a local deadline timer around the SDK request", async () => {
       mockImageResponse();
-      const clearTimeoutSpy = vi.spyOn(globalThis, "clearTimeout");
+      const setTimeoutSpy = vi.spyOn(globalThis, "setTimeout");
 
       const client = new GeminiClient("fake-key", { timeoutMs: 180_000 });
       await client.editImage(PNG_BUFFER, "test");
 
-      expect(clearTimeoutSpy).toHaveBeenCalledTimes(1);
-      expect(vi.getTimerCount()).toBe(0);
+      expect(setTimeoutSpy).not.toHaveBeenCalled();
+    });
+
+    it("normalizes an SDK transport abort to a stable Gemini timeout error", async () => {
+      const transportAbort = new Error("request aborted by transport");
+      transportAbort.name = "AbortError";
+      mockGenerateContent.mockRejectedValue(transportAbort);
+
+      const client = new GeminiClient("fake-key", { timeoutMs: 180_000 });
+
+      await expect(client.editImage(PNG_BUFFER, "test")).rejects.toMatchObject<
+        Partial<GeminiTimeoutError>
+      >({
+        name: "GeminiTimeoutError",
+        code: "GEMINI_TIMEOUT",
+      });
+    });
+
+    it("captures a prompt-feedback-only policy block without raw response text", async () => {
+      mockGenerateContent.mockResolvedValue({
+        candidates: [],
+        promptFeedback: {
+          blockReason: "IMAGE_SAFETY",
+          blockReasonMessage: "synthetic-secret",
+        },
+      });
+
+      const client = new GeminiClient("fake-key");
+
+      const rejection = client.editImage(PNG_BUFFER, "test");
+      await expect(rejection).rejects.toMatchObject<Partial<GeminiNoImageError>>({
+        finishReason: undefined,
+        blockReason: "IMAGE_SAFETY",
+        policyReason: "IMAGE_SAFETY",
+      });
+      await expect(rejection).rejects.not.toThrow("synthetic-secret");
     });
 
     it("throws for buffers smaller than 12 bytes", async () => {

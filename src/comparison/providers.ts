@@ -173,7 +173,11 @@ function safeErrorCategory(error: unknown): ComparisonErrorCategory {
     status === 504 ||
     name === "aborterror" ||
     name === "timeouterror" ||
-    codes.includes("etimedout")
+    name === "geminitimeouterror" ||
+    name === "apiconnectiontimeouterror" ||
+    codes.includes("etimedout") ||
+    codes.includes("deadline_exceeded") ||
+    codes.includes("gemini_timeout")
   ) {
     return "timeout";
   }
@@ -281,7 +285,7 @@ export function createGeminiComparisonProvider(
         if (error instanceof GeminiNoImageError) {
           return {
             status: "unsuccessful",
-            reason: error.finishReason === "SAFETY" ? "policy" : "no_image",
+            reason: error.policyReason ? "policy" : "no_image",
           };
         }
         return normalizeFailure(error);

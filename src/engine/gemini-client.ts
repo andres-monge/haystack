@@ -40,28 +40,79 @@ export interface GeminiClientOptions {
   timeoutMs?: number;
 }
 
+const GEMINI_POLICY_REASONS = new Set([
+  "SAFETY",
+  "IMAGE_SAFETY",
+  "PROHIBITED_CONTENT",
+  "IMAGE_PROHIBITED_CONTENT",
+  "BLOCKLIST",
+  "SPII",
+  "MODEL_ARMOR",
+  "JAILBREAK",
+]);
+
+function policyReason(
+  finishReason?: string,
+  blockReason?: string,
+): string | undefined {
+  return [finishReason, blockReason].find(
+    reason => reason !== undefined && GEMINI_POLICY_REASONS.has(reason),
+  );
+}
+
+function isGeminiTransportTimeout(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+
+  const name = error.name.toLowerCase();
+  const code = "code" in error && typeof error.code === "string"
+    ? error.code.toLowerCase()
+    : undefined;
+  return ["aborterror", "timeouterror", "apiconnectiontimeouterror"].includes(name)
+    || ["etimedout", "deadline_exceeded"].includes(code ?? "");
+}
+
 export class GeminiNoImageError extends Error {
+  public readonly policyReason: string | undefined;
+
   constructor(
     public readonly finishReason?: string,
-    responseText?: string,
+    _responseText?: string,
+    public readonly blockReason?: string,
   ) {
-    const reason = finishReason ? ` (finishReason: ${finishReason})` : "";
-    const detail = responseText ? `: ${responseText}` : "";
-    super(`Gemini did not return an image${reason}${detail}`);
+    const reasons = [
+      finishReason ? `finishReason: ${finishReason}` : undefined,
+      blockReason ? `blockReason: ${blockReason}` : undefined,
+    ].filter((reason): reason is string => reason !== undefined);
+    const detail = reasons.length > 0 ? ` (${reasons.join(", ")})` : "";
+    super(`Gemini did not return an image${detail}`);
     this.name = "GeminiNoImageError";
+    this.policyReason = policyReason(finishReason, blockReason);
+  }
+}
+
+/** Stable signal for an SDK transport deadline expiring. */
+export class GeminiTimeoutError extends Error {
+  public readonly code = "GEMINI_TIMEOUT";
+
+  constructor() {
+    super("Gemini API call timed out");
+    this.name = "GeminiTimeoutError";
   }
 }
 
 /** Wraps the @google/genai SDK for image editing operations. */
 export class GeminiClient implements ImageEditClient {
   private client: GoogleGenAI;
-  private timeoutMs: number;
 
   constructor(apiKey?: string, options: GeminiClientOptions = {}) {
+    const httpOptions = {
+      timeout: options.timeoutMs ?? API_TIMEOUT_MS,
+    };
     // Only pass apiKey when explicitly provided, so the SDK can fall back
     // to GOOGLE_API_KEY / GEMINI_API_KEY from environment automatically.
-    this.client = apiKey ? new GoogleGenAI({ apiKey }) : new GoogleGenAI({});
-    this.timeoutMs = options.timeoutMs ?? API_TIMEOUT_MS;
+    this.client = apiKey
+      ? new GoogleGenAI({ apiKey, httpOptions })
+      : new GoogleGenAI({ httpOptions });
   }
 
   /**
@@ -125,20 +176,14 @@ export class GeminiClient implements ImageEditClient {
       },
     });
 
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
     let response: Awaited<typeof apiPromise>;
     try {
-      response = await Promise.race([
-        apiPromise,
-        new Promise<never>((_, reject) => {
-          timeoutId = setTimeout(
-            () => reject(new Error("Gemini API call timed out")),
-            this.timeoutMs,
-          );
-        }),
-      ]);
-    } finally {
-      if (timeoutId !== undefined) clearTimeout(timeoutId);
+      response = await apiPromise;
+    } catch (error) {
+      if (isGeminiTransportTimeout(error)) {
+        throw new GeminiTimeoutError();
+      }
+      throw error;
     }
 
     let resultBuffer: Buffer | null = null;
@@ -157,6 +202,7 @@ export class GeminiClient implements ImageEditClient {
       throw new GeminiNoImageError(
         candidate?.finishReason as string | undefined,
         resultText,
+        response.promptFeedback?.blockReason as string | undefined,
       );
     }
 
