@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The lean staged image-model bake-off</title>
+  <style>
+    :root {
+      --paper: #f3efe6; --surface: #fffdf8; --ink: #19231e; --muted: #5a655e;
+      --line: #d9d2c5; --green: #275d45; --green-soft: #e3efe7;
+      --blue: #315f87; --blue-soft: #e7eff7; --amber: #985b18; --amber-soft: #fff0d9;
+      --plum: #714c69; --plum-soft: #f1e8ef;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.58; }
+    main { width: min(1080px, calc(100% - 32px)); margin: 28px auto 60px; }
+    header, section { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 12px 32px rgba(31,40,34,.06); }
+    header { padding: clamp(25px, 5vw, 54px); }
+    section { margin-top: 18px; padding: clamp(22px, 4vw, 40px); }
+    h1 { max-width: 17ch; margin: 0; font-size: clamp(2.4rem, 6vw, 4.8rem); line-height: .98; letter-spacing: -.055em; }
+    h2 { margin: 0 0 14px; font-size: clamp(1.45rem, 3vw, 2.1rem); letter-spacing: -.025em; }
+    h3 { margin: 0 0 6px; font-size: 1.02rem; }
+    p { max-width: 70ch; }
+    .lede { max-width: 65ch; margin: 22px 0 0; color: #33453b; font-size: 1.16rem; }
+    dl { display: grid; grid-template-columns: max-content 1fr; gap: 5px 18px; margin: 26px 0 0; font-size: .9rem; }
+    dt { color: var(--muted); font-weight: 760; } dd { margin: 0; }
+    code { padding: .12rem .35rem; border-radius: 5px; background: #eee9df; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+    .diagram { overflow-x: auto; margin-top: 24px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: #fbfaf6; }
+    svg { display: block; min-width: 900px; width: 100%; height: auto; }
+    .callout { max-width: 74ch; margin: 18px 0 0; padding: 16px 18px; border-left: 5px solid var(--green); border-radius: 10px; background: var(--green-soft); }
+    .warning { border-color: var(--amber); background: var(--amber-soft); }
+    .contrast, .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; margin-top: 18px; }
+    .card { padding: 18px; border: 1px solid var(--line); border-radius: 13px; background: white; }
+    .card.wait { border-style: dashed; background: #fbfaf6; }
+    .tag { display: inline-block; margin-bottom: 11px; padding: 4px 9px; border-radius: 999px; font-size: .72rem; font-weight: 820; letter-spacing: .06em; text-transform: uppercase; }
+    .direct { color: var(--green); background: var(--green-soft); }
+    .xai { color: var(--blue); background: var(--blue-soft); }
+    .openai { color: var(--plum); background: var(--plum-soft); }
+    .later { color: var(--amber); background: var(--amber-soft); }
+    .numbers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 22px 0; }
+    .number { padding: 17px; text-align: center; border: 1px solid var(--line); border-radius: 12px; background: #fbfaf6; }
+    .number strong { display: block; font-size: 1.65rem; line-height: 1.1; }
+    .phase { display: grid; grid-template-columns: 72px minmax(0,1fr) 250px; gap: 18px; padding: 20px 0; border-top: 1px solid var(--line); }
+    .phase:first-of-type { border-top: 0; }
+    .phase-id { color: var(--green); font-weight: 850; }
+    .human { align-self: start; padding: 12px 14px; border-radius: 10px; background: var(--amber-soft); color: #6f4111; font-size: .9rem; }
+    .auto { background: var(--blue-soft); color: #294f70; }
+    table { width: 100%; margin-top: 18px; border-collapse: collapse; font-size: .94rem; }
+    th, td { padding: 11px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-size: .76rem; letter-spacing: .05em; text-transform: uppercase; }
+    footer { padding: 22px 4px 0; color: var(--muted); font-size: .86rem; }
+    @media (max-width: 780px) {
+      main { width: min(100% - 18px, 1080px); margin-top: 10px; }
+      .contrast, .grid, .numbers { grid-template-columns: 1fr; }
+      .phase { grid-template-columns: 54px 1fr; }
+      .phase .human { grid-column: 2; }
+      dl { grid-template-columns: 1fr; gap: 2px; } dd { margin-bottom: 8px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>The lean staged image-model bake-off</h1>
+    <p class="lede">You do not need a new Lab feature to answer this question. ce-work will build one local command, generate one static gallery, and stop for your judgment. OpenAI and Grok use the accounts you already have; BFL stays out unless they both disappoint.</p>
+    <dl>
+      <dt>Date</dt><dd>2026-08-15</dd>
+      <dt>Input shape</dt><dd>idea</dd>
+      <dt>Subject</dt><dd>Direct-provider Round 1 with a static gallery and optional BFL extension</dd>
+    </dl>
+  </header>
+
+  <section>
+    <h2>The whole plan</h2>
+    <div class="diagram">
+      <svg viewBox="0 0 1080 470" role="img" aria-label="A local Haystack command calls Gemini, OpenAI, and Grok directly, writes a static gallery, pauses for a human decision, and adds BFL only when there is no winner.">
+        <defs><marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#53635a"/></marker></defs>
+        <rect x="25" y="165" width="185" height="110" rx="16" fill="#fffdf8" stroke="#19231e" stroke-width="2"/>
+        <text x="118" y="202" text-anchor="middle" font-size="19" font-weight="800">Local command</text>
+        <text x="118" y="232" text-anchor="middle" font-size="14">2 paintings × 3 weather</text>
+        <text x="118" y="255" text-anchor="middle" font-size="13" fill="#58645d">fixed originals + prompts</text>
+        <line x1="210" y1="220" x2="285" y2="220" stroke="#53635a" stroke-width="3" marker-end="url(#arrow)"/>
+
+        <rect x="305" y="25" width="220" height="100" rx="14" fill="#e3efe7" stroke="#275d45" stroke-width="2"/>
+        <text x="415" y="63" text-anchor="middle" font-size="18" font-weight="800">Gemini direct</text>
+        <text x="415" y="91" text-anchor="middle" font-size="14">6 control cells</text>
+        <rect x="305" y="170" width="220" height="100" rx="14" fill="#f1e8ef" stroke="#714c69" stroke-width="2"/>
+        <text x="415" y="208" text-anchor="middle" font-size="18" font-weight="800">OpenAI direct</text>
+        <text x="415" y="236" text-anchor="middle" font-size="14">6 challenger cells</text>
+        <rect x="305" y="315" width="220" height="100" rx="14" fill="#e7eff7" stroke="#315f87" stroke-width="2"/>
+        <text x="415" y="353" text-anchor="middle" font-size="18" font-weight="800">Grok direct</text>
+        <text x="415" y="381" text-anchor="middle" font-size="14">6 challenger cells</text>
+
+        <line x1="525" y1="75" x2="605" y2="187" stroke="#53635a" stroke-width="3" marker-end="url(#arrow)"/>
+        <line x1="525" y1="220" x2="605" y2="220" stroke="#53635a" stroke-width="3" marker-end="url(#arrow)"/>
+        <line x1="525" y1="365" x2="605" y2="253" stroke="#53635a" stroke-width="3" marker-end="url(#arrow)"/>
+        <rect x="625" y="155" width="205" height="130" rx="16" fill="#fffdf8" stroke="#19231e" stroke-width="2"/>
+        <text x="728" y="191" text-anchor="middle" font-size="18" font-weight="800">Local run folder</text>
+        <text x="728" y="220" text-anchor="middle" font-size="14">manifest + sidecars</text>
+        <text x="728" y="244" text-anchor="middle" font-size="14">successful images only</text>
+        <text x="728" y="267" text-anchor="middle" font-size="14" fill="#275d45">gallery.html</text>
+
+        <line x1="830" y1="220" x2="888" y2="220" stroke="#53635a" stroke-width="3" marker-end="url(#arrow)"/>
+        <polygon points="958,150 1028,220 958,290 888,220" fill="#fff0d9" stroke="#985b18" stroke-width="2"/>
+        <text x="958" y="207" text-anchor="middle" font-size="16" font-weight="800">Your decision</text>
+        <text x="958" y="232" text-anchor="middle" font-size="13">winner ID or</text>
+        <text x="958" y="251" text-anchor="middle" font-size="13">no_winner</text>
+        <line x1="958" y1="290" x2="958" y2="350" stroke="#985b18" stroke-width="3" marker-end="url(#arrow)"/>
+        <rect x="875" y="365" width="166" height="75" rx="13" fill="#fff0d9" stroke="#985b18" stroke-width="2" stroke-dasharray="7 5"/>
+        <text x="958" y="395" text-anchor="middle" font-size="16" font-weight="800">Optional BFL</text>
+        <text x="958" y="420" text-anchor="middle" font-size="13">6 additive cells only</text>
+      </svg>
+    </div>
+    <p class="callout"><strong>Why this is leaner:</strong> no Express routes, no polling, no React panel, no background run service, and no cleanup of a temporary UI. The result is still a gallery you can open and inspect.</p>
+  </section>
+
+  <section>
+    <h2>What direct BYOK means</h2>
+    <div class="contrast">
+      <div class="card"><h3>Direct provider billing</h3><p>Your OpenAI key goes from the local command to OpenAI. Your xAI key goes from the command to xAI. Each provider bills its own account.</p></div>
+      <div class="card"><h3>No Vercel payment layer</h3><p>No request passes through Vercel Gateway. You need no Gateway key, top-up, routing configuration, or BYOK fallback.</p></div>
+    </div>
+    <p><strong>The Vercel AI SDK is just the shared TypeScript interface</strong> for the OpenAI and xAI calls. It does not receive the images and it does not bill you.</p>
+  </section>
+
+  <section>
+    <h2>Round 1 and the optional extension</h2>
+    <div class="grid">
+      <div class="card"><span class="tag direct">Control</span><h3>Gemini 3.1 Flash Lite Image</h3><p>Six edits with the existing Google key. Production remains untouched.</p></div>
+      <div class="card"><span class="tag openai">Challenger</span><h3>GPT Image 2</h3><p>Six low-quality landscape edits with the existing OpenAI key.</p></div>
+      <div class="card"><span class="tag xai">Challenger</span><h3>Grok Imagine Image 2.0</h3><p>Six 1K/low edits with the existing xAI key. Expected xAI spend is roughly $0.30.</p></div>
+      <div class="card wait"><span class="tag later">Not built yet</span><h3>FLUX Kontext Pro</h3><p>Only after you record <code>no_winner</code>. Then ce-work adds its adapter and six cells without repeating Round 1.</p></div>
+    </div>
+    <div class="numbers">
+      <div class="number"><strong>18</strong>Round 1 cells</div>
+      <div class="number"><strong>6</strong>Optional BFL cells</div>
+      <div class="number"><strong>0</strong>Automatic retries</div>
+    </div>
+    <table>
+      <thead><tr><th>Provider</th><th>Uses</th><th>Billed by</th><th>When</th></tr></thead>
+      <tbody>
+        <tr><td>Google</td><td>Existing Gemini key</td><td>Google</td><td>Round 1</td></tr>
+        <tr><td>OpenAI</td><td>Existing OpenAI key</td><td>OpenAI</td><td>Round 1</td></tr>
+        <tr><td>xAI</td><td>Existing xAI key and balance</td><td>xAI</td><td>Round 1</td></tr>
+        <tr><td>BFL</td><td>New key only if needed</td><td>BFL</td><td>Optional Round 2</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>How ce-work should execute it</h2>
+    <div class="phase">
+      <div class="phase-id">A</div>
+      <div><h3>Build the command with mocks</h3><p>Add direct provider adapters, the fixed matrix, isolated run folder, sidecars, manifest, and static gallery generator. Produce a fake gallery without provider calls.</p></div>
+      <div class="human auto"><strong>ce-work continues.</strong> No paid images.</div>
+    </div>
+    <div class="phase">
+      <div class="phase-id">CP1</div>
+      <div><h3>Open the fixture gallery</h3><p>You see successful-only grouping, model labels, counts, elapsed time, pricing, and desktop/narrow layouts before spending.</p></div>
+      <div class="human"><strong>You:</strong> approve it or give feedback.</div>
+    </div>
+    <div class="phase">
+      <div class="phase-id">B</div>
+      <div><h3>Run a free preflight</h3><p>The default command checks that Google, OpenAI, and xAI keys and exact models are available. It generates no image.</p></div>
+      <div class="human auto"><strong>ce-work continues.</strong> It reports readiness only.</div>
+    </div>
+    <div class="phase">
+      <div class="phase-id">CP2</div>
+      <div><h3>Authorize Round 1</h3><p>ce-work names the 18 planned calls and waits. Only your confirmation enables execution.</p></div>
+      <div class="human"><strong>You:</strong> confirm the paid run.</div>
+    </div>
+    <div class="phase">
+      <div class="phase-id">C</div>
+      <div><h3>Open the real gallery</h3><p>The command prints the local <code>gallery.html</code> path. You see only valid returned images; unsuccessful and error outcomes appear only in compact counts.</p></div>
+      <div class="human"><strong>You:</strong> record the exact winner or <code>no_winner</code>.</div>
+    </div>
+    <div class="phase">
+      <div class="phase-id">D</div>
+      <div><h3>Optional BFL extension</h3><p>If you record <code>no_winner</code>, ce-work adds BFL, runs a free preflight, and asks again before six calls.</p></div>
+      <div class="human"><strong>You:</strong> obtain/fund BFL only now.</div>
+    </div>
+    <div class="phase">
+      <div class="phase-id">E</div>
+      <div><h3>Migrate separately</h3><p>A later change verifies one fresh edit through the winner's production path before switching defaults. Gemini is removed only when nothing production-facing needs it.</p></div>
+      <div class="human"><strong>You:</strong> approve the production switch.</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Your part is small</h2>
+    <p>Your OpenAI and xAI keys are already in Haystack's ignored <code>.env.local</code>, and both passed non-generating model-access checks. The xAI balance is the amount you reported; the check verified model access, not the balance dashboard.</p>
+    <p class="callout warning"><strong>BFL is a hard stop gate.</strong> It is not installed, funded, or called unless the Round 1 decision is <code>no_winner</code>.</p>
+    <p class="callout"><strong>Bottom line:</strong> one command, one folder, one gallery, one visual decision. No Gateway and no disposable Lab feature.</p>
+  </section>
+
+  <footer>Composed 2026-08-15 by ce-explain</footer>
+</main>
+</body>
+</html>
