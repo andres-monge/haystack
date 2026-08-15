@@ -64,17 +64,20 @@ CONCEPTS.md     — Shared project vocabulary for domain entities, processes, an
 | Model | ID | Use case |
 |-------|----|----------|
 | Flash Lite Image | `gemini-3.1-flash-lite-image` | Default -- fast, cheapest, hourly updates (1K only) |
-| 3.1 Flash Image | `gemini-3.1-flash-image-preview` | Extend artwork (2K default), thinking mode |
-| Pro Image | `gemini-3-pro-image-preview` | High quality, up to 4K |
-| Flash Image (legacy) | `gemini-2.5-flash-image` | Previous default, still supported |
+| 3.1 Flash Image | `gemini-3.1-flash-image` | Extend artwork (2K default), thinking mode |
+| Pro Image | `gemini-3-pro-image` | High quality, up to 4K |
+| Flash Image (retiring) | `gemini-2.5-flash-image` | Retires October 2026; migrate before then |
 
 ## Environment variables
 
 ```
-GOOGLE_API_KEY or GEMINI_API_KEY  — Required. Gemini API key.
+GOOGLE_API_KEY or GEMINI_API_KEY  — Direct Gemini API key.
+OPENAI_API_KEY                    — Direct OpenAI API key.
+XAI_API_KEY                       — Direct xAI API key.
+HAYSTACK_IMAGE_PROVIDER_ORDER     — Optional unique subset/order; defaults to available keys in gemini,openai,xai order.
 HAYSTACK_OUTPUT_DIR               — Output directory (default: ~/.haystack/outputs)
-HAYSTACK_MODEL                    — Model ID (default: gemini-2.5-flash-image)
-HAYSTACK_EXTEND_MODEL             — Model for /extend-artwork (default: gemini-3.1-flash-image-preview)
+HAYSTACK_MODEL                    — Gemini model ID (default: gemini-3.1-flash-lite-image)
+HAYSTACK_EXTEND_MODEL             — Gemini model for /extend-artwork (default: gemini-3.1-flash-image)
 HAYSTACK_ASPECT_RATIO             — Optional, omit to match input
 HAYSTACK_SEED                     — Optional, for reproducible outputs
 HAYSTACK_MAX_OUTPUTS              — Max stored outputs (default: 24)

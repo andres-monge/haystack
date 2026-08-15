@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   loadComparisonKeysFromEnv,
   loadConfigFromEnv,
   toPipelineConfig,
+  toProviderFactoryConfig,
 } from "../../src/config/config.js";
 
 describe("loadConfigFromEnv", () => {
@@ -14,6 +15,7 @@ describe("loadConfigFromEnv", () => {
     delete process.env.GEMINI_API_KEY;
     delete process.env.OPENAI_API_KEY;
     delete process.env.XAI_API_KEY;
+    delete process.env.HAYSTACK_IMAGE_PROVIDER_ORDER;
     delete process.env.HAYSTACK_OUTPUT_DIR;
     delete process.env.HAYSTACK_MODEL;
     delete process.env.HAYSTACK_ASPECT_RATIO;
@@ -27,15 +29,16 @@ describe("loadConfigFromEnv", () => {
     delete process.env.HAYSTACK_ACTIVE_START;
     delete process.env.HAYSTACK_ACTIVE_END;
     delete process.env.HAYSTACK_EXTEND_MODEL;
+    process.env.GOOGLE_API_KEY = "test-google-key";
   });
 
   afterEach(() => {
     process.env = { ...originalEnv };
   });
 
-  it("returns sensible defaults when no env vars are set", () => {
+  it("returns sensible defaults when only a provider key is set", () => {
     const config = loadConfigFromEnv();
-    expect(config.googleApiKey).toBe("");
+    expect(config.googleApiKey).toBe("test-google-key");
     expect(config.outputDir).toContain(".haystack");
     expect(config.outputDir).toContain("outputs");
     expect(config.defaultModel).toBe("gemini-3.1-flash-lite-image");
@@ -47,7 +50,9 @@ describe("loadConfigFromEnv", () => {
     expect(config.schedulerLocation).toBeUndefined();
     expect(config.activeStart).toBeUndefined();
     expect(config.activeEnd).toBeUndefined();
-    expect(config.extendModel).toBe("gemini-3.1-flash-image-preview");
+    expect(config.extendModel).toBe("gemini-3.1-flash-image");
+    expect(config.imageProviderOrder).toEqual(["gemini"]);
+    expect(Object.isFrozen(config.imageProviderOrder)).toBe(true);
   });
 
   it("prefers GOOGLE_API_KEY over GEMINI_API_KEY", () => {
@@ -58,9 +63,17 @@ describe("loadConfigFromEnv", () => {
   });
 
   it("falls back to GEMINI_API_KEY when GOOGLE_API_KEY is missing", () => {
+    delete process.env.GOOGLE_API_KEY;
     process.env.GEMINI_API_KEY = "gemini-key";
     const config = loadConfigFromEnv();
     expect(config.googleApiKey).toBe("gemini-key");
+  });
+
+  it("falls back to GEMINI_API_KEY when GOOGLE_API_KEY is blank", () => {
+    process.env.GOOGLE_API_KEY = "   ";
+    process.env.GEMINI_API_KEY = "gemini-key";
+
+    expect(loadConfigFromEnv().googleApiKey).toBe("gemini-key");
   });
 
   it("reads custom output directory", () => {
@@ -69,10 +82,13 @@ describe("loadConfigFromEnv", () => {
     expect(config.outputDir).toBe("/tmp/custom-outputs");
   });
 
-  it("accepts valid model values", () => {
-    process.env.HAYSTACK_MODEL = "gemini-3-pro-image-preview";
+  it.each([
+    "gemini-3.1-flash-image",
+    "gemini-3-pro-image",
+  ])("accepts valid model value %s", model => {
+    process.env.HAYSTACK_MODEL = model;
     const config = loadConfigFromEnv();
-    expect(config.defaultModel).toBe("gemini-3-pro-image-preview");
+    expect(config.defaultModel).toBe(model);
   });
 
   it("throws on invalid model value", () => {
@@ -80,17 +96,111 @@ describe("loadConfigFromEnv", () => {
     expect(() => loadConfigFromEnv()).toThrow(/Invalid HAYSTACK_MODEL.*gpt-4o/);
   });
 
+  it.each([
+    ["gemini-3.1-flash-image-preview", "gemini-3.1-flash-image"],
+    ["gemini-3-pro-image-preview", "gemini-3-pro-image"],
+  ])("rejects retired model %s with its stable replacement", (retired, replacement) => {
+    process.env.HAYSTACK_MODEL = retired;
+    expect(() => loadConfigFromEnv()).toThrow(
+      new RegExp(`${retired}.*retired.*${replacement}`, "i"),
+    );
+  });
+
+  it("warns when the retiring Gemini 2.5 model is explicitly selected", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    process.env.HAYSTACK_MODEL = "gemini-2.5-flash-image";
+
+    loadConfigFromEnv();
+
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/October 2026.*gemini-3.1-flash-lite-image/i));
+    warn.mockRestore();
+  });
+
   // --- Extend model ---
 
   it("accepts valid HAYSTACK_EXTEND_MODEL override", () => {
-    process.env.HAYSTACK_EXTEND_MODEL = "gemini-3-pro-image-preview";
+    process.env.HAYSTACK_EXTEND_MODEL = "gemini-3.1-flash-lite-image";
     const config = loadConfigFromEnv();
-    expect(config.extendModel).toBe("gemini-3-pro-image-preview");
+    expect(config.extendModel).toBe("gemini-3.1-flash-lite-image");
   });
 
   it("throws on invalid HAYSTACK_EXTEND_MODEL with correct env var name", () => {
     process.env.HAYSTACK_EXTEND_MODEL = "invalid-model";
     expect(() => loadConfigFromEnv()).toThrow(/Invalid HAYSTACK_EXTEND_MODEL.*invalid-model/);
+  });
+
+  it("rejects the retired extend preview with its stable replacement", () => {
+    process.env.HAYSTACK_EXTEND_MODEL = "gemini-3.1-flash-image-preview";
+    expect(() => loadConfigFromEnv()).toThrow(
+      /HAYSTACK_EXTEND_MODEL.*gemini-3.1-flash-image-preview.*retired.*gemini-3.1-flash-image/i,
+    );
+  });
+
+  // --- Production provider selection ---
+
+  it("derives all available providers in preferred order", () => {
+    process.env.OPENAI_API_KEY = "openai-key";
+    process.env.XAI_API_KEY = "xai-key";
+
+    const config = loadConfigFromEnv();
+
+    expect(config.imageProviderOrder).toEqual(["gemini", "openai", "xai"]);
+    expect(config.providerKeys).toEqual({
+      gemini: "test-google-key",
+      openai: "openai-key",
+      xai: "xai-key",
+    });
+  });
+
+  it("derives only the available providers when order is unset", () => {
+    delete process.env.GOOGLE_API_KEY;
+    process.env.OPENAI_API_KEY = "openai-key";
+
+    expect(loadConfigFromEnv().imageProviderOrder).toEqual(["openai"]);
+  });
+
+  it("accepts an explicit reordered subset and requires no omitted key", () => {
+    process.env.XAI_API_KEY = "xai-key";
+    process.env.HAYSTACK_IMAGE_PROVIDER_ORDER = " xai , gemini ";
+
+    expect(loadConfigFromEnv().imageProviderOrder).toEqual(["xai", "gemini"]);
+  });
+
+  it.each([
+    "",
+    "   ",
+    "gemini,,openai",
+    "unknown",
+    "gemini,gemini",
+  ])("rejects invalid explicit provider order %j", (order) => {
+    process.env.OPENAI_API_KEY = "openai-key";
+    process.env.HAYSTACK_IMAGE_PROVIDER_ORDER = order;
+    expect(() => loadConfigFromEnv()).toThrow(/HAYSTACK_IMAGE_PROVIDER_ORDER/);
+  });
+
+  it("rejects an explicit provider whose key is missing", () => {
+    process.env.HAYSTACK_IMAGE_PROVIDER_ORDER = "gemini,openai";
+    expect(() => loadConfigFromEnv()).toThrow(/OPENAI_API_KEY.*openai/i);
+  });
+
+  it("rejects startup when no direct provider key is available", () => {
+    delete process.env.GOOGLE_API_KEY;
+    expect(() => loadConfigFromEnv()).toThrow(
+      /at least one.*GOOGLE_API_KEY.*OPENAI_API_KEY.*XAI_API_KEY/i,
+    );
+  });
+
+  it("does not serialize direct provider credentials", () => {
+    process.env.OPENAI_API_KEY = "openai-super-secret";
+    process.env.XAI_API_KEY = "xai-super-secret";
+
+    const config = loadConfigFromEnv();
+    const serialized = JSON.stringify(config);
+
+    expect(serialized).not.toContain("test-google-key");
+    expect(serialized).not.toContain("openai-super-secret");
+    expect(serialized).not.toContain("xai-super-secret");
+    expect(JSON.stringify(config.providerKeys)).toBeUndefined();
   });
 
   it("accepts valid aspect ratio values", () => {
@@ -296,9 +406,16 @@ describe("loadComparisonKeysFromEnv", () => {
       xaiApiKey: "xai-secret",
     });
 
-    const production = loadConfigFromEnv();
-    expect(production).not.toHaveProperty("openaiApiKey");
-    expect(production).not.toHaveProperty("xaiApiKey");
+    const previousGoogleKey = process.env.GOOGLE_API_KEY;
+    process.env.GOOGLE_API_KEY = "production-secret";
+    try {
+      const production = loadConfigFromEnv();
+      expect(production).not.toHaveProperty("openaiApiKey");
+      expect(production).not.toHaveProperty("xaiApiKey");
+    } finally {
+      if (previousGoogleKey === undefined) delete process.env.GOOGLE_API_KEY;
+      else process.env.GOOGLE_API_KEY = previousGoogleKey;
+    }
   });
 
   it("supports GEMINI_API_KEY fallback and leaves missing challenger keys undefined", () => {
@@ -314,11 +431,13 @@ describe("toPipelineConfig", () => {
   it("maps all required fields", () => {
     const result = toPipelineConfig({
       googleApiKey: "key",
+      providerKeys: { gemini: "key" },
+      imageProviderOrder: ["gemini"],
       outputDir: "/out",
       defaultModel: "gemini-2.5-flash-image",
       maxStoredOutputs: 10,
       bindHost: "127.0.0.1",
-      extendModel: "gemini-3.1-flash-image-preview",
+      extendModel: "gemini-3.1-flash-image",
     });
 
     expect(result.outputDir).toBe("/out");
@@ -329,13 +448,15 @@ describe("toPipelineConfig", () => {
   it("includes optional fields when set", () => {
     const result = toPipelineConfig({
       googleApiKey: "key",
+      providerKeys: { gemini: "key" },
+      imageProviderOrder: ["gemini"],
       outputDir: "/out",
       defaultModel: "gemini-2.5-flash-image",
       defaultAspectRatio: "16:9",
       defaultSeed: 42,
       maxStoredOutputs: 24,
       bindHost: "127.0.0.1",
-      extendModel: "gemini-3.1-flash-image-preview",
+      extendModel: "gemini-3.1-flash-image",
     });
 
     expect(result.geminiConfig?.aspectRatio).toBe("16:9");
@@ -345,11 +466,13 @@ describe("toPipelineConfig", () => {
   it("leaves optional fields undefined when not set", () => {
     const result = toPipelineConfig({
       googleApiKey: "key",
+      providerKeys: { gemini: "key" },
+      imageProviderOrder: ["gemini"],
       outputDir: "/out",
       defaultModel: "gemini-2.5-flash-image",
       maxStoredOutputs: 24,
       bindHost: "127.0.0.1",
-      extendModel: "gemini-3.1-flash-image-preview",
+      extendModel: "gemini-3.1-flash-image",
     });
 
     expect(result.geminiConfig?.aspectRatio).toBeUndefined();
@@ -359,13 +482,40 @@ describe("toPipelineConfig", () => {
   it("does not include googleApiKey in pipeline config", () => {
     const result = toPipelineConfig({
       googleApiKey: "secret-key",
+      providerKeys: { gemini: "secret-key" },
+      imageProviderOrder: ["gemini"],
       outputDir: "/out",
       defaultModel: "gemini-2.5-flash-image",
       maxStoredOutputs: 24,
       bindHost: "127.0.0.1",
-      extendModel: "gemini-3.1-flash-image-preview",
+      extendModel: "gemini-3.1-flash-image",
     });
 
     expect(JSON.stringify(result)).not.toContain("secret-key");
+  });
+});
+
+describe("toProviderFactoryConfig", () => {
+  it("maps provider construction inputs separately from PipelineConfig", () => {
+    const config = {
+      googleApiKey: "google-secret",
+      providerKeys: { gemini: "google-secret", openai: "openai-secret" },
+      imageProviderOrder: ["openai", "gemini"] as const,
+      outputDir: "/out",
+      defaultModel: "gemini-3.1-flash-lite-image" as const,
+      maxStoredOutputs: 24,
+      bindHost: "127.0.0.1",
+      extendModel: "gemini-3.1-flash-image" as const,
+    };
+
+    expect(toProviderFactoryConfig(config)).toEqual({
+      providerOrder: ["openai", "gemini"],
+      providerKeys: { gemini: "google-secret", openai: "openai-secret" },
+      geminiModels: {
+        normal: "gemini-3.1-flash-lite-image",
+        extend: "gemini-3.1-flash-image",
+      },
+    });
+    expect(JSON.stringify(toPipelineConfig(config))).not.toContain("secret");
   });
 });

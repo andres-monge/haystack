@@ -3,6 +3,8 @@
 export * from "./types.js";
 export * from "./provider-types.js";
 export * from "./image-validation.js";
+export * from "./provider-factory.js";
+export * from "./provider-chain.js";
 export * from "./scenario.js";
 export * from "./prompt.js";
 export {

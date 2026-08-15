@@ -3,14 +3,36 @@
 import * as path from "node:path";
 import * as os from "node:os";
 import type { PipelineConfig, GeminiConfig, AspectRatio } from "../engine/types.js";
+import type { ImageProviderId } from "../engine/provider-types.js";
+import type {
+  ProviderApiKeys,
+  ProviderFactoryConfig,
+} from "../engine/provider-factory.js";
 import type { ComparisonProviderKeys } from "../comparison/types.js";
 
 const VALID_MODELS: ReadonlySet<GeminiConfig["model"]> = new Set([
   "gemini-3.1-flash-lite-image",
+  "gemini-3.1-flash-image",
+  "gemini-3-pro-image",
   "gemini-2.5-flash-image",
-  "gemini-3-pro-image-preview",
-  "gemini-3.1-flash-image-preview",
 ]);
+
+const RETIRED_MODEL_REPLACEMENTS: Readonly<Record<string, GeminiConfig["model"]>> = Object.freeze({
+  "gemini-3.1-flash-image-preview": "gemini-3.1-flash-image",
+  "gemini-3-pro-image-preview": "gemini-3-pro-image",
+});
+
+const PREFERRED_PROVIDER_ORDER = Object.freeze([
+  "gemini",
+  "openai",
+  "xai",
+] as const satisfies readonly ImageProviderId[]);
+
+const PROVIDER_KEY_NAMES: Readonly<Record<ImageProviderId, string>> = Object.freeze({
+  gemini: "GOOGLE_API_KEY or GEMINI_API_KEY",
+  openai: "OPENAI_API_KEY",
+  xai: "XAI_API_KEY",
+});
 
 const VALID_ASPECT_RATIOS: ReadonlySet<AspectRatio> = new Set([
   "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9",
@@ -18,6 +40,10 @@ const VALID_ASPECT_RATIOS: ReadonlySet<AspectRatio> = new Set([
 
 export interface HaystackConfig {
   googleApiKey: string;
+  /** Direct credentials retained server-side for provider construction only. */
+  providerKeys: Readonly<ProviderApiKeys>;
+  /** Frozen production provider order snapshot. */
+  imageProviderOrder: readonly ImageProviderId[];
   outputDir: string;
   defaultModel: GeminiConfig["model"];
   defaultAspectRatio?: GeminiConfig["aspectRatio"];
@@ -35,7 +61,7 @@ export interface HaystackConfig {
   activeStart?: number;
   /** Hour (0–23) when scheduled generation stops (exclusive). */
   activeEnd?: number;
-  /** Model used by extend-artwork script (defaults to gemini-3.1-flash-image-preview). */
+  /** Model used by extend-artwork (defaults to stable gemini-3.1-flash-image). */
   extendModel: GeminiConfig["model"];
 }
 
@@ -47,7 +73,9 @@ export function loadComparisonKeysFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): ComparisonProviderKeys {
   return {
-    googleApiKey: env.GOOGLE_API_KEY ?? env.GEMINI_API_KEY,
+    googleApiKey: presentSecret(env.GOOGLE_API_KEY)
+      ? env.GOOGLE_API_KEY
+      : env.GEMINI_API_KEY,
     openaiApiKey: env.OPENAI_API_KEY,
     xaiApiKey: env.XAI_API_KEY,
   };
@@ -64,12 +92,96 @@ function parseIntStrict(raw: string | undefined, fallback: number, name: string)
 
 function parseModel(raw: string | undefined, name = "HAYSTACK_MODEL"): GeminiConfig["model"] {
   if (!raw) return "gemini-3.1-flash-lite-image";
+  const replacement = RETIRED_MODEL_REPLACEMENTS[raw];
+  if (replacement) {
+    throw new Error(
+      `Invalid ${name}: "${raw}" is retired. Use stable replacement "${replacement}".`,
+    );
+  }
   if (!VALID_MODELS.has(raw as GeminiConfig["model"])) {
     throw new Error(
       `Invalid ${name}: "${raw}". Valid values: ${[...VALID_MODELS].join(", ")}`,
     );
   }
+  if (raw === "gemini-2.5-flash-image") {
+    const replacement = name === "HAYSTACK_EXTEND_MODEL"
+      ? "gemini-3.1-flash-image"
+      : "gemini-3.1-flash-lite-image";
+    console.warn(
+      `${name}=gemini-2.5-flash-image retires in October 2026; migrate to ${replacement}.`,
+    );
+  }
   return raw as GeminiConfig["model"];
+}
+
+function presentSecret(value: string | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function loadProviderKeys(env: NodeJS.ProcessEnv): Readonly<ProviderApiKeys> {
+  const gemini = presentSecret(env.GOOGLE_API_KEY)
+    ? env.GOOGLE_API_KEY
+    : env.GEMINI_API_KEY;
+  const keys: ProviderApiKeys = {
+    ...(presentSecret(gemini) ? { gemini } : {}),
+    ...(presentSecret(env.OPENAI_API_KEY) ? { openai: env.OPENAI_API_KEY } : {}),
+    ...(presentSecret(env.XAI_API_KEY) ? { xai: env.XAI_API_KEY } : {}),
+  };
+  Object.defineProperty(keys, "toJSON", {
+    value: () => undefined,
+    enumerable: false,
+  });
+  return Object.freeze(keys);
+}
+
+function parseProviderOrder(
+  raw: string | undefined,
+  keys: Readonly<ProviderApiKeys>,
+): readonly ImageProviderId[] {
+  if (raw === undefined) {
+    const derived = PREFERRED_PROVIDER_ORDER.filter(provider => presentSecret(keys[provider]));
+    if (derived.length === 0) {
+      throw new Error(
+        "Haystack requires at least one direct image provider key: set GOOGLE_API_KEY or GEMINI_API_KEY, OPENAI_API_KEY, or XAI_API_KEY.",
+      );
+    }
+    return Object.freeze([...derived]);
+  }
+
+  if (raw.trim().length === 0) {
+    throw new Error("Invalid HAYSTACK_IMAGE_PROVIDER_ORDER: value must not be empty or whitespace-only");
+  }
+
+  const rawProviders = raw.split(",");
+  if (rawProviders.some(provider => provider.trim().length === 0)) {
+    throw new Error(
+      "Invalid HAYSTACK_IMAGE_PROVIDER_ORDER: empty provider entries are not allowed",
+    );
+  }
+
+  const providers = rawProviders.map(provider => provider.trim());
+  for (const provider of providers) {
+    if (!PREFERRED_PROVIDER_ORDER.includes(provider as ImageProviderId)) {
+      throw new Error(
+        `Invalid HAYSTACK_IMAGE_PROVIDER_ORDER provider "${provider}". Valid values: ${PREFERRED_PROVIDER_ORDER.join(", ")}`,
+      );
+    }
+  }
+
+  const unique = new Set(providers);
+  if (unique.size !== providers.length) {
+    throw new Error("Invalid HAYSTACK_IMAGE_PROVIDER_ORDER: duplicate providers are not allowed");
+  }
+
+  const order = providers as ImageProviderId[];
+  for (const provider of order) {
+    if (!presentSecret(keys[provider])) {
+      throw new Error(
+        `${PROVIDER_KEY_NAMES[provider]} is missing for selected provider ${provider} in HAYSTACK_IMAGE_PROVIDER_ORDER`,
+      );
+    }
+  }
+  return Object.freeze([...order]);
 }
 
 function parseFloat64(raw: string | undefined, name: string): number | undefined {
@@ -152,9 +264,13 @@ function parseAspectRatio(raw: string | undefined): AspectRatio | undefined {
  */
 export function loadConfigFromEnv(): HaystackConfig {
   const { activeStart, activeEnd } = parseActiveHours(process.env);
-  return {
-    googleApiKey:
-      process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY ?? "",
+  const providerKeys = loadProviderKeys(process.env);
+  const imageProviderOrder = parseProviderOrder(
+    process.env.HAYSTACK_IMAGE_PROVIDER_ORDER,
+    providerKeys,
+  );
+  const config = {
+    imageProviderOrder,
     outputDir:
       process.env.HAYSTACK_OUTPUT_DIR ??
       path.join(os.homedir(), ".haystack", "outputs"),
@@ -173,8 +289,22 @@ export function loadConfigFromEnv(): HaystackConfig {
     schedulerLocation: parseSchedulerLocation(process.env),
     activeStart,
     activeEnd,
-    extendModel: parseModel(process.env.HAYSTACK_EXTEND_MODEL ?? "gemini-3.1-flash-image-preview", "HAYSTACK_EXTEND_MODEL"),
-  };
+    extendModel: parseModel(
+      process.env.HAYSTACK_EXTEND_MODEL ?? "gemini-3.1-flash-image",
+      "HAYSTACK_EXTEND_MODEL",
+    ),
+  } as Omit<HaystackConfig, "googleApiKey" | "providerKeys">;
+  // Compatibility for pre-chain entry points until U4 migrates them. Keeping
+  // this property non-enumerable prevents accidental config serialization.
+  Object.defineProperty(config, "googleApiKey", {
+    value: providerKeys.gemini ?? "",
+    enumerable: false,
+  });
+  Object.defineProperty(config, "providerKeys", {
+    value: providerKeys,
+    enumerable: false,
+  });
+  return config as HaystackConfig;
 }
 
 /**
@@ -188,6 +318,18 @@ export function toPipelineConfig(config: HaystackConfig): Partial<PipelineConfig
       model: config.defaultModel,
       aspectRatio: config.defaultAspectRatio,
       seed: config.defaultSeed,
+    },
+  };
+}
+
+/** Isolate server-side provider construction from serializable pipeline config. */
+export function toProviderFactoryConfig(config: HaystackConfig): ProviderFactoryConfig {
+  return {
+    providerOrder: config.imageProviderOrder,
+    providerKeys: config.providerKeys,
+    geminiModels: {
+      normal: config.defaultModel,
+      extend: config.extendModel,
     },
   };
 }
