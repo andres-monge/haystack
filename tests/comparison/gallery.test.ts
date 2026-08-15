@@ -31,6 +31,9 @@ describe("comparison gallery", () => {
     expect(html).toContain("~$0.005 output + input text/image tokens");
     expect(html).toContain("Price estimate (2026-08-15)");
     expect(html).toContain('src="images/');
+    expect(html).toContain('class="image-link" href="images/');
+    expect(html).toContain('target="_blank" rel="noopener"');
+    expect(html).toContain("Click any image to open it at full resolution.");
     expect(html).toContain("Successful 2");
     expect(html).toContain("Unsuccessful 2");
     expect(html).toContain("Error 2");

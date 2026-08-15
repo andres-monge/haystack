@@ -45,9 +45,12 @@ function statusCounts(manifest: BakeOffManifest, model: string): string {
 function renderCard(cell: Extract<BakeOffCell, { status: "successful" }>): string {
   const imagePath = safeImagePath(cell.imagePath);
   if (!imagePath) return "";
+  const imageLabel = `${cell.artworkLabel}, ${cell.weatherLabel}, ${cell.model}`;
   return `
       <article class="card">
-        <img src="${escapeHtml(imagePath)}" alt="${escapeHtml(`${cell.artworkLabel}, ${cell.weatherLabel}, ${cell.model}`)}">
+        <a class="image-link" href="${escapeHtml(imagePath)}" target="_blank" rel="noopener" aria-label="${escapeHtml(`Open ${imageLabel} at full resolution`)}">
+          <img src="${escapeHtml(imagePath)}" alt="${escapeHtml(imageLabel)}">
+        </a>
         <div class="card-body">
           <p class="provider">${escapeHtml(titleCaseProvider(cell.provider))}</p>
           <h3>${escapeHtml(cell.model)}</h3>
@@ -118,7 +121,11 @@ export function renderGallery(manifest: BakeOffManifest): string {
     .case-heading h2 { font: 700 2rem/1.1 Georgia, serif; }
     .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; margin-top: 18px; }
     .card { overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--card); box-shadow: 0 12px 32px rgba(49, 42, 31, .07); }
+    .image-link { display: block; overflow: hidden; cursor: zoom-in; }
+    .image-link:focus-visible { outline: 4px solid var(--green); outline-offset: -4px; }
     .card img { display: block; width: 100%; height: auto; background: #dfd9ce; }
+    .image-link img { transition: transform 160ms ease, filter 160ms ease; }
+    .image-link:hover img { transform: scale(1.015); filter: brightness(.96); }
     .card-body { padding: 18px; }
     .provider { color: var(--muted); font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     .card h3 { margin-top: 3px; overflow-wrap: anywhere; font-size: 1.05rem; }
@@ -137,6 +144,7 @@ export function renderGallery(manifest: BakeOffManifest): string {
       <p class="run-meta">Round 1 · ${escapeHtml(manifest.runId)} · ${escapeHtml(manifest.state)}</p>
       <h1>Successful weather transformations</h1>
       <p class="run-meta">Only supported image outputs are shown. Visual judgment stays with you.</p>
+      <p class="run-meta">Click any image to open it at full resolution.</p>
     </header>
     <section class="summary" aria-label="Per-model status counts">${models.map(model => `
       <article class="model-summary">
