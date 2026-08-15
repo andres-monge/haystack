@@ -10,6 +10,8 @@ PLIST_DIR="$HOME/Library/LaunchAgents"
 PLISTS=(com.haystack.server.plist com.haystack.hourly.plist)
 RENDER_DIR=""
 INSTALL_TEMP_FILE=""
+LAUNCHCTL_BOOTSTRAP_ATTEMPTS=3
+LAUNCHCTL_BOOTSTRAP_RETRY_DELAY_SECONDS=0.25
 
 cleanup() {
   if [ -n "$INSTALL_TEMP_FILE" ]; then
@@ -22,6 +24,37 @@ cleanup() {
 
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
+
+bootstrap_launchd_job() {
+  local plist="$1"
+  local attempt=1
+  local output
+  local status
+
+  while true; do
+    if output="$(launchctl bootstrap "gui/$(id -u)" "$plist" 2>&1)"; then
+      if [ -n "$output" ]; then
+        printf '%s\n' "$output"
+      fi
+      return 0
+    else
+      status=$?
+    fi
+
+    # launchd can briefly retain a job after bootout and report error 5 when
+    # the same label is bootstrapped immediately. Retry only that transient
+    # teardown race; all other failures remain immediate and visible.
+    if [ "$status" -ne 5 ] \
+      || [ "$attempt" -ge "$LAUNCHCTL_BOOTSTRAP_ATTEMPTS" ]; then
+      printf '%s\n' "$output" >&2
+      return 1
+    fi
+
+    echo "  Waiting for launchd to release the previous job..." >&2
+    sleep "$LAUNCHCTL_BOOTSTRAP_RETRY_DELAY_SECONDS"
+    attempt=$((attempt + 1))
+  done
+}
 
 echo "Installing Haystack launchd agents..."
 echo "  Project: $PROJECT_DIR"
@@ -79,7 +112,7 @@ for label in com.haystack.server com.haystack.hourly; do
   launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
 done
 for plist in "${PLISTS[@]}"; do
-  launchctl bootstrap "gui/$(id -u)" "$PLIST_DIR/$plist"
+  bootstrap_launchd_job "$PLIST_DIR/$plist"
   echo "  Loaded: $plist"
 done
 

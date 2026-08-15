@@ -33,6 +33,7 @@ function writeExecutable(path: string, contents: string): void {
 }
 
 function createInstallerFixture(hourlyPlist: string): {
+  bootstrapState: string;
   home: string;
   installScript: string;
   tempRoot: string;
@@ -44,6 +45,7 @@ function createInstallerFixture(hourlyPlist: string): {
   const project = resolve(tempRoot, "project");
   const home = resolve(tempRoot, "home");
   const fakeBin = resolve(tempRoot, "bin");
+  const bootstrapState = resolve(tempRoot, "bootstrap-attempted");
   const trace = resolve(tempRoot, "commands.log");
   mkdirSync(resolve(project, "scripts"), { recursive: true });
   mkdirSync(resolve(project, "launchd"), { recursive: true });
@@ -77,14 +79,26 @@ function createInstallerFixture(hourlyPlist: string): {
   );
   writeExecutable(
     resolve(fakeBin, "launchctl"),
-    '#!/bin/sh\nprintf "launchctl %s\\n" "$*" >> "$TRACE_FILE"\n',
+    [
+      "#!/bin/sh",
+      'printf "launchctl %s\\n" "$*" >> "$TRACE_FILE"',
+      'if [ "${FAIL_FIRST_BOOTSTRAP:-0}" = "1" ] && [ "$1" = "bootstrap" ] && [ ! -e "$BOOTSTRAP_STATE" ]; then',
+      '  : > "$BOOTSTRAP_STATE"',
+      '  echo "localized transient launchd teardown" >&2',
+      "  exit 5",
+      "fi",
+      "",
+    ].join("\n"),
   );
   writeExecutable(resolve(fakeBin, "sudo"), "#!/bin/sh\nexit 1\n");
 
-  return { home, installScript, tempRoot, trace };
+  return { bootstrapState, home, installScript, tempRoot, trace };
 }
 
-function runInstaller(fixture: ReturnType<typeof createInstallerFixture>) {
+function runInstaller(
+  fixture: ReturnType<typeof createInstallerFixture>,
+  extraEnv: NodeJS.ProcessEnv = {},
+) {
   return spawnSync(fixture.installScript, [], {
     encoding: "utf8",
     env: {
@@ -93,6 +107,8 @@ function runInstaller(fixture: ReturnType<typeof createInstallerFixture>) {
       PATH: `${resolve(fixture.tempRoot, "bin")}:${process.env.PATH ?? ""}`,
       TMPDIR: resolve(fixture.tempRoot, "tmp"),
       TRACE_FILE: fixture.trace,
+      BOOTSTRAP_STATE: fixture.bootstrapState,
+      ...extraEnv,
     },
   });
 }
@@ -141,6 +157,25 @@ describe("launchd hourly backup trigger", () => {
         "utf8",
       ),
     ).toContain("<string>660</string>");
+    expect(installerTemporaryDirectories(fixture.tempRoot)).toEqual([]);
+  });
+
+  it("retries a transient launchd teardown race without reinstalling files", () => {
+    const fixture = createInstallerFixture(
+      repoFile("launchd/com.haystack.hourly.plist"),
+    );
+    mkdirSync(resolve(fixture.tempRoot, "tmp"));
+
+    const result = runInstaller(fixture, { FAIL_FIRST_BOOTSTRAP: "1" });
+    const commands = readFileSync(fixture.trace, "utf8").trim().split("\n");
+    const bootstrapCommands = commands.filter(command =>
+      command.startsWith("launchctl bootstrap "));
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(bootstrapCommands).toHaveLength(3);
+    expect(bootstrapCommands[0]).toContain("com.haystack.server.plist");
+    expect(bootstrapCommands[1]).toContain("com.haystack.server.plist");
+    expect(bootstrapCommands[2]).toContain("com.haystack.hourly.plist");
     expect(installerTemporaryDirectories(fixture.tempRoot)).toEqual([]);
   });
 
