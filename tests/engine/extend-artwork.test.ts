@@ -477,6 +477,19 @@ describe("ExtendArtworkService", () => {
     expect(command.stdout).toBe("");
     expect(command.stderr).toMatch(/Usage: npx tsx scripts\/extend-artwork\.ts/);
 
+    const heicPath = path.join(tempDir, "source.heic");
+    const heicBytes = Buffer.alloc(12);
+    heicBytes.write("ftyp", 4, "ascii");
+    fs.writeFileSync(heicPath, heicBytes);
+    const heicCommand = spawnSync(
+      process.execPath,
+      ["--import", "tsx", "scripts/extend-artwork.ts", heicPath],
+      { cwd: path.resolve("."), encoding: "utf8" },
+    );
+    expect(heicCommand.status).toBe(1);
+    expect(heicCommand.stdout).toBe("");
+    expect(heicCommand.stderr).toMatch(/HEIC is not supported/);
+
     const agentDoc = fs.readFileSync(".agents/skills/extend-artwork/SKILL.md", "utf8");
     const claudeDoc = fs.readFileSync(".claude/skills/extend-artwork/SKILL.md", "utf8");
     for (const document of [agentDoc, claudeDoc]) {

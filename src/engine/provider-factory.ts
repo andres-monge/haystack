@@ -57,13 +57,15 @@ const DEFAULT_FACTORIES: ProviderAdapterFactories = Object.freeze({
     new XaiImageProvider(apiKey, options),
 });
 
-const PROVIDER_KEY_NAMES: Readonly<Record<ImageProviderId, string>> = Object.freeze({
+export const PROVIDER_KEY_NAMES: Readonly<Record<ImageProviderId, string>> = Object.freeze({
   gemini: "GOOGLE_API_KEY or GEMINI_API_KEY",
   openai: "OPENAI_API_KEY",
   xai: "XAI_API_KEY",
 });
 
-function hasKey(value: string | undefined): value is string {
+export function isProviderApiKeyPresent(
+  value: string | undefined,
+): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
@@ -116,7 +118,7 @@ export function createProviderRegistry(
       throw new Error(`Duplicate image provider adapter: ${provider}`);
     }
     seen.add(provider);
-    if (!hasKey(config.providerKeys[provider])) {
+    if (!isProviderApiKeyPresent(config.providerKeys[provider])) {
       throw new Error(
         `${PROVIDER_KEY_NAMES[provider]} is missing for selected provider ${provider}`,
       );

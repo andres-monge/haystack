@@ -18,7 +18,7 @@ import {
   ExtendArtworkError,
   createProductionExtendArtworkService,
 } from "../src/engine/extend-artwork.js";
-import { GenerationLockBusyError } from "../src/engine/generation-lock.js";
+import { isGenerationLockBusyError } from "../src/engine/generation-lock.js";
 import {
   ProviderChainExhaustedError,
   ProviderChainTerminatedError,
@@ -49,11 +49,21 @@ function inputFromArgs(args: readonly string[]): {
     );
   }
   const inputPath = path.resolve(args[0]);
-  if (!fs.existsSync(inputPath)) {
-    throw new ExtendArtworkCliError(`File not found: ${inputPath}`);
+  const header = Buffer.alloc(12);
+  let descriptor: number | undefined;
+  let bytesRead = 0;
+  try {
+    descriptor = fs.openSync(inputPath, "r");
+    bytesRead = fs.readSync(descriptor, header, 0, header.length, 0);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      throw new ExtendArtworkCliError(`File not found: ${inputPath}`);
+    }
+    throw error;
+  } finally {
+    if (descriptor !== undefined) fs.closeSync(descriptor);
   }
-  const inputBuffer = fs.readFileSync(inputPath);
-  if (isHeic(inputBuffer)) {
+  if (isHeic(header.subarray(0, bytesRead))) {
     const convertedPath = inputPath.replace(/\.heic$/i, ".jpg");
     throw new ExtendArtworkCliError(
       `HEIC is not supported. Convert first with: sips -s format jpeg "${inputPath}" --out "${convertedPath}"`,
@@ -121,7 +131,7 @@ export async function runExtendArtworkCli(
 
 function safeFailureMessage(error: unknown): string {
   if (error instanceof ExtendArtworkCliError) return error.safeMessage;
-  if (error instanceof GenerationLockBusyError) {
+  if (isGenerationLockBusyError(error)) {
     return "Another image generation is already in progress. Wait for it to finish and retry.";
   }
   if (error instanceof ProviderChainExhaustedError) {

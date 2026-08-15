@@ -6,8 +6,8 @@ import * as os from "node:os";
 import * as path from "node:path";
 import {
   GenerationLock,
-  GenerationLockBusyError,
   generationLockPath,
+  isGenerationLockBusyError,
   type GenerationLockLease,
 } from "./generation-lock.js";
 import { validateImage } from "./image-validation.js";
@@ -122,7 +122,7 @@ function formatDate(date: Date): string {
     .replace(/(\d{8})(\d{6})/, "$1_$2");
 }
 
-function safeAttempts(
+export function sanitizeTerminalAttempts(
   attempts: readonly ProviderAttemptRecord[],
 ): readonly SafeTerminalAttempt[] {
   return Object.freeze(attempts.map(attempt => Object.freeze({
@@ -132,17 +132,10 @@ function safeAttempts(
   })));
 }
 
-function defaultTerminalEventSink(event: GenerationTerminalEvent): void {
+export function defaultGenerationTerminalEventSink(
+  event: GenerationTerminalEvent,
+): void {
   console.info(`[haystack:generation] ${JSON.stringify(event)}`);
-}
-
-function isBusyError(error: unknown): error is GenerationLockBusyError {
-  return error instanceof GenerationLockBusyError
-    || (
-      typeof error === "object"
-      && error !== null
-      && (error as { code?: unknown }).code === "GENERATION_BUSY"
-    );
 }
 
 export class Pipeline {
@@ -174,7 +167,7 @@ export class Pipeline {
     this.#generationLock = dependencies.generationLock
       ?? new GenerationLock({ lockPath: generationLockPath(this.#config.outputDir) });
     this.#terminalEventSink = dependencies.terminalEventSink
-      ?? defaultTerminalEventSink;
+      ?? defaultGenerationTerminalEventSink;
     this.#readSource = dependencies.readSource ?? (file => fs.promises.readFile(file));
     this.#validateSource = dependencies.validateSource ?? (bytes => validateImage(bytes));
     this.#composePrompt = dependencies.composePrompt ?? composePrompt;
@@ -206,7 +199,7 @@ export class Pipeline {
       chainId,
       stage,
       providerOrder,
-      attempts: safeAttempts(run?.attempts ?? []),
+      attempts: sanitizeTerminalAttempts(run?.attempts ?? []),
       outcome,
       ...(winner ? { winner } : {}),
       ...(extras.renderId ? { renderId: extras.renderId } : {}),
@@ -218,7 +211,7 @@ export class Pipeline {
       try {
         lease = await this.#generationLock.acquire({ kind: "normal" });
       } catch (error) {
-        if (isBusyError(error)) {
+        if (isGenerationLockBusyError(error)) {
           terminalEvent = eventFor("local_failure", { safeCode: "generation_busy" });
           throw error;
         }

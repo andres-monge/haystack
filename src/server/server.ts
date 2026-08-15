@@ -21,7 +21,7 @@ import { getInstantForHourInTimezone } from "./timezone.js";
 import {
   ProviderChainExhaustedError,
 } from "../engine/provider-chain.js";
-import { GenerationLockBusyError } from "../engine/generation-lock.js";
+import { isGenerationLockBusyError } from "../engine/generation-lock.js";
 
 const VALID_ID_PATTERN = /^[a-zA-Z0-9_\-]+$/;
 const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -104,15 +104,6 @@ function isEntireChainRateLimited(error: unknown): boolean {
   return error instanceof ProviderChainExhaustedError
     && error.run.attempts.length > 0
     && error.run.attempts.every(attempt => attempt.outcome === "rate_limited");
-}
-
-function isGenerationBusy(error: unknown): boolean {
-  return error instanceof GenerationLockBusyError
-    || (
-      typeof error === "object"
-      && error !== null
-      && (error as { code?: unknown }).code === "GENERATION_BUSY"
-    );
 }
 
 export function isLoopbackSocketAddress(address: string | undefined): boolean {
@@ -232,7 +223,7 @@ export function createApp(config: CreateAppConfig): Express {
         );
         if (isEntireChainRateLimited(err)) {
           res.status(429).json({ error: "Rate limited — try again later" });
-        } else if (isGenerationBusy(err)) {
+        } else if (isGenerationLockBusyError(err)) {
           res.status(409).json({ error: "Generation already in progress" });
         } else {
           res.status(500).json({ error: "Generation failed" });
@@ -540,7 +531,7 @@ export function createApp(config: CreateAppConfig): Express {
       console.error(`[${new Date().toISOString()}] Trigger error:`, message);
       if (isEntireChainRateLimited(err)) {
         res.status(429).json({ error: "Rate limited — try again later" });
-      } else if (isGenerationBusy(err)) {
+      } else if (isGenerationLockBusyError(err)) {
         res.status(409).json({ error: "Generation already in progress" });
       } else {
         res.status(500).json({ error: "Trigger generation failed" });
@@ -584,7 +575,7 @@ export function createApp(config: CreateAppConfig): Express {
       );
       if (isEntireChainRateLimited(err)) {
         res.status(429).json({ error: "Rate limited — try again later" });
-      } else if (isGenerationBusy(err)) {
+      } else if (isGenerationLockBusyError(err)) {
         res.status(409).json({ error: "Generation already in progress" });
       } else {
         res.status(500).json({ error: "Override generation failed" });

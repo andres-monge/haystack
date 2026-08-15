@@ -50,6 +50,18 @@ export class GenerationLockBusyError extends Error {
   }
 }
 
+/** Recognize both local instances and safe errors crossing module/process seams. */
+export function isGenerationLockBusyError(
+  error: unknown,
+): error is GenerationLockBusyError {
+  return error instanceof GenerationLockBusyError
+    || (
+      typeof error === "object"
+      && error !== null
+      && (error as { code?: unknown }).code === "GENERATION_BUSY"
+    );
+}
+
 function defaultIsProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);

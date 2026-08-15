@@ -4,9 +4,11 @@ import * as path from "node:path";
 import * as os from "node:os";
 import type { PipelineConfig, GeminiConfig, AspectRatio } from "../engine/types.js";
 import type { ImageProviderId } from "../engine/provider-types.js";
-import type {
-  ProviderApiKeys,
-  ProviderFactoryConfig,
+import {
+  PROVIDER_KEY_NAMES,
+  isProviderApiKeyPresent,
+  type ProviderApiKeys,
+  type ProviderFactoryConfig,
 } from "../engine/provider-factory.js";
 import type { ComparisonProviderKeys } from "../comparison/types.js";
 
@@ -27,12 +29,6 @@ const PREFERRED_PROVIDER_ORDER = Object.freeze([
   "openai",
   "xai",
 ] as const satisfies readonly ImageProviderId[]);
-
-const PROVIDER_KEY_NAMES: Readonly<Record<ImageProviderId, string>> = Object.freeze({
-  gemini: "GOOGLE_API_KEY or GEMINI_API_KEY",
-  openai: "OPENAI_API_KEY",
-  xai: "XAI_API_KEY",
-});
 
 const VALID_ASPECT_RATIOS: ReadonlySet<AspectRatio> = new Set([
   "1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3", "4:5", "5:4", "21:9",
@@ -73,7 +69,7 @@ export function loadComparisonKeysFromEnv(
   env: NodeJS.ProcessEnv = process.env,
 ): ComparisonProviderKeys {
   return {
-    googleApiKey: presentSecret(env.GOOGLE_API_KEY)
+    googleApiKey: isProviderApiKeyPresent(env.GOOGLE_API_KEY)
       ? env.GOOGLE_API_KEY
       : env.GEMINI_API_KEY,
     openaiApiKey: env.OPENAI_API_KEY,
@@ -114,18 +110,18 @@ function parseModel(raw: string | undefined, name = "HAYSTACK_MODEL"): GeminiCon
   return raw as GeminiConfig["model"];
 }
 
-function presentSecret(value: string | undefined): value is string {
-  return typeof value === "string" && value.trim().length > 0;
-}
-
 function loadProviderKeys(env: NodeJS.ProcessEnv): Readonly<ProviderApiKeys> {
-  const gemini = presentSecret(env.GOOGLE_API_KEY)
+  const gemini = isProviderApiKeyPresent(env.GOOGLE_API_KEY)
     ? env.GOOGLE_API_KEY
     : env.GEMINI_API_KEY;
   const keys: ProviderApiKeys = {
-    ...(presentSecret(gemini) ? { gemini } : {}),
-    ...(presentSecret(env.OPENAI_API_KEY) ? { openai: env.OPENAI_API_KEY } : {}),
-    ...(presentSecret(env.XAI_API_KEY) ? { xai: env.XAI_API_KEY } : {}),
+    ...(isProviderApiKeyPresent(gemini) ? { gemini } : {}),
+    ...(isProviderApiKeyPresent(env.OPENAI_API_KEY)
+      ? { openai: env.OPENAI_API_KEY }
+      : {}),
+    ...(isProviderApiKeyPresent(env.XAI_API_KEY)
+      ? { xai: env.XAI_API_KEY }
+      : {}),
   };
   Object.defineProperty(keys, "toJSON", {
     value: () => undefined,
@@ -139,7 +135,8 @@ function parseProviderOrder(
   keys: Readonly<ProviderApiKeys>,
 ): readonly ImageProviderId[] {
   if (raw === undefined) {
-    const derived = PREFERRED_PROVIDER_ORDER.filter(provider => presentSecret(keys[provider]));
+    const derived = PREFERRED_PROVIDER_ORDER.filter(provider =>
+      isProviderApiKeyPresent(keys[provider]));
     if (derived.length === 0) {
       throw new Error(
         "Haystack requires at least one direct image provider key: set GOOGLE_API_KEY or GEMINI_API_KEY, OPENAI_API_KEY, or XAI_API_KEY.",
@@ -175,7 +172,7 @@ function parseProviderOrder(
 
   const order = providers as ImageProviderId[];
   for (const provider of order) {
-    if (!presentSecret(keys[provider])) {
+    if (!isProviderApiKeyPresent(keys[provider])) {
       throw new Error(
         `${PROVIDER_KEY_NAMES[provider]} is missing for selected provider ${provider} in HAYSTACK_IMAGE_PROVIDER_ORDER`,
       );

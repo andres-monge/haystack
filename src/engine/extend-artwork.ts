@@ -5,8 +5,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import {
   GenerationLock,
-  GenerationLockBusyError,
   generationLockPath,
+  isGenerationLockBusyError,
   type GenerationLockLease,
 } from "./generation-lock.js";
 import { validateImage } from "./image-validation.js";
@@ -36,7 +36,8 @@ import {
   type GenerationTerminalEvent,
   type GenerationTerminalEventSink,
   type ImageEditChain,
-  type SafeTerminalAttempt,
+  defaultGenerationTerminalEventSink,
+  sanitizeTerminalAttempts,
 } from "./pipeline.js";
 import { OutputStore } from "../storage/output-store.js";
 
@@ -115,29 +116,6 @@ export class ExtendArtworkError extends Error {
     super("Artwork extension failed");
     this.name = "ExtendArtworkError";
   }
-}
-
-function defaultTerminalEventSink(event: GenerationTerminalEvent): void {
-  console.info(`[haystack:generation] ${JSON.stringify(event)}`);
-}
-
-function safeAttempts(
-  attempts: readonly ProviderAttemptRecord[],
-): readonly SafeTerminalAttempt[] {
-  return Object.freeze(attempts.map(attempt => Object.freeze({
-    provider: attempt.provider,
-    outcome: attempt.outcome,
-    durationMs: attempt.durationMs,
-  })));
-}
-
-function isBusyError(error: unknown): error is GenerationLockBusyError {
-  return error instanceof GenerationLockBusyError
-    || (
-      typeof error === "object"
-      && error !== null
-      && (error as { code?: unknown }).code === "GENERATION_BUSY"
-    );
 }
 
 function sameOrder(
@@ -251,7 +229,7 @@ export class ExtendArtworkService {
         lockPath: generationLockPath(this.#config.outputDir ?? this.#config.imageDir),
       });
     this.#terminalEventSink = dependencies.terminalEventSink
-      ?? defaultTerminalEventSink;
+      ?? defaultGenerationTerminalEventSink;
     this.#readSource = dependencies.readSource ?? (file => fs.promises.readFile(file));
     this.#validateSource = dependencies.validateSource ?? (bytes => validateImage(bytes));
     this.#isOutputAvailable = dependencies.isOutputAvailable ?? (async renderId =>
@@ -282,7 +260,7 @@ export class ExtendArtworkService {
       chainId: state.chainId,
       stage: state.stage,
       providerOrder,
-      attempts: safeAttempts(state.run?.attempts ?? []),
+      attempts: sanitizeTerminalAttempts(state.run?.attempts ?? []),
       outcome,
       ...(state.winner ? { winner: state.winner } : {}),
       ...(extras.renderId ? { renderId: extras.renderId } : {}),
@@ -345,9 +323,10 @@ export class ExtendArtworkService {
       try {
         lease = await this.#generationLock.acquire({ kind: "extend" });
       } catch (error) {
-        const safeCode = isBusyError(error) ? "generation_busy" : "lock_failed";
+        const busy = isGenerationLockBusyError(error);
+        const safeCode = busy ? "generation_busy" : "lock_failed";
         await emit(eventFor(cleanupState, "local_failure", { safeCode }));
-        if (isBusyError(error)) throw error;
+        if (busy) throw error;
         throw new ExtendArtworkError(safeCode);
       }
 
