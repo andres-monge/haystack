@@ -93,6 +93,7 @@ describe("Express API Server", () => {
       chainId: "safe-chain-id",
       stage: "normal",
       providerOrder,
+      chainTimeoutMs: 570_000,
       startedAt: "2026-08-15T12:00:00.000Z",
       completedAt: "2026-08-15T12:00:03.000Z",
       durationMs: 3000,

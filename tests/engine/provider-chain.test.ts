@@ -4,7 +4,6 @@ import {
   ImageProviderRegistry,
 } from "../../src/engine/provider-factory.js";
 import {
-  DEFAULT_PROVIDER_CHAIN_TIMEOUT_MS,
   ProviderChain,
   ProviderChainExhaustedError,
   ProviderChainTerminatedError,
@@ -254,6 +253,7 @@ describe("ProviderChain", () => {
   });
 
   it("stops at the total-chain deadline before another provider starts", async () => {
+    const chainTimeoutMs = 123_000;
     const deadline = new AbortController();
     const gemini = provider("gemini", async () => {
       deadline.abort();
@@ -261,8 +261,9 @@ describe("ProviderChain", () => {
     });
     const openai = provider("openai", async () => success("openai"));
     const chain = new ProviderChain(registry(gemini, openai), {
+      chainTimeoutMs,
       createDeadlineSignal: timeoutMs => {
-        expect(timeoutMs).toBe(DEFAULT_PROVIDER_CHAIN_TIMEOUT_MS);
+        expect(timeoutMs).toBe(chainTimeoutMs);
         return deadline.signal;
       },
     });
@@ -270,6 +271,7 @@ describe("ProviderChain", () => {
     const caught = await chain.editImage(editInput()).catch(error => error);
 
     expect(caught.outcome).toBe("chain_deadline");
+    expect(caught.run.chainTimeoutMs).toBe(chainTimeoutMs);
     expect(caught.run.attempts[0]).toMatchObject({
       outcome: "chain_deadline",
       abortProvenance: "chain_deadline",

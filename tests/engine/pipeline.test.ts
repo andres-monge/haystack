@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   Pipeline,
   PipelineGenerationError,
+  defaultGenerationTerminalEventSink,
   type GenerationTerminalEvent,
   type ImageEditChain,
 } from "../../src/engine/pipeline.js";
@@ -69,6 +70,7 @@ function run(
     chainId,
     stage: "normal",
     providerOrder,
+    chainTimeoutMs: 120_000,
     startedAt: "2026-08-15T12:00:00.000Z",
     completedAt: "2026-08-15T12:00:02.000Z",
     durationMs: 2000,
@@ -175,6 +177,7 @@ describe("Pipeline provider-chain integration", () => {
         chainId: "logical-edit-1",
         stage: "normal",
         providerOrder: order,
+        chainTimeoutMs: 120_000,
         outcome: "successful",
         winner,
         renderId: result.metadata.id,
@@ -497,5 +500,64 @@ describe("Pipeline provider-chain integration", () => {
     ).rejects.toBeInstanceOf(ProviderChainExhaustedError);
     expect(release).toHaveBeenCalledTimes(2);
     expect(acquire).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("defaultGenerationTerminalEventSink", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("warns when wall-clock suspension lets an attempt exceed its configured chain timeout", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const event: GenerationTerminalEvent = {
+      chainId: "chain-after-sleep",
+      stage: "normal",
+      providerOrder: ["gemini", "openai"],
+      chainTimeoutMs: 120_000,
+      attempts: [{
+        provider: "gemini",
+        outcome: "provider_timeout",
+        durationMs: 908_098,
+      }],
+      outcome: "chain_deadline",
+      occurredAt: "2026-08-16T17:21:30.045Z",
+    };
+
+    defaultGenerationTerminalEventSink(event);
+
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining(
+      "system sleep or event-loop suspension",
+    ));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("chain-after-sleep"));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("chainTimeoutMs=120000"));
+    expect(info).toHaveBeenCalledOnce();
+  });
+
+  it("does not warn for an attempt within the chain deadline", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const event: GenerationTerminalEvent = {
+      chainId: "normal-chain",
+      stage: "normal",
+      providerOrder: ["gemini"],
+      chainTimeoutMs: 570_000,
+      attempts: [{
+        provider: "gemini",
+        outcome: "successful",
+        durationMs: 12_000,
+      }],
+      outcome: "successful",
+      winner: "gemini",
+      renderId: "render-1",
+      occurredAt: "2026-08-17T10:00:15.732Z",
+    };
+
+    defaultGenerationTerminalEventSink(event);
+
+    expect(warn).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledOnce();
   });
 });

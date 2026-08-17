@@ -71,6 +71,7 @@ export interface ProviderChainRunData {
   chainId: string;
   stage: ImageEditStage;
   providerOrder: readonly ImageProviderId[];
+  chainTimeoutMs: number;
   startedAt: string;
   completedAt: string;
   durationMs: number;
@@ -353,6 +354,7 @@ export class ProviderChain {
         chainId,
         stage,
         providerOrder,
+        chainTimeoutMs: this.#chainTimeoutMs,
         startedAt: new Date(startedMs).toISOString(),
         completedAt: new Date(completedMs).toISOString(),
         durationMs: Math.max(0, completedMs - startedMs),

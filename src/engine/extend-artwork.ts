@@ -261,6 +261,7 @@ export class ExtendArtworkService {
       chainId: state.chainId,
       stage: state.stage,
       providerOrder,
+      ...(state.run ? { chainTimeoutMs: state.run.chainTimeoutMs } : {}),
       attempts: sanitizeTerminalAttempts(state.run?.attempts ?? []),
       outcome,
       ...(state.winner ? { winner: state.winner } : {}),

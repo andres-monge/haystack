@@ -76,6 +76,7 @@ function run(
     chainId,
     stage,
     providerOrder,
+    chainTimeoutMs: 120_000,
     startedAt: "2026-08-15T12:00:00.000Z",
     completedAt: "2026-08-15T12:00:02.000Z",
     durationMs: 2000,
@@ -243,12 +244,14 @@ describe("ExtendArtworkService", () => {
       expect.objectContaining({
         chainId: "cleanup-chain",
         stage: "extend-cleanup",
+        chainTimeoutMs: 120_000,
         outcome: "successful",
         winner: "openai",
       }),
       expect.objectContaining({
         chainId: "outpaint-chain",
         stage: "extend-outpaint",
+        chainTimeoutMs: 120_000,
         outcome: "successful",
         winner: "gemini",
         renderId: "hotel-adriano-landscape",

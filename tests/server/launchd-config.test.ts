@@ -32,6 +32,53 @@ function writeExecutable(path: string, contents: string): void {
   chmodSync(path, 0o755);
 }
 
+function createServerLauncherFixture(): {
+  home: string;
+  launchScript: string;
+  nodeSearchDirs: string;
+  trace: string;
+} {
+  const tempRoot = mkdtempSync(resolve(tmpdir(), "haystack-server-launch-test-"));
+  temporaryDirectories.push(tempRoot);
+
+  const project = resolve(tempRoot, "project");
+  const home = resolve(tempRoot, "home");
+  const node18Bin = resolve(home, ".nvm/versions/node/v18.20.8/bin");
+  const node22Bin = resolve(home, ".nvm/versions/node/v22.22.0/bin");
+  const trace = resolve(tempRoot, "server-launch.log");
+  mkdirSync(resolve(project, "scripts"), { recursive: true });
+  mkdirSync(node18Bin, { recursive: true });
+  mkdirSync(node22Bin, { recursive: true });
+
+  const launchScript = resolve(project, "scripts/start-server.sh");
+  writeExecutable(launchScript, repoFile("scripts/start-server.sh"));
+  for (const [bin, version] of [[node18Bin, "18.20.8"], [node22Bin, "22.22.0"]]) {
+    writeExecutable(
+      resolve(bin, "node"),
+      [
+        "#!/bin/sh",
+        `if [ \"$1\" = \"-p\" ]; then echo \"${version}\"; else echo \"v${version}\"; fi`,
+        "",
+      ].join("\n"),
+    );
+    writeExecutable(
+      resolve(bin, "npx"),
+      [
+        "#!/bin/sh",
+        `printf \"%s\\n\" \"${version}\" > \"$TRACE_FILE\"`,
+        "",
+      ].join("\n"),
+    );
+  }
+
+  return {
+    home,
+    launchScript,
+    nodeSearchDirs: `${node18Bin}:${node22Bin}`,
+    trace,
+  };
+}
+
 function createInstallerFixture(hourlyPlist: string): {
   bootstrapState: string;
   home: string;
@@ -234,5 +281,44 @@ describe("launchd hourly backup trigger", () => {
     expect(guidance).toContain("./scripts/launchd-install.sh");
     expect(guidance).toContain("660 seconds");
     expect(guidance).toContain("does not cancel server work");
+  });
+});
+
+describe("launchd server runtime", () => {
+  it("skips an unsupported lexicographically-first nvm runtime", () => {
+    const fixture = createServerLauncherFixture();
+
+    const result = spawnSync(fixture.launchScript, [], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        HOME: fixture.home,
+        HAYSTACK_NODE_SEARCH_DIRS: fixture.nodeSearchDirs,
+        TRACE_FILE: fixture.trace,
+      },
+    });
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(fixture.trace, "utf8").trim()).toBe("22.22.0");
+    expect(result.stdout).toContain("node v22.22.0");
+  });
+
+  it("fails before starting the server when no supported runtime exists", () => {
+    const fixture = createServerLauncherFixture();
+    const unsupportedNodeDir = fixture.nodeSearchDirs.split(":")[0];
+
+    const result = spawnSync(fixture.launchScript, [], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        HOME: fixture.home,
+        HAYSTACK_NODE_SEARCH_DIRS: unsupportedNodeDir,
+        TRACE_FILE: fixture.trace,
+      },
+    });
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain("Node.js >=20 is required");
+    expect(() => readFileSync(fixture.trace, "utf8")).toThrow();
   });
 });

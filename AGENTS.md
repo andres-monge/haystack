@@ -170,6 +170,8 @@ tail -f ~/.haystack/launchd-hourly.log   # hourly trigger output
 - Verify installed trigger: `grep -A1 -- '--max-time' ~/Library/LaunchAgents/com.haystack.hourly.plist`
 - Manual trigger: `curl -X POST http://127.0.0.1:4321/api/scheduler/trigger`
 - If server won't start: check `~/.haystack/launchd-server.log` and verify `.env.local` has `GOOGLE_API_KEY`
+- The launchd wrapper requires Node.js 20+ and selects the first compatible installed runtime; its startup log records the chosen version
+- launchd does not keep a Mac awake through clamshell sleep. Closing a laptop on battery suspends provider requests and JavaScript timers; keep the Mac awake during the active window. A provider attempt longer than the full chain deadline emits a possible sleep/event-loop-suspension warning
 - To stop temporarily: `launchctl bootout gui/$(id -u)/com.haystack.server`
 - The 660-second curl wait covers one full provider chain with margin. Curl has
   no retry because the server may continue after a client disconnect: a curl

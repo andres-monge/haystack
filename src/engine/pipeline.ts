@@ -76,6 +76,7 @@ export interface GenerationTerminalEvent {
   chainId: string;
   stage: ImageEditStage;
   providerOrder: readonly ImageProviderId[];
+  chainTimeoutMs?: number;
   attempts: readonly SafeTerminalAttempt[];
   outcome: ProviderChainTerminalOutcome;
   winner?: ImageProviderId;
@@ -135,6 +136,15 @@ export function sanitizeTerminalAttempts(
 export function defaultGenerationTerminalEventSink(
   event: GenerationTerminalEvent,
 ): void {
+  const delayedAttempt = event.attempts.find(
+    attempt => event.chainTimeoutMs !== undefined
+      && attempt.durationMs > event.chainTimeoutMs,
+  );
+  if (delayedAttempt) {
+    console.warn(
+      `[haystack:generation] system sleep or event-loop suspension may have delayed timeout handling: chainId=${event.chainId} provider=${delayedAttempt.provider} durationMs=${delayedAttempt.durationMs} chainTimeoutMs=${event.chainTimeoutMs}`,
+    );
+  }
   console.info(`[haystack:generation] ${JSON.stringify(event)}`);
 }
 
@@ -199,6 +209,7 @@ export class Pipeline {
       chainId,
       stage,
       providerOrder,
+      ...(run ? { chainTimeoutMs: run.chainTimeoutMs } : {}),
       attempts: sanitizeTerminalAttempts(run?.attempts ?? []),
       outcome,
       ...(winner ? { winner } : {}),
