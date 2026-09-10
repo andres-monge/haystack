@@ -144,7 +144,7 @@ describe("loadConfigFromEnv", () => {
 
     const config = loadConfigFromEnv();
 
-    expect(config.imageProviderOrder).toEqual(["gemini", "openai", "xai"]);
+    expect(config.imageProviderOrder).toEqual(["openai", "gemini", "xai"]);
     expect(config.providerKeys).toEqual({
       gemini: "test-google-key",
       openai: "openai-key",

@@ -28,8 +28,8 @@ const RETIRED_MODEL_REPLACEMENTS: Readonly<Record<string, GeminiConfig["model"]>
 });
 
 const PREFERRED_PROVIDER_ORDER = Object.freeze([
-  "gemini",
   "openai",
+  "gemini",
   "xai",
 ] as const satisfies readonly ImageProviderId[]);
 

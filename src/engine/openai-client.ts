@@ -18,7 +18,8 @@ import {
   validateImageOutput,
 } from "./image-validation.js";
 
-export const DEFAULT_OPENAI_IMAGE_MODEL = "gpt-image-2";
+export const DEFAULT_OPENAI_IMAGE_MODEL = "gpt-image-2.5-flare";
+export const DEFAULT_OPENAI_IMAGE_QUALITY = "medium" as const;
 
 export interface OpenAIEditOptions {
   size: `${number}x${number}`;
@@ -145,7 +146,7 @@ export class OpenAIImageProvider implements ImageProviderAdapter {
       const size = openAIOutputSize(input);
       const result = await this.client.editImage(input.source.bytes, input.prompt, {
         size,
-        quality: "low",
+        quality: DEFAULT_OPENAI_IMAGE_QUALITY,
         abortSignal,
       });
       if (!result.bytes) {

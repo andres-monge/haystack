@@ -284,7 +284,7 @@ describe("production provider adapters", () => {
     const generateImageMock = vi.fn().mockResolvedValue(imageResult(PNG_16X9));
     const dependencies = openAIDependencies(generateImageMock);
     const provider = new OpenAIImageProvider("secret", {
-      client: new OpenAIClient("secret", "gpt-image-2", dependencies),
+      client: new OpenAIClient("secret", undefined, dependencies),
       createTimeoutSignal: () => new AbortController().signal,
     });
     const source = await validateImage(PNG_16X9);
@@ -299,7 +299,7 @@ describe("production provider adapters", () => {
     expect(generateImageMock.mock.calls[0][0]).toMatchObject({
       size: "2048x1152",
       maxRetries: 0,
-      providerOptions: { openai: { quality: "low" } },
+      providerOptions: { openai: { quality: "medium" } },
     });
   });
 
@@ -329,7 +329,7 @@ describe("production provider adapters", () => {
     const generateImageMock = vi.fn().mockResolvedValue(imageResult(PNG_2X1));
     const dependencies = openAIDependencies(generateImageMock);
     const provider = new OpenAIImageProvider("secret", {
-      client: new OpenAIClient("secret", "gpt-image-2", dependencies),
+      client: new OpenAIClient("secret", undefined, dependencies),
       createTimeoutSignal: () => new AbortController().signal,
     });
     const source = await validateImage(PNG_2X1);
@@ -343,11 +343,15 @@ describe("production provider adapters", () => {
       },
     });
 
-    expect(generateImageMock.mock.calls[0][0].size).toBe("2048x1024");
+    expect(dependencies.image).toHaveBeenCalledWith("gpt-image-2.5-flare");
+    expect(generateImageMock.mock.calls[0][0]).toMatchObject({
+      size: "2048x1024",
+      providerOptions: { openai: { quality: "medium" } },
+    });
     expect(result).toMatchObject({
       outcome: "successful",
       provider: "openai",
-      requestedModel: "gpt-image-2",
+      requestedModel: "gpt-image-2.5-flare",
       image: { mimeType: "image/png", width: 2, height: 1 },
     });
   });

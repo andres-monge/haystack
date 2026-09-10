@@ -68,13 +68,17 @@ CONCEPTS.md     — Shared project vocabulary for domain entities, processes, an
 | Pro Image | `gemini-3-pro-image` | High quality, up to 4K |
 | Flash Image (retiring) | `gemini-2.5-flash-image` | Retires October 2026; migrate before then |
 
+The default production chain is OpenAI `gpt-image-2.5-flare` at medium quality,
+then Gemini, then xAI. `HAYSTACK_IMAGE_PROVIDER_ORDER` can override the provider
+order without changing code.
+
 ## Environment variables
 
 ```
 GOOGLE_API_KEY or GEMINI_API_KEY  — Direct Gemini API key.
 OPENAI_API_KEY                    — Direct OpenAI API key.
 XAI_API_KEY                       — Direct xAI API key.
-HAYSTACK_IMAGE_PROVIDER_ORDER     — Optional unique subset/order; defaults to available keys in gemini,openai,xai order.
+HAYSTACK_IMAGE_PROVIDER_ORDER     — Optional unique subset/order; defaults to available keys in openai,gemini,xai order.
 HAYSTACK_OUTPUT_DIR               — Output directory (default: ~/.haystack/outputs)
 HAYSTACK_MODEL                    — Gemini model ID (default: gemini-3.1-flash-lite-image)
 HAYSTACK_EXTEND_MODEL             — Gemini model for /extend-artwork (default: gemini-3.1-flash-image)
