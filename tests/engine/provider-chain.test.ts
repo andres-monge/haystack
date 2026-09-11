@@ -18,6 +18,8 @@ import type {
   ProviderEditSuccess,
   ValidatedImage,
 } from "../../src/engine/provider-types.js";
+import { composePrompt } from "../../src/engine/prompt.js";
+import { createScenarioFromHour } from "../../src/engine/scenario.js";
 
 const SOURCE_BYTES = Buffer.from("immutable-source-image");
 
@@ -132,10 +134,11 @@ describe("ProviderChain", () => {
     expect(openai.editImage).toHaveBeenCalledTimes(1);
   });
 
-  it("gives every provider an independent copy of one immutable input snapshot", async () => {
+  it("gives fallback providers the exact same story-rich prompt and original source snapshot", async () => {
     const seenBytes: Buffer[] = [];
     const seenOutputs: ProviderEditInput["output"][] = [];
-    const mutableInput = editInput();
+    const storyPrompt = composePrompt(createScenarioFromHour(12));
+    const mutableInput = { ...editInput(), prompt: storyPrompt };
     const gemini = provider("gemini", async input => {
       seenBytes.push(Buffer.from(input.source.bytes));
       seenOutputs.push(input.output);
@@ -161,8 +164,16 @@ describe("ProviderChain", () => {
     ]);
     expect(seenOutputs[0]).not.toBe(seenOutputs[1]);
     expect(Object.isFrozen(seenOutputs[0])).toBe(true);
-    expect(gemini.editImage.mock.calls[0][0].prompt).toBe("add soft rain");
-    expect(openai.editImage.mock.calls[0][0].prompt).toBe("add soft rain");
+    expect(gemini.editImage.mock.calls[0][0].prompt).toBe(storyPrompt);
+    expect(openai.editImage.mock.calls[0][0].prompt).toBe(storyPrompt);
+    expect(openai.editImage.mock.calls[0][0].source).toMatchObject({
+      mimeType: "image/png",
+      width: 2,
+      height: 1,
+      byteCount: SOURCE_BYTES.length,
+      sha256: image().sha256,
+    });
+    expect(storyPrompt).toContain("makes the viewer pause and wonder what is happening");
   });
 
   it("accepts and snapshots a configured normal aspect ratio", async () => {

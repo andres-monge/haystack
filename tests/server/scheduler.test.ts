@@ -24,11 +24,13 @@ import type {
   ProviderAttemptOutcome,
 } from "../../src/engine/provider-types.js";
 import {
+  makeMetadata,
   makeGenerateResult,
   createMockPipeline,
   createMockWeatherProvider,
   getGenerateCallArgs,
 } from "../helpers/mock-factories.js";
+import { composePrompt, composePromptFromText } from "../../src/engine/prompt.js";
 
 function createSchedulerConfig(overrides: Partial<SchedulerConfig> = {}): SchedulerConfig {
   return {
@@ -236,7 +238,7 @@ describe("HourlyScheduler", () => {
   });
 
   describe("runNow()", () => {
-    it("generates immediately without waiting for timer", async () => {
+    it("forwards scheduled generation through the default story-rich prompt path", async () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
       const scheduler = new HourlyScheduler(config);
 
@@ -244,6 +246,11 @@ describe("HourlyScheduler", () => {
 
       expect(config.pipeline.generate).toHaveBeenCalledOnce();
       expect(result.metadata.id).toBe("20260214_120000_abc12345");
+      const { scenario, promptOverride } = getGenerateCallArgs(config.pipeline);
+      expect(promptOverride).toBeUndefined();
+      expect(composePrompt(scenario)).toContain(
+        "makes the viewer pause and wonder what is happening",
+      );
     });
 
     it("uses today's image from imageDir", async () => {
@@ -256,14 +263,24 @@ describe("HourlyScheduler", () => {
       expect(imagePath.startsWith(tmpDir)).toBe(true);
     });
 
-    it("passes scenario override text as a prompt", async () => {
+    it("wraps a Kiosk Scenario override in the default contract and retains the effective metadata prompt", async () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
+      vi.mocked(config.pipeline.generate).mockImplementation(
+        async (_imagePath, _scenario, promptOverride) => makeGenerateResult({
+          prompt: promptOverride,
+        }),
+      );
       const scheduler = new HourlyScheduler(config);
+      const scenarioOverride = "A stormy night scene";
+      const expectedPrompt = composePromptFromText(scenarioOverride);
 
-      await scheduler.runNow("A stormy night scene");
+      const result = await scheduler.runNow(scenarioOverride);
 
       const { promptOverride } = getGenerateCallArgs(config.pipeline);
-      expect(promptOverride).toContain("A stormy night scene");
+      expect(promptOverride).toBe(expectedPrompt);
+      expect(promptOverride).toContain(scenarioOverride);
+      expect(promptOverride).toContain("makes the viewer pause and wonder what is happening");
+      expect(result.metadata.prompt).toBe(expectedPrompt);
     });
 
     it("builds scenario from weather provider in normal mode", async () => {
@@ -347,6 +364,35 @@ describe("HourlyScheduler", () => {
 
       expect(config.pipeline.getStore().getLatest).toHaveBeenCalledOnce();
       expect(config.pipeline.generate).toHaveBeenCalledOnce();
+    });
+
+    it("uses earlier metadata only for dedup and never for the next prompt", async () => {
+      const now = new Date("2026-02-14T20:45:00.000Z");
+      vi.setSystemTime(now);
+      const priorPrompt = "PRIOR_RENDER_STORY_MUST_NOT_BE_REUSED";
+      const previous = makeMetadata({
+        createdAt: new Date(now.getTime() - 31 * 60 * 1000).toISOString(),
+        prompt: priorPrompt,
+        scenario: {
+          timestampLocal: "2026-02-14T12:00:00-08:00",
+          hour: 12,
+          isDay: true,
+        },
+      });
+      const config = createSchedulerConfig({ imageDir: tmpDir });
+      vi.mocked(config.pipeline.getStore().getLatest).mockResolvedValue(previous);
+      const scheduler = new HourlyScheduler(config);
+
+      await expect(
+        scheduler.runNowIfNoRecentRender(30 * 60 * 1000),
+      ).resolves.toMatchObject({ generated: true });
+
+      const { scenario, promptOverride } = getGenerateCallArgs(config.pipeline);
+      const effectivePrompt = composePrompt(scenario);
+      expect(promptOverride).toBeUndefined();
+      expect(effectivePrompt).toContain("makes the viewer pause and wonder what is happening");
+      expect(effectivePrompt).not.toContain(priorPrompt);
+      expect(scenario).not.toEqual(previous.scenario);
     });
 
     it("rechecks dedup after waiting for an in-progress generation", async () => {
@@ -451,6 +497,20 @@ describe("HourlyScheduler", () => {
       const firstImage = calls[0][0] as string;
       const secondImage = calls[1][0] as string;
       expect(firstImage).not.toBe(secondImage);
+      expect(path.dirname(firstImage)).toBe(tmpDir);
+      expect(path.dirname(secondImage)).toBe(tmpDir);
+      expect(firstImage).not.toBe(makeGenerateResult().imagePath);
+      expect(secondImage).not.toBe(makeGenerateResult().imagePath);
+
+      const firstScenario = calls[0][1];
+      const secondScenario = calls[1][1];
+      expect(secondScenario).toBe(firstScenario);
+      expect(calls[0][2]).toBeUndefined();
+      expect(calls[1][2]).toBeUndefined();
+      expect(composePrompt(secondScenario)).toBe(composePrompt(firstScenario));
+      expect(composePrompt(firstScenario)).toContain(
+        "makes the viewer pause and wonder what is happening",
+      );
     });
 
     it("does not rotate when a fallback provider succeeds inside one Pipeline call", async () => {
@@ -537,7 +597,7 @@ describe("HourlyScheduler", () => {
       );
     });
 
-    it("passes the same override prompt to every artwork chain", async () => {
+    it("passes the same composed Kiosk prompt and Scenario to every artwork chain", async () => {
       const config = createSchedulerConfig({ imageDir: tmpDir });
       vi.mocked(config.pipeline.generate)
         .mockRejectedValueOnce(exhausted())
@@ -552,8 +612,12 @@ describe("HourlyScheduler", () => {
 
       // Verify the override prompt was passed to the fallback image
       const calls = vi.mocked(config.pipeline.generate).mock.calls;
+      const firstPrompt = calls[0][2] as string | undefined;
       const secondPrompt = calls[1][2] as string | undefined;
-      expect(secondPrompt).toContain("A stormy night scene");
+      expect(firstPrompt).toBe(composePromptFromText("A stormy night scene"));
+      expect(secondPrompt).toBe(firstPrompt);
+      expect(secondPrompt).toContain("makes the viewer pause and wonder what is happening");
+      expect(calls[1][1]).toBe(calls[0][1]);
 
       // Verify different image was used
       const firstImage = calls[0][0] as string;

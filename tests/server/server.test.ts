@@ -20,6 +20,7 @@ import {
 import { clearWeatherCache } from "../../src/server/scenario-builder.js";
 import { ProviderChainExhaustedError } from "../../src/engine/provider-chain.js";
 import type { ProviderChainRunData } from "../../src/engine/provider-chain.js";
+import { composePrompt, DEFAULT_TEMPLATE } from "../../src/engine/prompt.js";
 
 /** Create a small valid PNG buffer (1x1 pixel) for upload tests. */
 function createTestPng(): Buffer {
@@ -199,7 +200,7 @@ describe("Express API Server", () => {
       expect(scenario.precipProbability).toBe(80);
     });
 
-    it("treats whitespace-only promptOverride as undefined", async () => {
+    it("routes a whitespace-only Lab override through the default story-rich prompt", async () => {
       const app = createTestApp();
 
       await request(app)
@@ -208,21 +209,28 @@ describe("Express API Server", () => {
         .field("hour", "12")
         .field("promptOverride", "   ");
 
-      const { promptOverride } = getGenerateCallArgs(pipeline);
+      const { promptOverride, scenario } = getGenerateCallArgs(pipeline);
       expect(promptOverride).toBeUndefined();
+      expect(composePrompt(scenario)).toContain(
+        "makes the viewer pause and wonder what is happening",
+      );
     });
 
-    it("passes non-empty promptOverride to pipeline", async () => {
+    it("passes a complete Lab prompt without injecting the default story contract", async () => {
       const app = createTestApp();
+      const completePrompt = "Only repaint the bicycle red.";
 
       await request(app)
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12")
-        .field("promptOverride", "Custom prompt text");
+        .field("promptOverride", completePrompt);
 
       const { promptOverride } = getGenerateCallArgs(pipeline);
-      expect(promptOverride).toBe("Custom prompt text");
+      expect(promptOverride).toBe(completePrompt);
+      expect(promptOverride).not.toContain(
+        "makes the viewer pause and wonder what is happening",
+      );
     });
 
     it("falls back to time-only scenario when weather fetch fails", async () => {
@@ -757,9 +765,11 @@ describe("Express API Server", () => {
       const res = await request(app).get("/api/config/default-template");
 
       expect(res.status).toBe(200);
-      expect(res.body.template).toBeDefined();
-      expect(res.body.template).toContain("{scenario}");
-      expect(res.body.template).toContain("Using the provided artwork");
+      expect(res.body.template).toBe(DEFAULT_TEMPLATE);
+      expect(res.body.template).toContain("makes the viewer pause and wonder what is happening");
+      expect(res.body.template).toContain(
+        "Passive companionship, socializing, or leisure is not sufficient on its own",
+      );
     });
   });
 
@@ -1230,6 +1240,7 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.metadata).toBeDefined();
+      expect(res.body.metadata).not.toHaveProperty("prompt");
       expect(res.body.imageUrl).toBe("/api/outputs/20260214_120000_abc12345");
       expect(mockScheduler.runNow).toHaveBeenCalledWith("A stormy night scene");
     });

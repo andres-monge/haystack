@@ -22,7 +22,8 @@ import type {
   ProviderAttemptOutcome,
   ValidatedImage,
 } from "../../src/engine/provider-types.js";
-import { createScenarioFromHour } from "../../src/engine/scenario.js";
+import { composePrompt } from "../../src/engine/prompt.js";
+import { createScenarioFromHour, describeScenario } from "../../src/engine/scenario.js";
 import type { OutputStore } from "../../src/storage/output-store.js";
 
 const PNG_BUFFER = Buffer.from(
@@ -146,11 +147,19 @@ describe("Pipeline provider-chain integration", () => {
         attempt(provider, provider === winner ? "successful" : "refusal", index + 1));
       const chain = mockChain(async input => success(input.chainId!, winner, order, attempts));
       const pipeline = makePipeline(chain);
+      const scenario = createScenarioFromHour(18);
+      const expectedPrompt = composePrompt(scenario);
 
-      const result = await pipeline.generate(testImagePath, createScenarioFromHour(18));
+      const result = await pipeline.generate(testImagePath, scenario);
 
       expect(chain.editImage).toHaveBeenCalledOnce();
+      expect(chain.editImage.mock.calls[0][0]).toMatchObject({
+        prompt: expectedPrompt,
+        output: { stage: "normal", aspectRatio: "source" },
+      });
+      expect(expectedPrompt).toContain("makes the viewer pause and wonder what is happening");
       expect(result.metadata).toMatchObject({
+        prompt: expectedPrompt,
         provider: winner,
         model: `${winner}-model`,
         mimeType: "image/png",
@@ -172,6 +181,10 @@ describe("Pipeline provider-chain integration", () => {
         winner === "gemini" ? "gemini-resolved-model" : undefined,
       );
       expect(fs.existsSync(result.imagePath)).toBe(true);
+      const persistedMetadata = JSON.parse(
+        fs.readFileSync(path.join(tempDir, `${result.metadata.id}.json`), "utf8"),
+      ) as { prompt: string };
+      expect(persistedMetadata.prompt).toBe(expectedPrompt);
       expect(events).toHaveLength(1);
       expect(events[0]).toMatchObject({
         chainId: "logical-edit-1",
@@ -265,27 +278,34 @@ describe("Pipeline provider-chain integration", () => {
     expect(fallbackResult.metadata).not.toHaveProperty("seed");
   });
 
-  it("uses one exact override prompt without recomposing it", async () => {
+  it("keeps a complete interactive prompt authoritative without injecting the default contract", async () => {
     const compose = vi.fn(() => "unused");
-    const composeOverride = vi.fn(() => "exact override");
     const chain = mockChain(async input => success(
       input.chainId!, "gemini", ["gemini"], [attempt("gemini", "successful", 1)],
     ), ["gemini"]);
     const pipeline = makePipeline(chain, {
       composePrompt: compose,
-      composePromptFromText: composeOverride,
     });
+    const scenario = createScenarioFromHour(12);
+    const override = "Only repaint the bicycle red. Conditions: {scenario}";
+    const expectedPrompt = `Only repaint the bicycle red. Conditions: ${describeScenario(scenario)}`;
 
     const result = await pipeline.generate(
       testImagePath,
-      createScenarioFromHour(12),
-      "exact override",
+      scenario,
+      override,
     );
 
     expect(compose).not.toHaveBeenCalled();
-    expect(composeOverride).toHaveBeenCalledOnce();
-    expect(chain.editImage.mock.calls[0][0].prompt).toBe("exact override");
-    expect(result.metadata.prompt).toBe("exact override");
+    expect(chain.editImage.mock.calls[0][0].prompt).toBe(expectedPrompt);
+    expect(chain.editImage.mock.calls[0][0].prompt).not.toContain(
+      "makes the viewer pause and wonder what is happening",
+    );
+    expect(result.metadata.prompt).toBe(expectedPrompt);
+    const persistedMetadata = JSON.parse(
+      fs.readFileSync(path.join(tempDir, `${result.metadata.id}.json`), "utf8"),
+    ) as { prompt: string };
+    expect(persistedMetadata.prompt).toBe(expectedPrompt);
   });
 
   it("persists nothing and emits one sanitized event on full exhaustion", async () => {
