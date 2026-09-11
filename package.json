@@ -16,6 +16,7 @@
     "lint": "eslint src tests",
     "example": "tsx examples/basic-edit.ts",
     "compare:images": "tsx scripts/image-model-bake-off.ts",
+    "evaluate:stories": "tsx scripts/story-prompt-evaluation.ts",
     "lab": "concurrently \"npm run lab:server\" \"npm run lab:ui\"",
     "lab:server": "tsx src/server/start.ts",
     "lab:ui": "cd lab-ui && npm run dev"
