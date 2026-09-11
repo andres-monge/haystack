@@ -97,6 +97,11 @@ describe("story prompt evaluation", () => {
     );
     expect(matrix.every(cell => cell.prompt.includes("Outcome:"))).toBe(true);
     expect(matrix.every(cell => cell.prompt.includes("Current conditions:"))).toBe(true);
+    const ordinary = matrix.find(cell => cell.scenarioId === "ordinary-clear-daytime");
+    expect(ordinary?.scenarioSummary.time).toBe("16:00 local time");
+    expect(ordinary?.prompt).toContain("4 PM");
+    expect(ordinary?.prompt).toContain("bright late-afternoon daylight");
+    expect(ordinary?.prompt).not.toContain("12 PM");
     expect(matrix.every(cell => typeof cell.scenario.timestampLocal === "string")).toBe(true);
     expect(JSON.parse(JSON.stringify(matrix))).toEqual(matrix);
   });
@@ -154,7 +159,37 @@ describe("story prompt evaluation", () => {
     expect(result.manifest.operationalReadiness).toBe("ready");
     expect(result.manifest.cells).toHaveLength(12);
     expect(result.manifest.cells.every(cell => cell.status === "successful")).toBe(true);
+    for (const cell of result.manifest.cells) {
+      if (cell.status !== "successful") throw new Error("expected successful cell");
+      const sidecarPath = path.join(
+        result.runDir,
+        path.dirname(cell.imagePath),
+        `${path.parse(cell.imagePath).name}.json`,
+      );
+      expect(fs.existsSync(sidecarPath)).toBe(true);
+      expect(JSON.parse(fs.readFileSync(sidecarPath, "utf8"))).toEqual(cell);
+    }
     expect(fs.existsSync(result.galleryPath)).toBe(true);
+  });
+
+  it("propagates local image persistence failures instead of labeling them provider errors", async () => {
+    const runDir = path.join(evaluationRoot, storyEvaluationRunId(FIXED_NOW));
+    const gemini = adapter("gemini", async () => {
+      fs.writeFileSync(path.join(runDir, "images"), "blocks image directory creation");
+      return success("gemini", "gemini-production-model");
+    });
+
+    await expect(runStoryEvaluation({
+      repoRoot,
+      evaluationRoot,
+      registry: registry(gemini),
+      now: () => FIXED_NOW,
+    })).rejects.toMatchObject({ code: "EEXIST" });
+
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(runDir, "manifest.json"), "utf8"),
+    ) as StoryEvaluationManifest;
+    expect(manifest.cells[0]).toMatchObject({ status: "pending" });
   });
 
   it("writes JSON-safe audit fields and a complete blank review checklist without secrets or raw errors", async () => {

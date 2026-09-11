@@ -48,13 +48,13 @@ export const STORY_SCENARIO_CASES: ReadonlyArray<{
     id: "ordinary-clear-daytime",
     label: "Ordinary clear daytime",
     summary: {
-      time: "12:00 local time",
+      time: "16:00 local time",
       daylight: "Full daylight",
       weather: "Clear, dry, and mild",
     },
     scenario: {
-      timestampLocal: new Date("2026-06-15T12:00:00.000Z"),
-      hour: 12,
+      timestampLocal: new Date("2026-06-15T16:00:00.000Z"),
+      hour: 16,
       minute: 0,
       isDay: true,
       weatherSource: "none",
@@ -70,10 +70,10 @@ export const STORY_SCENARIO_CASES: ReadonlyArray<{
       rain: 0,
       snowfall: 0,
       snowDepth: 0,
-      directRadiation: 760,
-      diffuseRadiation: 85,
-      sunElevation: 64,
-      sunAzimuth: 180,
+      directRadiation: 680,
+      diffuseRadiation: 80,
+      sunElevation: 49,
+      sunAzimuth: 245,
       solarPhase: "daylight",
       solarTrend: "setting",
     },
@@ -534,40 +534,46 @@ async function persistSuccessfulResult(
     return sanitizedFailure(base, "provider_error");
   }
 
+  const bytes = Buffer.from(result.image.bytes);
+  let validated: ValidatedImage;
   try {
-    const bytes = Buffer.from(result.image.bytes);
     // Production adapters already validate their provider-specific output
     // geometry. Re-validate the bytes and claimed metadata here without
     // replacing those provider-specific rules with a second generic ratio test.
-    const validated = await validateImage(bytes);
-    if (!imageMetadataMatches(result.image, validated)) {
-      const safeCode = result.image.mimeType !== validated.mimeType
-        ? "mime_mismatch"
-        : "image_metadata_mismatch";
-      return sanitizedFailure(base, "invalid_image", safeCode);
-    }
-    const extension = imageExtension(validated.mimeType);
-    const imagePath = `images/${base.id}.${extension}`;
-    fs.mkdirSync(path.join(runDir, "images"), { recursive: true });
-    atomicWriteFile(path.join(runDir, imagePath), validated.bytes);
-    return {
-      ...base,
-      status: "successful",
-      outcome: "successful",
-      ...(typeof result.resolvedModel === "string" && result.resolvedModel.length > 0
-        ? { resolvedModel: result.resolvedModel }
-        : {}),
-      imagePath,
-      mimeType: validated.mimeType,
-      width: validated.width,
-      height: validated.height,
-      byteCount: validated.byteCount,
-      sha256: validated.sha256,
-    };
+    validated = await validateImage(bytes);
   } catch (error) {
-    const safeCode = error instanceof ImageValidationError ? error.code : undefined;
+    if (error instanceof ImageValidationError) {
+      return sanitizedFailure(base, "invalid_image", error.code);
+    }
+    throw error;
+  }
+  if (!imageMetadataMatches(result.image, validated)) {
+    const safeCode = result.image.mimeType !== validated.mimeType
+      ? "mime_mismatch"
+      : "image_metadata_mismatch";
     return sanitizedFailure(base, "invalid_image", safeCode);
   }
+  const extension = imageExtension(validated.mimeType);
+  const imagePath = `images/${base.id}.${extension}`;
+  const terminal: StoryEvaluationCell = {
+    ...base,
+    status: "successful",
+    outcome: "successful",
+    ...(typeof result.resolvedModel === "string" && result.resolvedModel.length > 0
+      ? { resolvedModel: result.resolvedModel }
+      : {}),
+    imagePath,
+    mimeType: validated.mimeType,
+    width: validated.width,
+    height: validated.height,
+    byteCount: validated.byteCount,
+    sha256: validated.sha256,
+  };
+  const imagesDirectory = path.join(runDir, "images");
+  fs.mkdirSync(imagesDirectory, { recursive: true });
+  atomicWriteFile(path.join(runDir, imagePath), validated.bytes);
+  writeJson(path.join(imagesDirectory, `${base.id}.json`), terminal);
+  return terminal;
 }
 
 function replaceCell(manifest: StoryEvaluationManifest, cell: StoryEvaluationCell): void {
@@ -683,10 +689,10 @@ export async function runStoryEvaluation(
         ...pendingBase,
         createdAt: now().toISOString(),
       };
-      let terminal: StoryEvaluationCell;
+      let result: ProviderEditResult;
       try {
         const output = normalOutputSpec(options.aspectRatio);
-        const result = await adapter.editImage({
+        result = await adapter.editImage({
           source: {
             ...source,
             bytes: Buffer.from(source.bytes),
@@ -694,19 +700,24 @@ export async function runStoryEvaluation(
           prompt: matrixCell.prompt,
           output,
         });
-        if (isProviderEditSuccess(result)) {
-          terminal = await persistSuccessfulResult(
-            runDir,
-            base,
-            adapter,
-            result,
-          );
-        } else if (isFailureOutcome(result.outcome)) {
-          terminal = normalizeFailureResult(base, adapter, result);
-        } else {
-          terminal = sanitizedFailure(base, "provider_error");
-        }
       } catch {
+        result = {
+          outcome: "provider_error",
+          provider: adapter.provider,
+          requestedModel: adapter.model,
+        };
+      }
+      let terminal: StoryEvaluationCell;
+      if (isProviderEditSuccess(result)) {
+        terminal = await persistSuccessfulResult(
+          runDir,
+          base,
+          adapter,
+          result,
+        );
+      } else if (isFailureOutcome(result.outcome)) {
+        terminal = normalizeFailureResult(base, adapter, result);
+      } else {
         terminal = sanitizedFailure(base, "provider_error");
       }
       replaceCell(manifest, terminal);
