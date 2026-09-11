@@ -4,6 +4,7 @@ import { atomicWriteFile } from "../comparison/artifacts.js";
 import { validateImage, ImageValidationError } from "../engine/image-validation.js";
 import { composePrompt } from "../engine/prompt.js";
 import type { ImageProviderRegistry } from "../engine/provider-factory.js";
+import { isProviderEditSuccess } from "../engine/provider-types.js";
 import type {
   ConfiguredAspectRatio,
   ImageOutputSpec,
@@ -314,6 +315,14 @@ const SAFE_CODES: ReadonlySet<string> = new Set([
   "invalid_dimensions",
   "IMAGE_OTHER",
   "IMAGE_RECITATION",
+  "IMAGE_SAFETY",
+  "IMAGE_PROHIBITED_CONTENT",
+  "PROHIBITED_CONTENT",
+  "SAFETY",
+  "BLOCKLIST",
+  "SPII",
+  "MODEL_ARMOR",
+  "JAILBREAK",
   "mime_mismatch",
   "moderation_blocked",
   "NO_IMAGE",
@@ -685,7 +694,7 @@ export async function runStoryEvaluation(
           prompt: matrixCell.prompt,
           output,
         });
-        if (result.outcome === "successful") {
+        if (isProviderEditSuccess(result)) {
           terminal = await persistSuccessfulResult(
             runDir,
             base,

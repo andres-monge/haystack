@@ -159,7 +159,12 @@ describe("story prompt evaluation", () => {
 
   it("writes JSON-safe audit fields and a complete blank review checklist without secrets or raw errors", async () => {
     const secret = "sk-do-not-persist-this";
-    const gemini = adapter("gemini");
+    const gemini = adapter("gemini", async () => ({
+      outcome: "refusal",
+      provider: "gemini",
+      requestedModel: "gemini-production-model",
+      safeCode: "IMAGE_SAFETY",
+    }));
     const xai = adapter("xai", async () => {
       const error = new Error(`remote body ${secret}`) as Error & { code: string; body: string };
       error.code = "totally_secret_code";
@@ -186,6 +191,11 @@ describe("story prompt evaluation", () => {
     expect(result.manifest.cells.find(cell => cell.provider === "xai")).toMatchObject({
       status: "unsuccessful",
       outcome: "provider_error",
+    });
+    expect(result.manifest.cells.find(cell => cell.provider === "gemini")).toMatchObject({
+      status: "unsuccessful",
+      outcome: "refusal",
+      safeCode: "IMAGE_SAFETY",
     });
     expect(result.manifest.artworks.every(artwork => !path.isAbsolute(artwork.copiedSourcePath))).toBe(true);
     expect(result.manifest.artworks.every(artwork => /^[a-f0-9]{64}$/.test(artwork.sourceSha256))).toBe(true);
