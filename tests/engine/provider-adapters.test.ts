@@ -476,6 +476,31 @@ describe("production provider adapters", () => {
     });
   });
 
+  it("accepts one-percent xAI quantization for a source-preserving edit", async () => {
+    const generateImageMock = vi.fn().mockResolvedValue(imageResult(PNG_16X9));
+    const provider = new XaiImageProvider("secret", {
+      client: new XaiClient(
+        "secret",
+        "grok-imagine-image-2.0",
+        xaiDependencies(generateImageMock),
+      ),
+      createTimeoutSignal: () => new AbortController().signal,
+    });
+    const sourceBytes = await sharp({
+      create: { width: 43, height: 24, channels: 3, background: "blue" },
+    }).png().toBuffer();
+    const source = await validateImage(sourceBytes);
+
+    const result = await provider.editImage({
+      source,
+      prompt: "add an interesting story",
+      output: { stage: "normal", aspectRatio: "source" },
+    });
+
+    expect(result).toMatchObject({ outcome: "successful" });
+    expect(generateImageMock.mock.calls[0][0]).not.toHaveProperty("aspectRatio");
+  });
+
   it.each([
     [new NoImageGeneratedError({ message: "secret-body", responses: [] }), "no_image"],
     [{ data: { error: { code: "content_policy_violation" } } }, "refusal"],

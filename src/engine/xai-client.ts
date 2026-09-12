@@ -19,6 +19,7 @@ import {
 } from "./image-validation.js";
 
 export const DEFAULT_XAI_IMAGE_MODEL = "grok-imagine-image-2.0";
+const XAI_SOURCE_ASPECT_RATIO_RELATIVE_TOLERANCE = 0.01;
 
 export const XAI_EDIT_ASPECT_RATIOS = [
   "1:1",
@@ -187,10 +188,18 @@ export class XaiImageProvider implements ImageProviderAdapter {
         });
       }
       try {
+        const validationOutput = input.output.aspectRatio === "source"
+          && input.output.aspectRatioTolerance === undefined
+          ? {
+              ...input.output,
+              aspectRatioTolerance:
+                targetRatio * XAI_SOURCE_ASPECT_RATIO_RELATIVE_TOLERANCE,
+            }
+          : input.output;
         const image = await validateImageOutput(
           Buffer.from(result.bytes),
           input.source,
-          input.output,
+          validationOutput,
         );
         return {
           outcome: "successful",
