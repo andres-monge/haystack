@@ -212,7 +212,7 @@ describe("Express API Server", () => {
       const { promptOverride, scenario } = getGenerateCallArgs(pipeline);
       expect(promptOverride).toBeUndefined();
       expect(composePrompt(scenario)).toContain(
-        "makes the viewer pause and wonder what is happening",
+        "makes the viewer do a double take and wonder what is going on",
       );
     });
 
@@ -229,7 +229,7 @@ describe("Express API Server", () => {
       const { promptOverride } = getGenerateCallArgs(pipeline);
       expect(promptOverride).toBe(completePrompt);
       expect(promptOverride).not.toContain(
-        "makes the viewer pause and wonder what is happening",
+        "makes the viewer do a double take and wonder what is going on",
       );
     });
 
@@ -766,9 +766,9 @@ describe("Express API Server", () => {
 
       expect(res.status).toBe(200);
       expect(res.body.template).toBe(DEFAULT_TEMPLATE);
-      expect(res.body.template).toContain("makes the viewer pause and wonder what is happening");
+      expect(res.body.template).toContain("makes the viewer do a double take and wonder what is going on");
       expect(res.body.template).toContain(
-        "Passive companionship, socializing, or leisure is not sufficient on its own",
+        "Something genuinely interesting should be happening, not merely an ordinary everyday activity",
       );
     });
   });

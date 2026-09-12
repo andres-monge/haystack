@@ -343,7 +343,7 @@ describe("production provider adapters", () => {
       },
     });
 
-    expect(dependencies.image).toHaveBeenCalledWith("gpt-image-2.5-flare");
+    expect(dependencies.image).toHaveBeenCalledWith("gpt-image-2.5-sunburst");
     expect(generateImageMock.mock.calls[0][0]).toMatchObject({
       size: "2048x1024",
       providerOptions: { openai: { quality: "medium" } },
@@ -351,7 +351,7 @@ describe("production provider adapters", () => {
     expect(result).toMatchObject({
       outcome: "successful",
       provider: "openai",
-      requestedModel: "gpt-image-2.5-flare",
+      requestedModel: "gpt-image-2.5-sunburst",
       image: { mimeType: "image/png", width: 2, height: 1 },
     });
   });

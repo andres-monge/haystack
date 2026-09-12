@@ -11,56 +11,49 @@ describe("DEFAULT_TEMPLATE", () => {
     expect(DEFAULT_TEMPLATE).toContain("{scenario}");
   });
 
-  it("requires one self-contained situation with visible narrative evidence", () => {
+  it("uses a concise open-ended double-take direction instead of story mechanics", () => {
     expect(DEFAULT_TEMPLATE).toContain(
-      "one coherent, self-contained, scene-specific situation",
+      "Tell an interesting story within this artwork that makes the viewer do a double take and wonder what is going on.",
     );
-    expect(DEFAULT_TEMPLATE).toContain("implies a larger story");
     expect(DEFAULT_TEMPLATE).toContain(
+      "Invent the situation freely based on the artwork, time, and weather.",
+    );
+    expect(DEFAULT_TEMPLATE).not.toContain(
       "visible action, reaction, relationships, consequences, or other evidence",
     );
-    expect(DEFAULT_TEMPLATE).toContain(
-      "must not all retain the same pose, action, gaze, and position",
-    );
-  });
-
-  it("rejects passive activity as the whole scene without prescribing motifs", () => {
-    expect(DEFAULT_TEMPLATE).toContain(
-      "Passive companionship, socializing, or leisure is not sufficient on its own",
-    );
-    expect(DEFAULT_TEMPLATE).toContain("Choose the specific situation freely");
-    expect(DEFAULT_TEMPLATE).not.toContain("micro-story");
-    expect(DEFAULT_TEMPLATE).not.toContain("Decide who is present");
-
-    const narrativeSection = DEFAULT_TEMPLATE.slice(
-      DEFAULT_TEMPLATE.indexOf("Narrative change:"),
-      DEFAULT_TEMPLATE.indexOf("Preservation invariants:"),
-    );
-    expect(narrativeSection).not.toMatch(
-      /for example|such as|choose from|catalog|taxonomy/i,
-    );
-  });
-
-  it("allows fitting subtle intrigue without a dramatic distribution rule", () => {
-    expect(DEFAULT_TEMPLATE).toContain(
+    expect(DEFAULT_TEMPLATE).not.toContain(
       "Subtle intrigue is valid; do not force a dramatic incident",
     );
+  });
+
+  it("asks for an interesting situation without prescribing its structure", () => {
+    expect(DEFAULT_TEMPLATE).toContain(
+      "Something genuinely interesting should be happening, not merely an ordinary everyday activity",
+    );
+    expect(DEFAULT_TEMPLATE).toContain(
+      "Arrange the action compellingly within the artwork's existing composition",
+    );
+    expect(DEFAULT_TEMPLATE).toContain("Invent the situation freely");
+    expect(DEFAULT_TEMPLATE).not.toContain("micro-story");
+    expect(DEFAULT_TEMPLATE).not.toContain("Decide who is present");
+    expect(DEFAULT_TEMPLATE).not.toMatch(/for example|such as|choose from|catalog|taxonomy/i);
+  });
+
+  it("does not impose a quiet-versus-dramatic distribution rule", () => {
     expect(DEFAULT_TEMPLATE).not.toContain("quiet-versus-dramatic");
     expect(DEFAULT_TEMPLATE).not.toContain("quota");
     expect(DEFAULT_TEMPLATE).not.toMatch(/\b\d+% (quiet|dramatic)\b/i);
   });
 
-  it("orders outcome, conditions, narrative, preservation, then lighting and weather", () => {
+  it("orders outcome, conditions, preservation, then lighting and weather", () => {
     const outcomeIndex = DEFAULT_TEMPLATE.indexOf("Outcome:");
     const conditionsIndex = DEFAULT_TEMPLATE.indexOf("Current conditions:");
-    const narrativeIndex = DEFAULT_TEMPLATE.indexOf("Narrative change:");
     const preservationIndex = DEFAULT_TEMPLATE.indexOf("Preservation invariants:");
     const lightingIndex = DEFAULT_TEMPLATE.indexOf("Lighting and weather:");
 
     expect(outcomeIndex).toBeGreaterThanOrEqual(0);
     expect(outcomeIndex).toBeLessThan(conditionsIndex);
-    expect(conditionsIndex).toBeLessThan(narrativeIndex);
-    expect(narrativeIndex).toBeLessThan(preservationIndex);
+    expect(conditionsIndex).toBeLessThan(preservationIndex);
     expect(preservationIndex).toBeLessThan(lightingIndex);
     expect(DEFAULT_TEMPLATE).toContain(
       "authoritative for lighting and sky only",
@@ -121,7 +114,7 @@ describe("composePrompt", () => {
   it("defaults to DEFAULT_PROMPT_CONFIG when config is omitted", () => {
     const scenario = createScenarioFromHour(14);
     const prompt = composePrompt(scenario);
-    expect(prompt).toContain("Using the provided artwork");
+    expect(prompt).toContain("Tell an interesting story within this artwork");
   });
 
   it("includes weather in scenario description when set", () => {
@@ -131,7 +124,7 @@ describe("composePrompt", () => {
     expect(prompt).toContain("moderate rain");
   });
 
-  it("asks meaningful heavy snow to shape the situation while preserving the artwork", () => {
+  it("invites weather to shape the situation while preserving the artwork", () => {
     const scenario = createScenarioFromHour(22, false);
     scenario.weatherCode = 75;
     scenario.snowfall = 2.4;
@@ -142,7 +135,7 @@ describe("composePrompt", () => {
     expect(prompt).toContain("heavy snow");
     expect(prompt).toContain("snowfall 2.4cm/h");
     expect(prompt).toContain(
-      "When time or weather creates a meaningful circumstance, make it shape the situation",
+      "When the weather offers an interesting opportunity, let it influence what is happening",
     );
     expect(prompt).toContain(
       "Preserve the EXACT artistic style, medium, and rendering technique",
@@ -152,7 +145,7 @@ describe("composePrompt", () => {
     );
   });
 
-  it("requires narrative evidence in ordinary clear conditions without forcing crisis", () => {
+  it("asks for a genuinely interesting moment in ordinary clear conditions", () => {
     const scenario = createScenarioFromHour(14, true);
     scenario.weatherCode = 0;
     scenario.temperature = 21;
@@ -161,23 +154,16 @@ describe("composePrompt", () => {
 
     expect(prompt).toContain("clear sky");
     expect(prompt).toContain(
-      "Ordinary conditions still require a non-obvious, readable circumstance",
-    );
-    expect(prompt).toContain("without forcing a crisis");
-    expect(prompt).toContain(
-      "visible action, reaction, relationships, consequences, or other evidence",
+      "Something genuinely interesting should be happening, not merely an ordinary everyday activity",
     );
   });
 
-  it("keeps the narrative contract complete when weather is unavailable", () => {
+  it("keeps the open-ended story direction when weather is unavailable", () => {
     const prompt = composePrompt(createScenarioFromHour(9, true));
 
     expect(prompt).toContain("9 AM, day");
     expect(prompt).toContain(
-      "one coherent, self-contained, scene-specific situation",
-    );
-    expect(prompt).toContain(
-      "When weather data is unavailable, do not invent a weather requirement or significance",
+      "Tell an interesting story within this artwork",
     );
   });
 

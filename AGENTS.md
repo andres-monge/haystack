@@ -68,7 +68,7 @@ CONCEPTS.md     — Shared project vocabulary for domain entities, processes, an
 | Pro Image | `gemini-3-pro-image` | High quality, up to 4K |
 | Flash Image (retiring) | `gemini-2.5-flash-image` | Retires October 2026; migrate before then |
 
-The default production chain is OpenAI `gpt-image-2.5-flare` at medium quality,
+The default production chain is OpenAI `gpt-image-2.5-sunburst` at medium quality,
 then Gemini, then xAI. `HAYSTACK_IMAGE_PROVIDER_ORDER` can override the provider
 order without changing code.
 

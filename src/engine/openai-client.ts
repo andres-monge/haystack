@@ -18,7 +18,7 @@ import {
   validateImageOutput,
 } from "./image-validation.js";
 
-export const DEFAULT_OPENAI_IMAGE_MODEL = "gpt-image-2.5-flare";
+export const DEFAULT_OPENAI_IMAGE_MODEL = "gpt-image-2.5-sunburst";
 export const DEFAULT_OPENAI_IMAGE_QUALITY = "medium" as const;
 
 export interface OpenAIEditOptions {

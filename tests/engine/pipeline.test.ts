@@ -157,7 +157,7 @@ describe("Pipeline provider-chain integration", () => {
         prompt: expectedPrompt,
         output: { stage: "normal", aspectRatio: "source" },
       });
-      expect(expectedPrompt).toContain("makes the viewer pause and wonder what is happening");
+      expect(expectedPrompt).toContain("makes the viewer do a double take and wonder what is going on");
       expect(result.metadata).toMatchObject({
         prompt: expectedPrompt,
         provider: winner,
@@ -299,7 +299,7 @@ describe("Pipeline provider-chain integration", () => {
     expect(compose).not.toHaveBeenCalled();
     expect(chain.editImage.mock.calls[0][0].prompt).toBe(expectedPrompt);
     expect(chain.editImage.mock.calls[0][0].prompt).not.toContain(
-      "makes the viewer pause and wonder what is happening",
+      "makes the viewer do a double take and wonder what is going on",
     );
     expect(result.metadata.prompt).toBe(expectedPrompt);
     const persistedMetadata = JSON.parse(

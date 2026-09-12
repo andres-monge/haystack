@@ -1,25 +1,16 @@
-// src/engine/prompt.ts — Prompt composition for Gemini image editing
-
 import type { Scenario, PromptConfig } from "./types.js";
 import { describeScenario } from "./scenario.js";
 
 export const DEFAULT_TEMPLATE = `Outcome:
-Using the provided artwork as the permanent setting, depict one coherent, self-contained, scene-specific situation for the exact current conditions below. The situation makes the viewer pause and wonder what is happening, and implies a larger story without explaining it. Choose the specific situation freely from what the artwork and conditions support.
+Tell an interesting story within this artwork that makes the viewer do a double take and wonder what is going on. Something genuinely interesting should be happening, not merely an ordinary everyday activity. Invent the situation freely based on the artwork, time, and weather. When the weather offers an interesting opportunity, let it influence what is happening rather than only changing the scene's appearance. Arrange the action compellingly within the artwork's existing composition.
 
 Current conditions: {scenario}
-
-Narrative change:
-- Favor a plausible, non-obvious interpretation over the most predictable stock interpretation whenever a more interesting scene-specific situation fits the same artwork and conditions.
-- Communicate the situation through visible action, reaction, relationships, consequences, or other evidence that suggests what came before or may happen next. Passive companionship, socializing, or leisure is not sufficient on its own; give it a readable circumstance that creates narrative curiosity.
-- Let the artwork and current conditions determine the fitting intensity. Subtle intrigue is valid; do not force a dramatic incident when the scene supports something restrained.
-- When time or weather creates a meaningful circumstance, make it shape the situation rather than serving only as lighting, clothing, or surface treatment. Ordinary conditions still require a non-obvious, readable circumstance without forcing a crisis. When weather data is unavailable, do not invent a weather requirement or significance; use the artwork and available time or daylight context.
-- Make the depicted situation visibly different from the input artwork. Existing people and animals must not all retain the same pose, action, gaze, and position. Repose, reposition, add, or remove them only where the artwork naturally supports it; characters are not required when the setting can carry the situation. The result should read at a glance as another moment, not a recolored copy.
-- Read the terrain before placing anyone: solid ground, paths, floors, and furniture are fair game; everything else is a real obstacle or hazard that characters navigate around.
 
 Preservation invariants:
 - Preserve the EXACT artistic style, medium, and rendering technique of the original
 - Keep the permanent setting, architecture, signage, furniture, vehicles, and environment layout identical
 - Do NOT change the camera angle, framing, scale, or composition
+- People, animals, and temporary objects may change as needed for the new moment, but place them only where physically plausible
 - Do NOT add modern or anachronistic elements
 - Do NOT add text, watermarks, or UI elements
 
@@ -34,7 +25,7 @@ Interpreting the lighting data (use these as continuous scales, not categories):
 - Sun elevation: negative = below horizon (night). As elevation drops toward 0°, sunlight passes through more atmosphere — direct light warms gradually from neutral white (~5500K) toward orange (~2500K near horizon). Only render a visible sun disk if elevation is very low and it would naturally appear in-frame.
 - Set overall exposure from the Solar visual target when present, or from the available day/night state otherwise. Use radiation values only to refine light direction and softness within that phase; low late-day radiation does not by itself make an above-horizon scene look like night.
 - Visibility (meters): lower visibility = paler/whiter sky near horizon, atmospheric haze softens distant objects, more glow around light sources.
-- Moon illuminated %: 0% = new moon (very dark night), 100% = full moon (bright silvery nightscape). Only relevant at night.`;
+- Moon illuminated %: 0% = new moon (very dark night), 100% = full moon (bright silvery nightscape).`;
 
 export const DEFAULT_PROMPT_CONFIG: PromptConfig = {
   template: DEFAULT_TEMPLATE,

@@ -68,7 +68,7 @@ describe("story prompt evaluation", () => {
     repoRoot = path.join(tempDir, "repo");
     evaluationRoot = path.join(tempDir, "evaluations");
     fs.mkdirSync(path.join(repoRoot, "artwork"), { recursive: true });
-    fs.writeFileSync(path.join(repoRoot, "artwork", "hopper.jpg"), PNG_16X9);
+    fs.writeFileSync(path.join(repoRoot, "artwork", "hotel-adriano.png"), PNG_16X9);
     fs.writeFileSync(path.join(repoRoot, "artwork", "cabin-in-the-woods.png"), PNG_16X9);
   });
 
@@ -80,7 +80,7 @@ describe("story prompt evaluation", () => {
     const matrix = createStoryEvaluationMatrix();
 
     expect(STORY_ARTWORKS.map(artwork => artwork.source)).toEqual([
-      "artwork/hopper.jpg",
+      "artwork/hotel-adriano.png",
       "artwork/cabin-in-the-woods.png",
     ]);
     expect(STORY_SCENARIO_CASES.map(item => item.id)).toEqual([
@@ -90,7 +90,7 @@ describe("story prompt evaluation", () => {
     ]);
     expect(matrix).toHaveLength(6);
     expect(new Set(matrix.map(cell => cell.artworkId))).toEqual(
-      new Set(["hopper", "cabin-in-the-woods"]),
+      new Set(["hotel-adriano", "cabin-in-the-woods"]),
     );
     expect(new Set(matrix.map(cell => cell.scenarioId))).toEqual(
       new Set(STORY_SCENARIO_CASES.map(item => item.id)),

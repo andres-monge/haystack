@@ -173,7 +173,7 @@ describe("ProviderChain", () => {
       byteCount: SOURCE_BYTES.length,
       sha256: image().sha256,
     });
-    expect(storyPrompt).toContain("makes the viewer pause and wonder what is happening");
+    expect(storyPrompt).toContain("makes the viewer do a double take and wonder what is going on");
   });
 
   it("accepts and snapshots a configured normal aspect ratio", async () => {

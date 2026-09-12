@@ -249,7 +249,7 @@ describe("HourlyScheduler", () => {
       const { scenario, promptOverride } = getGenerateCallArgs(config.pipeline);
       expect(promptOverride).toBeUndefined();
       expect(composePrompt(scenario)).toContain(
-        "makes the viewer pause and wonder what is happening",
+        "makes the viewer do a double take and wonder what is going on",
       );
     });
 
@@ -279,7 +279,7 @@ describe("HourlyScheduler", () => {
       const { promptOverride } = getGenerateCallArgs(config.pipeline);
       expect(promptOverride).toBe(expectedPrompt);
       expect(promptOverride).toContain(scenarioOverride);
-      expect(promptOverride).toContain("makes the viewer pause and wonder what is happening");
+      expect(promptOverride).toContain("makes the viewer do a double take and wonder what is going on");
       expect(result.metadata.prompt).toBe(expectedPrompt);
     });
 
@@ -390,7 +390,7 @@ describe("HourlyScheduler", () => {
       const { scenario, promptOverride } = getGenerateCallArgs(config.pipeline);
       const effectivePrompt = composePrompt(scenario);
       expect(promptOverride).toBeUndefined();
-      expect(effectivePrompt).toContain("makes the viewer pause and wonder what is happening");
+      expect(effectivePrompt).toContain("makes the viewer do a double take and wonder what is going on");
       expect(effectivePrompt).not.toContain(priorPrompt);
       expect(scenario).not.toEqual(previous.scenario);
     });
@@ -509,7 +509,7 @@ describe("HourlyScheduler", () => {
       expect(calls[1][2]).toBeUndefined();
       expect(composePrompt(secondScenario)).toBe(composePrompt(firstScenario));
       expect(composePrompt(firstScenario)).toContain(
-        "makes the viewer pause and wonder what is happening",
+        "makes the viewer do a double take and wonder what is going on",
       );
     });
 
@@ -616,7 +616,7 @@ describe("HourlyScheduler", () => {
       const secondPrompt = calls[1][2] as string | undefined;
       expect(firstPrompt).toBe(composePromptFromText("A stormy night scene"));
       expect(secondPrompt).toBe(firstPrompt);
-      expect(secondPrompt).toContain("makes the viewer pause and wonder what is happening");
+      expect(secondPrompt).toContain("makes the viewer do a double take and wonder what is going on");
       expect(calls[1][1]).toBe(calls[0][1]);
 
       // Verify different image was used

@@ -21,9 +21,9 @@ import type { Scenario, SerializedScenario } from "../engine/types.js";
 
 export const STORY_ARTWORKS = [
   {
-    id: "hopper",
-    label: "Hopper",
-    source: "artwork/hopper.jpg",
+    id: "hotel-adriano",
+    label: "Hotel Adriano",
+    source: "artwork/hotel-adriano.png",
   },
   {
     id: "cabin-in-the-woods",
@@ -384,6 +384,8 @@ export function createStoryEvaluationPreview(options: {
 }
 
 export function formatStoryEvaluationPreview(preview: StoryEvaluationPreview): string {
+  const artworkCount = new Set(preview.matrix.map(cell => cell.artworkId)).size;
+  const scenarioCount = new Set(preview.matrix.map(cell => cell.scenarioId)).size;
   const cells = preview.matrix.map(cell =>
     `- ${cell.id}: ${cell.artworkLabel} — ${cell.scenarioLabel}`,
   );
@@ -392,7 +394,7 @@ export function formatStoryEvaluationPreview(preview: StoryEvaluationPreview): s
   );
   return [
     "Story prompt evaluation preview (no provider requests)",
-    "Matrix: 2 artworks × 3 scenarios = 6 cells",
+    `Matrix: ${artworkCount} artworks × ${scenarioCount} scenarios = ${preview.matrix.length} cells`,
     ...cells,
     "Configured providers and production models:",
     ...providers,
