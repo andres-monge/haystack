@@ -2,7 +2,7 @@ import type { Scenario, PromptConfig } from "./types.js";
 import { describeScenario } from "./scenario.js";
 
 export const DEFAULT_TEMPLATE = `Outcome:
-Tell an interesting story within this artwork that makes the viewer do a double take and wonder what is going on. Something genuinely interesting should be happening, not merely an ordinary everyday activity. Invent the situation freely based on the artwork, time, and weather. When the weather offers an interesting opportunity, let it influence what is happening rather than only changing the scene's appearance. Arrange the action compellingly within the artwork's existing composition.
+Create a composition that tells an interesting story within this artwork. The story and events should make the viewer do a double take and wonder what is going on, not merely an ordinary everyday activity. Invent the story freely based on the artwork, time, and weather. The time and weather should influence what is happening rather than only changing the scene's appearance. Arrange the action compellingly within the artwork's existing composition.
 
 Current conditions: {scenario}
 
