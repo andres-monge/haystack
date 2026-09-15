@@ -1,0 +1,128 @@
+{
+  "id": "dancing-landscape",
+  "artworkSource": "/Users/andresm/Downloads/dancing.jpg",
+  "scenario": {
+    "timestampLocal": "2026-09-15T07:45:39.705Z",
+    "hour": 9,
+    "isDay": true
+  },
+  "prompt": "Seamlessly extend this artwork to a wide 16:9 landscape. The existing edges\nmust continue naturally with no visible seam — elements at the boundaries\n(trees, buildings, terrain) should flow uninterrupted into the new space.\nExpand by revealing more of the same scene, not by generating new disconnected\ncontent. Preserve the EXACT artistic style, medium, color palette, and lighting\nthroughout.",
+  "model": "gpt-image-2.5-sunburst",
+  "createdAt": "2026-09-15T07:45:39.705Z",
+  "outputPath": "/Users/andresm/Documents/Cursor Projects/haystack/artwork/dancing-landscape.png",
+  "usageMetadata": {
+    "promptTokenCount": 1616,
+    "candidatesTokenCount": 367,
+    "totalTokenCount": 1983
+  },
+  "provider": "openai",
+  "mimeType": "image/png",
+  "width": 2048,
+  "height": 1152,
+  "byteCount": 4197841,
+  "sha256": "a5104a421e11f57ffc834a3f12cded097303cbcd2d3fc4a5cc12a9f92a7b7f75",
+  "providerOrder": [
+    "openai",
+    "gemini",
+    "xai"
+  ],
+  "attempts": [
+    {
+      "attemptId": "60f84b09-67c6-450c-b285-8a5a43a21a60",
+      "stage": "extend-outpaint",
+      "ordinal": 1,
+      "provider": "openai",
+      "requestedModel": "gpt-image-2.5-sunburst",
+      "startedAt": "2026-09-15T07:45:14.271Z",
+      "completedAt": "2026-09-15T07:45:39.705Z",
+      "durationMs": 25434,
+      "outcome": "successful",
+      "usage": {
+        "inputTokens": 1616,
+        "outputTokens": 367,
+        "totalTokens": 1983
+      },
+      "image": {
+        "mimeType": "image/png",
+        "width": 2048,
+        "height": 1152,
+        "byteCount": 4197841,
+        "sha256": "a5104a421e11f57ffc834a3f12cded097303cbcd2d3fc4a5cc12a9f92a7b7f75"
+      }
+    }
+  ],
+  "extendStages": [
+    {
+      "stage": "extend-cleanup",
+      "chainId": "3e61fb54-373d-448d-bd30-93cfa329aaf4",
+      "provider": "openai",
+      "requestedModel": "gpt-image-2.5-sunburst",
+      "providerOrder": [
+        "openai",
+        "gemini",
+        "xai"
+      ],
+      "attempts": [
+        {
+          "attemptId": "14bf136f-ceb1-45f5-adc6-e52291c4480b",
+          "stage": "extend-cleanup",
+          "ordinal": 1,
+          "provider": "openai",
+          "requestedModel": "gpt-image-2.5-sunburst",
+          "startedAt": "2026-09-15T07:44:52.067Z",
+          "completedAt": "2026-09-15T07:45:14.267Z",
+          "durationMs": 22200,
+          "outcome": "successful",
+          "usage": {
+            "inputTokens": 1636,
+            "outputTokens": 419,
+            "totalTokens": 2055
+          },
+          "image": {
+            "mimeType": "image/png",
+            "width": 2048,
+            "height": 1296,
+            "byteCount": 4624612,
+            "sha256": "6f151069f20bb89178b5ad67da0c4f43706418b26ea568163c1cd673fb283921"
+          }
+        }
+      ]
+    },
+    {
+      "stage": "extend-outpaint",
+      "chainId": "fcbcea30-527f-4d8a-94e0-4728807ac37c",
+      "provider": "openai",
+      "requestedModel": "gpt-image-2.5-sunburst",
+      "providerOrder": [
+        "openai",
+        "gemini",
+        "xai"
+      ],
+      "attempts": [
+        {
+          "attemptId": "60f84b09-67c6-450c-b285-8a5a43a21a60",
+          "stage": "extend-outpaint",
+          "ordinal": 1,
+          "provider": "openai",
+          "requestedModel": "gpt-image-2.5-sunburst",
+          "startedAt": "2026-09-15T07:45:14.271Z",
+          "completedAt": "2026-09-15T07:45:39.705Z",
+          "durationMs": 25434,
+          "outcome": "successful",
+          "usage": {
+            "inputTokens": 1616,
+            "outputTokens": 367,
+            "totalTokens": 1983
+          },
+          "image": {
+            "mimeType": "image/png",
+            "width": 2048,
+            "height": 1152,
+            "byteCount": 4197841,
+            "sha256": "a5104a421e11f57ffc834a3f12cded097303cbcd2d3fc4a5cc12a9f92a7b7f75"
+          }
+        }
+      ]
+    }
+  ]
+}

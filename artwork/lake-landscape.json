@@ -1,0 +1,128 @@
+{
+  "id": "lake-landscape",
+  "artworkSource": "/Users/andresm/Downloads/lake.jpg",
+  "scenario": {
+    "timestampLocal": "2026-09-15T07:47:49.919Z",
+    "hour": 9,
+    "isDay": true
+  },
+  "prompt": "Seamlessly extend this artwork to a wide 16:9 landscape. The existing edges\nmust continue naturally with no visible seam — elements at the boundaries\n(trees, buildings, terrain) should flow uninterrupted into the new space.\nExpand by revealing more of the same scene, not by generating new disconnected\ncontent. Preserve the EXACT artistic style, medium, color palette, and lighting\nthroughout.",
+  "model": "gpt-image-2.5-sunburst",
+  "createdAt": "2026-09-15T07:47:49.919Z",
+  "outputPath": "/Users/andresm/Documents/Cursor Projects/haystack/artwork/lake-landscape.png",
+  "usageMetadata": {
+    "promptTokenCount": 1615,
+    "candidatesTokenCount": 367,
+    "totalTokenCount": 1982
+  },
+  "provider": "openai",
+  "mimeType": "image/png",
+  "width": 2048,
+  "height": 1152,
+  "byteCount": 4142098,
+  "sha256": "cf61e8cabb3773735b62b3b30d79fd5f8d23889720aca42f4852578fe5c80c6a",
+  "providerOrder": [
+    "openai",
+    "gemini",
+    "xai"
+  ],
+  "attempts": [
+    {
+      "attemptId": "0b565b58-9f73-4b68-a360-ee0bd6198d47",
+      "stage": "extend-outpaint",
+      "ordinal": 1,
+      "provider": "openai",
+      "requestedModel": "gpt-image-2.5-sunburst",
+      "startedAt": "2026-09-15T07:47:25.283Z",
+      "completedAt": "2026-09-15T07:47:49.919Z",
+      "durationMs": 24636,
+      "outcome": "successful",
+      "usage": {
+        "inputTokens": 1615,
+        "outputTokens": 367,
+        "totalTokens": 1982
+      },
+      "image": {
+        "mimeType": "image/png",
+        "width": 2048,
+        "height": 1152,
+        "byteCount": 4142098,
+        "sha256": "cf61e8cabb3773735b62b3b30d79fd5f8d23889720aca42f4852578fe5c80c6a"
+      }
+    }
+  ],
+  "extendStages": [
+    {
+      "stage": "extend-cleanup",
+      "chainId": "14428492-8d00-498c-a90e-74e954d1b700",
+      "provider": "openai",
+      "requestedModel": "gpt-image-2.5-sunburst",
+      "providerOrder": [
+        "openai",
+        "gemini",
+        "xai"
+      ],
+      "attempts": [
+        {
+          "attemptId": "e4083b4a-91da-4943-b813-9a39ffd617ac",
+          "stage": "extend-cleanup",
+          "ordinal": 1,
+          "provider": "openai",
+          "requestedModel": "gpt-image-2.5-sunburst",
+          "startedAt": "2026-09-15T07:47:00.527Z",
+          "completedAt": "2026-09-15T07:47:25.279Z",
+          "durationMs": 24752,
+          "outcome": "successful",
+          "usage": {
+            "inputTokens": 1635,
+            "outputTokens": 512,
+            "totalTokens": 2147
+          },
+          "image": {
+            "mimeType": "image/png",
+            "width": 2048,
+            "height": 1472,
+            "byteCount": 5149288,
+            "sha256": "b5fa826f710a62f5759db10800f5f06574c55101f3d046f05f19085404cc2ae2"
+          }
+        }
+      ]
+    },
+    {
+      "stage": "extend-outpaint",
+      "chainId": "24c07312-a5ec-4741-a4c9-d10889056137",
+      "provider": "openai",
+      "requestedModel": "gpt-image-2.5-sunburst",
+      "providerOrder": [
+        "openai",
+        "gemini",
+        "xai"
+      ],
+      "attempts": [
+        {
+          "attemptId": "0b565b58-9f73-4b68-a360-ee0bd6198d47",
+          "stage": "extend-outpaint",
+          "ordinal": 1,
+          "provider": "openai",
+          "requestedModel": "gpt-image-2.5-sunburst",
+          "startedAt": "2026-09-15T07:47:25.283Z",
+          "completedAt": "2026-09-15T07:47:49.919Z",
+          "durationMs": 24636,
+          "outcome": "successful",
+          "usage": {
+            "inputTokens": 1615,
+            "outputTokens": 367,
+            "totalTokens": 1982
+          },
+          "image": {
+            "mimeType": "image/png",
+            "width": 2048,
+            "height": 1152,
+            "byteCount": 4142098,
+            "sha256": "cf61e8cabb3773735b62b3b30d79fd5f8d23889720aca42f4852578fe5c80c6a"
+          }
+        }
+      ]
+    }
+  ]
+}

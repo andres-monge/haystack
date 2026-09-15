@@ -1,0 +1,128 @@
+{
+  "id": "beach-painting-landscape",
+  "artworkSource": "/Users/andresm/Downloads/beach-painting.jpg",
+  "scenario": {
+    "timestampLocal": "2026-09-15T07:44:45.697Z",
+    "hour": 9,
+    "isDay": true
+  },
+  "prompt": "Seamlessly extend this artwork to a wide 16:9 landscape. The existing edges\nmust continue naturally with no visible seam — elements at the boundaries\n(trees, buildings, terrain) should flow uninterrupted into the new space.\nExpand by revealing more of the same scene, not by generating new disconnected\ncontent. Preserve the EXACT artistic style, medium, color palette, and lighting\nthroughout.",
+  "model": "gpt-image-2.5-sunburst",
+  "createdAt": "2026-09-15T07:44:45.697Z",
+  "outputPath": "/Users/andresm/Documents/Cursor Projects/haystack/artwork/beach-painting-landscape.png",
+  "usageMetadata": {
+    "promptTokenCount": 1593,
+    "candidatesTokenCount": 367,
+    "totalTokenCount": 1960
+  },
+  "provider": "openai",
+  "mimeType": "image/png",
+  "width": 2048,
+  "height": 1152,
+  "byteCount": 3726253,
+  "sha256": "aad8297786b9b0f1bb3183320101293bfc90db25f2860ba0a2726dffabee6416",
+  "providerOrder": [
+    "openai",
+    "gemini",
+    "xai"
+  ],
+  "attempts": [
+    {
+      "attemptId": "30c23052-44ab-4f35-a32b-479f98e8ef23",
+      "stage": "extend-outpaint",
+      "ordinal": 1,
+      "provider": "openai",
+      "requestedModel": "gpt-image-2.5-sunburst",
+      "startedAt": "2026-09-15T07:44:20.687Z",
+      "completedAt": "2026-09-15T07:44:45.697Z",
+      "durationMs": 25010,
+      "outcome": "successful",
+      "usage": {
+        "inputTokens": 1593,
+        "outputTokens": 367,
+        "totalTokens": 1960
+      },
+      "image": {
+        "mimeType": "image/png",
+        "width": 2048,
+        "height": 1152,
+        "byteCount": 3726253,
+        "sha256": "aad8297786b9b0f1bb3183320101293bfc90db25f2860ba0a2726dffabee6416"
+      }
+    }
+  ],
+  "extendStages": [
+    {
+      "stage": "extend-cleanup",
+      "chainId": "a9208ec8-e1ee-4869-9579-7bab48d831b1",
+      "provider": "openai",
+      "requestedModel": "gpt-image-2.5-sunburst",
+      "providerOrder": [
+        "openai",
+        "gemini",
+        "xai"
+      ],
+      "attempts": [
+        {
+          "attemptId": "f0aeccc8-97d6-49a3-8553-1ca6337fa6c7",
+          "stage": "extend-cleanup",
+          "ordinal": 1,
+          "provider": "openai",
+          "requestedModel": "gpt-image-2.5-sunburst",
+          "startedAt": "2026-09-15T07:43:56.887Z",
+          "completedAt": "2026-09-15T07:44:20.682Z",
+          "durationMs": 23795,
+          "outcome": "successful",
+          "usage": {
+            "inputTokens": 1613,
+            "outputTokens": 563,
+            "totalTokens": 2176
+          },
+          "image": {
+            "mimeType": "image/png",
+            "width": 2048,
+            "height": 1568,
+            "byteCount": 5379797,
+            "sha256": "05f3ef8a86576c77c6768505ac15f7ffc9f35fe0cafe1bb6c641a55e47347eac"
+          }
+        }
+      ]
+    },
+    {
+      "stage": "extend-outpaint",
+      "chainId": "03974832-320b-4035-8860-3f9283afc9a9",
+      "provider": "openai",
+      "requestedModel": "gpt-image-2.5-sunburst",
+      "providerOrder": [
+        "openai",
+        "gemini",
+        "xai"
+      ],
+      "attempts": [
+        {
+          "attemptId": "30c23052-44ab-4f35-a32b-479f98e8ef23",
+          "stage": "extend-outpaint",
+          "ordinal": 1,
+          "provider": "openai",
+          "requestedModel": "gpt-image-2.5-sunburst",
+          "startedAt": "2026-09-15T07:44:20.687Z",
+          "completedAt": "2026-09-15T07:44:45.697Z",
+          "durationMs": 25010,
+          "outcome": "successful",
+          "usage": {
+            "inputTokens": 1593,
+            "outputTokens": 367,
+            "totalTokens": 1960
+          },
+          "image": {
+            "mimeType": "image/png",
+            "width": 2048,
+            "height": 1152,
+            "byteCount": 3726253,
+            "sha256": "aad8297786b9b0f1bb3183320101293bfc90db25f2860ba0a2726dffabee6416"
+          }
+        }
+      ]
+    }
+  ]
+}
