@@ -37,7 +37,17 @@ const VALID_ASPECT_RATIOS: ReadonlySet<AspectRatio> = new Set([
   ...CONFIGURED_ASPECT_RATIOS,
 ]);
 
+export interface StoryConfig {
+  enabled: boolean;
+  prepareTime: string;
+  stateDir: string;
+  codexPath: string;
+  /** Root of the synced vault; engine appends Haystack/TV Today.md. */
+  trailerDir?: string;
+}
+
 export interface HaystackConfig {
+  story: StoryConfig;
   googleApiKey: string;
   /** Direct credentials retained server-side for provider construction only. */
   providerKeys: Readonly<ProviderApiKeys>;
@@ -259,6 +269,30 @@ function parseAspectRatio(raw: string | undefined): AspectRatio | undefined {
   return raw as AspectRatio;
 }
 
+function parseStoryConfig(env: NodeJS.ProcessEnv): StoryConfig {
+  const enabled = env.HAYSTACK_STORY_ENABLED ?? "false";
+  if (!["true", "false"].includes(enabled)) {
+    throw new Error("Invalid HAYSTACK_STORY_ENABLED: use true or false");
+  }
+  const prepareTime = env.HAYSTACK_STORY_PREPARE_TIME ?? "06:45";
+  if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(prepareTime)) {
+    throw new Error("Invalid HAYSTACK_STORY_PREPARE_TIME: use HH:MM");
+  }
+  const absolute = (name: string, fallback?: string): string | undefined => {
+    const value = env[name] ?? fallback;
+    if (value !== undefined && !path.isAbsolute(value)) {
+      throw new Error(`Invalid ${name}: an absolute path is required`);
+    }
+    return value;
+  };
+  return {
+    enabled: enabled === "true", prepareTime,
+    stateDir: absolute("HAYSTACK_STORY_DIR", path.join(os.homedir(), ".haystack", "stories"))!,
+    codexPath: absolute("HAYSTACK_CODEX_PATH", "/opt/homebrew/bin/codex")!,
+    trailerDir: absolute("HAYSTACK_TRAILER_DIR"),
+  };
+}
+
 /**
  * Load configuration from environment variables.
  */
@@ -270,6 +304,7 @@ export function loadConfigFromEnv(): HaystackConfig {
     providerKeys,
   );
   const config = {
+    story: parseStoryConfig(process.env),
     imageProviderOrder,
     outputDir:
       process.env.HAYSTACK_OUTPUT_DIR ??
@@ -294,6 +329,9 @@ export function loadConfigFromEnv(): HaystackConfig {
       "HAYSTACK_EXTEND_MODEL",
     ),
   } as Omit<HaystackConfig, "googleApiKey" | "providerKeys">;
+  if (config.story.enabled && (!config.imageDir || !config.schedulerLocation)) {
+    throw new Error("Story mode requires HAYSTACK_IMAGE_DIR and scheduler location");
+  }
   // Compatibility for pre-chain entry points until U4 migrates them. Keeping
   // this property non-enumerable prevents accidental config serialization.
   Object.defineProperty(config, "googleApiKey", {

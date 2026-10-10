@@ -521,3 +521,43 @@ describe("toProviderFactoryConfig", () => {
     expect(JSON.stringify(toPipelineConfig(config))).not.toContain("secret");
   });
 });
+
+
+describe("daily story configuration", () => {
+  const originalEnv = { ...process.env };
+  beforeEach(() => {
+    process.env = { GOOGLE_API_KEY: "test-key" };
+  });
+  afterEach(() => { process.env = { ...originalEnv }; });
+  it("is opt-in with morning preparation and absolute local paths", () => {
+    const config = loadConfigFromEnv();
+    expect(config.story.enabled).toBe(false);
+    expect(config.story.prepareTime).toBe("06:45");
+    expect(config.story.stateDir.startsWith("/")).toBe(true);
+    expect(config.story.codexPath.startsWith("/")).toBe(true);
+    expect(config.story.trailerDir).toBeUndefined();
+  });
+  it("requires scheduled artwork and location when enabled", () => {
+    process.env.HAYSTACK_STORY_ENABLED = "true";
+    expect(() => loadConfigFromEnv()).toThrow(/story.*image|image.*story/i);
+  });
+  it.each([
+    ["HAYSTACK_STORY_ENABLED", "yes"],
+    ["HAYSTACK_STORY_PREPARE_TIME", "6:45"],
+    ["HAYSTACK_STORY_PREPARE_TIME", "24:00"],
+    ["HAYSTACK_CODEX_PATH", "codex"],
+    ["HAYSTACK_STORY_DIR", "relative"],
+    ["HAYSTACK_TRAILER_DIR", "relative"],
+  ])("rejects invalid %s", (key, value) => {
+    process.env[key] = value;
+    expect(() => loadConfigFromEnv()).toThrow(key);
+  });
+  it("accepts opt-in and a separately configured trailer vault", () => {
+    Object.assign(process.env, {
+      HAYSTACK_STORY_ENABLED: "true", HAYSTACK_IMAGE_DIR: "/tmp/art",
+      HAYSTACK_LAT: "40", HAYSTACK_LON: "-3", HAYSTACK_TIMEZONE: "Europe/Madrid",
+      HAYSTACK_TRAILER_DIR: "/tmp/vault", HAYSTACK_CODEX_PATH: "/opt/homebrew/bin/codex",
+    });
+    expect(loadConfigFromEnv().story).toMatchObject({enabled:true,trailerDir:"/tmp/vault"});
+  });
+});
