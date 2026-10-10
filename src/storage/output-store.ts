@@ -234,6 +234,14 @@ export class OutputStore {
     return null;
   }
 
+  /** Sidecar commit records, including images requiring recovery. Never use for display. */
+  listCommittedMetadata(): RenderMetadata[] {
+    return this.getCommittedIdsSorted().flatMap(id => {
+      const metadata = this.loadMetadata(this.pathFor(`${id}.json`), id);
+      return metadata ? [metadata] : [];
+    });
+  }
+
   async listAll(): Promise<RenderMetadata[]> {
     return (await this.listResolved()).map(output => output.metadata);
   }
