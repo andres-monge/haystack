@@ -4,3 +4,5 @@ dist/
 .env.local
 .env*.local
 .gstack/
+
+.context/compound-engineering/
