@@ -133,7 +133,19 @@ export interface ExtendArtworkStageMetadata {
   attempts: readonly ProviderAttemptRecord[];
 }
 
+/** JSON-safe story identity and the exact images used by a successful Render. */
+export interface StoryRenderMetadata {
+  id: string;
+  date: string;
+  artworkHash: string;
+  sceneHour: number;
+  originalHash: string;
+  previousRenderId?: string;
+  previousHash?: string;
+}
+
 export interface RenderMetadata {
+  story?: StoryRenderMetadata;
   id: string;
   artworkSource: string;
   scenario: SerializedScenario; // JSON-safe, uses strings not Dates

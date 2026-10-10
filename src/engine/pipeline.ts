@@ -40,6 +40,7 @@ import type {
   PromptConfig,
   RenderMetadata,
   Scenario,
+  StoryRenderMetadata,
 } from "./types.js";
 import { serializeScenario } from "./types.js";
 import { OutputStore } from "../storage/output-store.js";
@@ -102,7 +103,15 @@ export interface PipelineDependencies {
   now?: () => number;
 }
 
+export type StoryRenderContext = Omit<StoryRenderMetadata, "originalHash" | "previousHash"> & {
+  originalHash?: string;
+  previousHash?: string;
+};
+
 export interface GenerateOptions {
+  /** Additional images ordered after the canonical original. */
+  referenceImagePaths?: readonly string[];
+  story?: StoryRenderContext;
   signal?: AbortSignal;
 }
 
@@ -187,7 +196,7 @@ export class Pipeline {
     this.#now = dependencies.now ?? Date.now;
   }
 
-  /** Always edits the original source once; provider fallback never chains outputs. */
+  /** Canonical source stays original; optional continuity frames follow it in every attempt. */
   async generate(
     imagePath: string,
     scenario: Scenario,
@@ -250,6 +259,43 @@ export class Pipeline {
         throw new PipelineGenerationError("source_validation_failed");
       }
 
+      const references: ValidatedImage[] = [];
+      for (const referencePath of options.referenceImagePaths ?? []) {
+        let bytes: Buffer;
+        try {
+          bytes = await this.#readSource(referencePath);
+        } catch {
+          throw new PipelineGenerationError("reference_read_failed");
+        }
+        try {
+          references.push(await this.#validateSource(bytes));
+        } catch {
+          throw new PipelineGenerationError("reference_validation_failed");
+        }
+      }
+      let story: StoryRenderMetadata | undefined;
+      if (options.story) {
+        const context = options.story;
+        if (context.artworkHash !== source.sha256
+          || (context.originalHash !== undefined && context.originalHash !== source.sha256)
+          || (context.previousHash !== undefined && context.previousHash !== references[0]?.sha256)
+          || Boolean(context.previousRenderId) !== (references.length === 1)
+          || references.length > 1) {
+          throw new PipelineGenerationError("story_reference_mismatch");
+        }
+        story = {
+          id: context.id,
+          date: context.date,
+          artworkHash: context.artworkHash,
+          sceneHour: context.sceneHour,
+          originalHash: source.sha256,
+          ...(context.previousRenderId ? {
+            previousRenderId: context.previousRenderId,
+            previousHash: references[0].sha256,
+          } : {}),
+        };
+      }
+
       let prompt: string;
       try {
         prompt = promptOverride
@@ -269,6 +315,7 @@ export class Pipeline {
         providerResult = await this.#chain.editImage({
           chainId,
           source,
+          ...(references.length > 0 ? { references } : {}),
           prompt,
           output: Object.freeze({
             stage,
@@ -312,6 +359,7 @@ export class Pipeline {
       const renderId = `${formatDate(now)}_${randomUUID().slice(0, 8)}`;
       const metadata: RenderMetadata = {
         id: renderId,
+        ...(story ? { story } : {}),
         artworkSource: imagePath,
         scenario: serializeScenario(scenario),
         prompt,

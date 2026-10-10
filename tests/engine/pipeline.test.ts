@@ -139,6 +139,59 @@ describe("Pipeline provider-chain integration", () => {
     );
   }
 
+  it("persists story identity and actual ordered reference hashes", async () => {
+    const previousPath = path.join(tempDir, "previous.png");
+    fs.writeFileSync(previousPath, PNG_BUFFER);
+    const order = ["gemini"] as const;
+    const chain = mockChain(async input => success(input.chainId!, "gemini", order, [attempt("gemini", "successful", 1)]), order);
+    const pipeline = makePipeline(chain);
+    const hash = validated().sha256;
+    const result = await pipeline.generate(testImagePath, createScenarioFromHour(18), "story", {
+      referenceImagePaths: [previousPath],
+      story: { id: "story-1", date: "2026-10-10", artworkHash: hash, sceneHour: 18, previousRenderId: "render-17" },
+    });
+    expect(chain.editImage.mock.calls[0][0].references).toMatchObject([{ sha256: hash }]);
+    expect(result.metadata.story).toEqual({
+      id: "story-1", date: "2026-10-10", artworkHash: hash, sceneHour: 18,
+      originalHash: hash, previousRenderId: "render-17", previousHash: hash,
+    });
+    const persisted = (await pipeline.getStore().listAll())[0];
+    expect(persisted.story).toEqual(result.metadata.story);
+  });
+
+  it("bootstraps a story from the original when no prior render exists", async () => {
+    const order = ["gemini"] as const;
+    const chain = mockChain(async input => success(input.chainId!, "gemini", order, [attempt("gemini", "successful", 1)]), order);
+    const pipeline = makePipeline(chain);
+    const hash = validated().sha256;
+    const result = await pipeline.generate(testImagePath, createScenarioFromHour(18), "story", {
+      story: { id: "late-story", date: "2026-10-10", artworkHash: hash, sceneHour: 18 },
+    });
+    expect(result.metadata.story).toEqual({ id: "late-story", date: "2026-10-10", artworkHash: hash, sceneHour: 18, originalHash: hash });
+    expect(chain.editImage.mock.calls[0][0]).not.toHaveProperty("references");
+  });
+
+  it("holds rather than dropping a missing required prior reference", async () => {
+    const chain = mockChain(vi.fn());
+    const pipeline = makePipeline(chain);
+    await expect(pipeline.generate(testImagePath, createScenarioFromHour(18), "story", {
+      referenceImagePaths: [path.join(tempDir, "missing.png")],
+      story: { id: "story", date: "2026-10-10", artworkHash: validated().sha256, sceneHour: 18, previousRenderId: "previous" },
+    })).rejects.toMatchObject({ safeCode: "reference_read_failed" });
+    expect(chain.editImage).not.toHaveBeenCalled();
+    expect(await pipeline.getStore().listAll()).toEqual([]);
+  });
+
+  it("rejects a story reference digest mismatch before provider work", async () => {
+    const chain = mockChain(vi.fn());
+    const pipeline = makePipeline(chain);
+    await expect(pipeline.generate(testImagePath, createScenarioFromHour(18), "story", {
+      referenceImagePaths: [testImagePath],
+      story: { id: "story", date: "2026-10-10", artworkHash: validated().sha256, sceneHour: 18, previousRenderId: "previous", previousHash: "wrong" },
+    })).rejects.toMatchObject({ safeCode: "story_reference_mismatch" });
+    expect(chain.editImage).not.toHaveBeenCalled();
+  });
+
   it.each(["gemini", "openai", "xai"] as const)(
     "persists one truthful %s winner with MIME-aware metadata",
     async winner => {
@@ -157,7 +210,7 @@ describe("Pipeline provider-chain integration", () => {
         prompt: expectedPrompt,
         output: { stage: "normal", aspectRatio: "source" },
       });
-      expect(expectedPrompt).toContain("makes the viewer do a double take and wonder what is going on");
+      expect(expectedPrompt).toContain("make the viewer do a double take and wonder what is going on");
       expect(result.metadata).toMatchObject({
         prompt: expectedPrompt,
         provider: winner,
@@ -299,7 +352,7 @@ describe("Pipeline provider-chain integration", () => {
     expect(compose).not.toHaveBeenCalled();
     expect(chain.editImage.mock.calls[0][0].prompt).toBe(expectedPrompt);
     expect(chain.editImage.mock.calls[0][0].prompt).not.toContain(
-      "makes the viewer do a double take and wonder what is going on",
+      "make the viewer do a double take and wonder what is going on",
     );
     expect(result.metadata.prompt).toBe(expectedPrompt);
     const persistedMetadata = JSON.parse(

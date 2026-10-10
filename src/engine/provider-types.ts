@@ -81,6 +81,8 @@ export type AbortProvenance = "caller_cancelled" | "chain_deadline";
 
 export interface ProviderEditInput {
   source: ValidatedImage;
+  /** Additional ordered images; canonical source is always sent first. */
+  references?: readonly ValidatedImage[];
   prompt: string;
   output: ImageOutputSpec;
   /** Optional chain-owned cancellation. Provider deadlines remain adapter-owned. */

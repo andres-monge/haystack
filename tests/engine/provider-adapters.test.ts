@@ -4,6 +4,7 @@ import type { createXai } from "@ai-sdk/xai";
 import sharp from "sharp";
 import { describe, expect, it, vi } from "vitest";
 import {
+  GeminiClient,
   GeminiImageProvider,
   GeminiNoImageError,
 } from "../../src/engine/gemini-client.js";
@@ -16,6 +17,12 @@ import {
   XaiImageProvider,
 } from "../../src/engine/xai-client.js";
 import { validateImage } from "../../src/engine/image-validation.js";
+
+const { geminiGenerate } = vi.hoisted(() => ({ geminiGenerate: vi.fn() }));
+vi.mock("@google/genai", async importOriginal => ({
+  ...await importOriginal<typeof import("@google/genai")>(),
+  GoogleGenAI: vi.fn().mockImplementation(() => ({ models: { generateContent: geminiGenerate } })),
+}));
 
 const PNG_16X9 = Buffer.from(
   "iVBORw0KGgoAAAANSUhEUgAAABAAAAAJCAIAAAC0SDtlAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAFUlEQVR4nGP4z8BAEmIY1cAwGEIJACRlj3Er7g4qAAAAAElFTkSuQmCC",
@@ -124,6 +131,36 @@ describe("direct provider clients", () => {
 });
 
 describe("production provider adapters", () => {
+  it("sends canonical original then previous frame through every adapter, with original geometry", async () => {
+    const source = await validateImage(PNG_2X1);
+    const previous = await validateImage(PNG_16X9);
+    const openaiGenerate = vi.fn().mockResolvedValue(imageResult(PNG_2X1));
+    const xaiGenerate = vi.fn().mockResolvedValue(imageResult(PNG_2X1));
+    geminiGenerate.mockResolvedValue({ candidates: [{ content: { parts: [{ inlineData: {
+      data: PNG_2X1.toString("base64"), mimeType: "image/png",
+    } }] } }] });
+    const providers = [
+      new OpenAIImageProvider("secret", { client: new OpenAIClient("secret", undefined, openAIDependencies(openaiGenerate)) }),
+      new XaiImageProvider("secret", { client: new XaiClient("secret", undefined, xaiDependencies(xaiGenerate)) }),
+      new GeminiImageProvider("secret", { client: new GeminiClient("secret") }),
+    ];
+    for (const provider of providers) {
+      await expect(provider.editImage({ source, references: [previous], prompt: "story", output: {
+        stage: "normal", aspectRatio: "source",
+      } })).resolves.toMatchObject({ outcome: "successful" });
+    }
+    expect(openaiGenerate.mock.calls[0][0]).toMatchObject({
+      prompt: { images: [PNG_2X1, PNG_16X9] }, size: "2048x1024",
+    });
+    expect(xaiGenerate.mock.calls[0][0]).toMatchObject({
+      prompt: { images: [PNG_2X1, PNG_16X9] }, providerOptions: { xai: { resolution: "1k" } },
+    });
+    const geminiRequest = geminiGenerate.mock.calls[0][0];
+    expect(geminiRequest.contents.filter((part: {inlineData?: unknown}) => part.inlineData)
+      .map((part: {inlineData: {data: string}}) => part.inlineData.data))
+      .toEqual([PNG_2X1.toString("base64"), PNG_16X9.toString("base64")]);
+    expect(geminiRequest.config.imageConfig).toEqual({ imageSize: "1K" });
+  });
   it("uses the production Gemini normal, cleanup, and 16:9 outpaint profiles", async () => {
     const editImage = vi.fn().mockImplementation(
       async (_bytes: Buffer, _prompt: string, config: { aspectRatio?: string }) => ({

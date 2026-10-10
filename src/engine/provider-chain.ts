@@ -84,6 +84,7 @@ export interface ProviderChainEditInput {
   /** Optional application-owned ID used to correlate pre/post-chain failures. */
   chainId?: string;
   source: ValidatedImage;
+  references?: readonly ValidatedImage[];
   prompt: string;
   output: ImageOutputSpec;
   signal?: AbortSignal;
@@ -372,6 +373,7 @@ export class ProviderChain {
     }
 
     let source: ValidatedImage;
+    let references: readonly ValidatedImage[] | undefined;
     let output: ImageOutputSpec;
     let prompt: string;
     try {
@@ -380,6 +382,7 @@ export class ProviderChain {
       }
       prompt = input.prompt;
       source = snapshotSource(input.source);
+      references = input.references?.map(reference => snapshotSource(reference));
       output = snapshotOutput(input.output);
     } catch (error) {
       const safeCode = error instanceof ChainInputError
@@ -419,6 +422,8 @@ export class ProviderChain {
         try {
           result = await adapter.editImage({
             source: Object.freeze({ ...source, bytes: Buffer.from(source.bytes) }),
+            ...(references ? { references: Object.freeze(references.map(reference =>
+              Object.freeze({ ...reference, bytes: Buffer.from(reference.bytes) }))) } : {}),
             prompt,
             output: Object.freeze({ ...output }),
             abort: runAbort.abort,

@@ -22,6 +22,7 @@ export const DEFAULT_OPENAI_IMAGE_MODEL = "gpt-image-2.5-sunburst";
 export const DEFAULT_OPENAI_IMAGE_QUALITY = "medium" as const;
 
 export interface OpenAIEditOptions {
+  referenceImages?: readonly Buffer[];
   size: `${number}x${number}`;
   quality: "low" | "medium" | "high";
   abortSignal?: AbortSignal;
@@ -54,7 +55,7 @@ export class OpenAIClient {
   ): Promise<RawProviderImageResult> {
     const result = await this.generate({
       model: this.imageModel,
-      prompt: { images: [imageBuffer], text: prompt },
+      prompt: { images: [imageBuffer, ...(options.referenceImages ?? [])], text: prompt },
       n: 1,
       size: options.size,
       maxRetries: 0,
@@ -145,6 +146,7 @@ export class OpenAIImageProvider implements ImageProviderAdapter {
     try {
       const size = openAIOutputSize(input);
       const result = await this.client.editImage(input.source.bytes, input.prompt, {
+        ...(input.references ? { referenceImages: input.references.map(reference => reference.bytes) } : {}),
         size,
         quality: DEFAULT_OPENAI_IMAGE_QUALITY,
         abortSignal,

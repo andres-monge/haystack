@@ -42,6 +42,7 @@ export interface ImageEditClient {
     imageInput: Buffer | string,
     prompt: string,
     config?: GeminiConfig,
+    referenceImages?: readonly Buffer[],
   ): Promise<EditImageResult>;
 }
 
@@ -143,6 +144,7 @@ export class GeminiClient implements ImageEditClient {
     imageInput: Buffer | string,
     prompt: string,
     config: GeminiConfig = DEFAULT_GEMINI_CONFIG,
+    referenceImages: readonly Buffer[] = [],
   ): Promise<EditImageResult> {
     let imageBuffer: Buffer;
 
@@ -165,9 +167,6 @@ export class GeminiClient implements ImageEditClient {
       );
     }
 
-    const base64Image = imageBuffer.toString("base64");
-    const mimeType = this.detectMimeType(imageBuffer);
-
     // Build imageConfig only with fields that are set
     const imageConfig: { aspectRatio?: string; imageSize?: string } = {};
     if (config.aspectRatio) {
@@ -177,10 +176,10 @@ export class GeminiClient implements ImageEditClient {
       imageConfig.imageSize = config.imageSize;
     }
 
-    const imagePart = {
+    const imageParts = [imageBuffer, ...referenceImages].map(bytes => ({
       inlineData: {
-        mimeType,
-        data: base64Image,
+        mimeType: this.detectMimeType(bytes),
+        data: bytes.toString("base64"),
       },
       ...(config.inputMediaResolution === "ultra_high"
         ? {
@@ -189,13 +188,13 @@ export class GeminiClient implements ImageEditClient {
             },
           }
         : {}),
-    };
+    }));
 
     const apiPromise = this.client.models.generateContent({
       model: config.model,
       contents: [
         { text: prompt },
-        imagePart,
+        ...imageParts,
       ],
       config: {
         responseModalities: ["TEXT", "IMAGE"],
@@ -363,7 +362,7 @@ export class GeminiImageProvider implements ImageProviderAdapter {
           ? { seed: this.seed }
           : {}),
         ...(input.abort ? { abortSignal: input.abort.signal } : {}),
-      });
+      }, input.references?.map(reference => reference.bytes));
       try {
         const image = await validateImageOutput(
           result.imageBuffer,

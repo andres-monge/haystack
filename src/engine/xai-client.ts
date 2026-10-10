@@ -40,6 +40,7 @@ export const XAI_EDIT_ASPECT_RATIOS = [
 export type XaiEditAspectRatio = typeof XAI_EDIT_ASPECT_RATIOS[number];
 
 export interface XaiEditOptions {
+  referenceImages?: readonly Buffer[];
   aspectRatio?: XaiEditAspectRatio;
   resolution: "1k" | "2k";
   quality: "low" | "medium";
@@ -73,7 +74,7 @@ export class XaiClient {
   ): Promise<RawProviderImageResult> {
     const result = await this.generate({
       model: this.imageModel,
-      prompt: { images: [imageBuffer], text: prompt },
+      prompt: { images: [imageBuffer, ...(options.referenceImages ?? [])], text: prompt },
       n: 1,
       ...(options.aspectRatio ? { aspectRatio: options.aspectRatio } : {}),
       maxRetries: 0,
@@ -175,6 +176,7 @@ export class XaiImageProvider implements ImageProviderAdapter {
 
     try {
       const result = await this.client.editImage(input.source.bytes, input.prompt, {
+        ...(input.references ? { referenceImages: input.references.map(reference => reference.bytes) } : {}),
         // A one-image xAI edit preserves its source geometry. Only the
         // already-16:9 outpaint path needs an explicit provider ratio.
         ...(aspectRatio ? { aspectRatio } : {}),

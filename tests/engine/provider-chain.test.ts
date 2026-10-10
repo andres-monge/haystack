@@ -81,6 +81,33 @@ function editInput(signal?: AbortSignal) {
 }
 
 describe("ProviderChain", () => {
+  it("snapshots additional references once and clones them for each fallback", async () => {
+    const previous = image(Buffer.from("previous-successful-frame"));
+    const originalPrevious = Buffer.from(previous.bytes);
+    const gemini = provider("gemini", async input => {
+      expect(input.references?.[0].bytes).toEqual(originalPrevious);
+      input.references![0].bytes.fill(0);
+      previous.bytes.fill(1);
+      return failure("gemini", "refusal");
+    });
+    const openai = provider("openai", async input => {
+      expect(input.references?.[0].bytes).toEqual(originalPrevious);
+      expect(input.source.bytes).toEqual(SOURCE_BYTES);
+      return success("openai");
+    });
+    await new ProviderChain(registry(gemini, openai)).editImage({ ...editInput(), references: [previous] });
+    expect(openai.editImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a corrupt required reference before any provider call", async () => {
+    const gemini = provider("gemini", async () => success("gemini"));
+    const previous = image();
+    previous.bytes.fill(0);
+    await expect(new ProviderChain(registry(gemini)).editImage({
+      ...editInput(), references: [previous],
+    })).rejects.toMatchObject({ outcome: "local_failure" });
+    expect(gemini.editImage).not.toHaveBeenCalled();
+  });
   it("uses configured order and stops after the first structurally valid image", async () => {
     const gemini = provider("gemini", async () => failure("gemini", "refusal"));
     const openai = provider("openai", async () => success("openai"));
@@ -173,7 +200,7 @@ describe("ProviderChain", () => {
       byteCount: SOURCE_BYTES.length,
       sha256: image().sha256,
     });
-    expect(storyPrompt).toContain("makes the viewer do a double take and wonder what is going on");
+    expect(storyPrompt).toContain("make the viewer do a double take and wonder what is going on");
   });
 
   it("accepts and snapshots a configured normal aspect ratio", async () => {
