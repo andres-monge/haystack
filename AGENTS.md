@@ -2,6 +2,14 @@
 
 AI-powered macOS wallpaper that evolves hourly based on time and weather. Uses Gemini image editing to transform a base artwork.
 
+## Solo-project Git workflow
+
+- This is a solo project. Pull requests are not required; commit and push verified task changes directly to `main`.
+- Use the existing checkout and `main` for new work when `main` has no uncommitted changes. Do not create a new branch or worktree by default.
+- If `main` already has uncommitted work, preserve it and use a separate branch for the new task; never reset, discard or include unrelated changes.
+- Existing feature-branch work can be completed and integrated into `main` after verification. A skill's branch/PR defaults do not override these user instructions.
+- Direct-to-main permission does not itself authorize deployment or unrelated live changes. Follow the scope and deployment authorization given in the conversation.
+
 ## Project status
 
 Early development. Phase A1 (engine + pipeline + CLI) and A2 (Lab UI + weather integration) are complete.
