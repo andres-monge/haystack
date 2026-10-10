@@ -1,6 +1,7 @@
 // src/server/scheduler.ts — Hourly generation scheduler
 
 import { readFile } from "node:fs/promises";
+import { exportRecap } from "../story/recap-export.js";
 import type { StoryStore } from "../story/story-store.js";
 import type { ReadyStory } from "../story/types.js";
 import { composeScenePrompt } from "../story/scene-prompt.js";
@@ -31,6 +32,7 @@ export interface SchedulerConfig {
   activeEnd?: number;
   /** Presence enables opt-in scheduled daily stories. Overrides remain independent. */
   storyStore?: StoryStore;
+  trailerDir?: string;
 }
 
 export class StoryUnavailableError extends Error {
@@ -57,6 +59,9 @@ export class HourlyScheduler {
 
   constructor(config: SchedulerConfig) {
     this.config = config;
+    if (config.storyStore) {
+      config.pipeline.getStore().setCommitObserver(output => config.storyStore!.recordCommittedProgress(output));
+    }
   }
 
   /** Whether the scheduler is actively running (has a pending timer). */
@@ -296,6 +301,10 @@ export class HourlyScheduler {
       const committed = await pipeline.getStore().resolve(result.metadata.id);
       if (!committed) throw new Error('Successful story render is not committed');
       await this.config.storyStore.commitContinuity(ready.story, committed);
+      if (this.config.trailerDir) {
+        try { await exportRecap(this.config.storyStore, ready.story.date, this.config.trailerDir, pipeline.getStore()); }
+        catch { console.warn(`[${new Date().toISOString()}] Daily recap export failed; use story:prepare -- --export to retry`); }
+      }
       return result;
     }
 

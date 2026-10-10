@@ -23,6 +23,7 @@ describe("morning preparation service",()=>{
     vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-10T04:45:00Z"));await service.checkNow();
     expect(prepare).toHaveBeenCalledTimes(1);expect(onReady).not.toHaveBeenCalled();
     expect(readFileSync(join(dir,"vault","Haystack","TV Today.md"),"utf8")).toContain('date: "2026-10-10"');
+    expect(readFileSync(join(dir,"vault","Haystack","TV Story So Far.md"),"utf8")).toContain('latest_scene_hour: null');
     vi.useFakeTimers();vi.setSystemTime(new Date("2026-10-10T07:00:00Z"));await service.checkNow();expect(prepare).toHaveBeenCalledTimes(1);
   });
   it("startup catch-up prepares once then requests the current scene during active hours",async()=>{

@@ -99,6 +99,7 @@ Plan: `docs/plans/2026-10-10-1307-feat-daily-artwork-stories-plan.md`
 - [x] U4 Scheduled story scenes, deduplication and continuity
 - [x] U5 Trailer export and preparation scheduling
 - [x] U6 Local verification and activation documentation (household acceptance remains a release check)
+- [x] U7 Current-day committed-scene recap, purge-safe evidence and recovery
 
 | Unit | Status | Date |
 |------|--------|------|
@@ -108,3 +109,4 @@ Plan: `docs/plans/2026-10-10-1307-feat-daily-artwork-stories-plan.md`
 | U4 | done | 2026-10-10 |
 | U5 | done; temporary-vault contract verified | 2026-10-10 |
 | U6 | local verification done; release checks documented | 2026-10-10 |
+| U7 | done; full review findings fixed, build and 646 tests pass | 2026-10-10 |

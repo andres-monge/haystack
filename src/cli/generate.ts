@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 
 import * as fs from "node:fs";
+import { StoryStore } from "../story/story-store.js";
 import {
   createProductionPipeline,
   createScenarioFromHour,
@@ -52,6 +53,11 @@ async function main(): Promise<void> {
     toPipelineConfig(config),
     toProviderFactoryConfig(config),
   );
+
+  if (config.story.enabled) {
+    const stories = new StoryStore(config.story.stateDir);
+    pipeline.getStore().setCommitObserver(output => stories.recordCommittedProgress(output));
+  }
 
   const scenario =
     hourRaw !== undefined

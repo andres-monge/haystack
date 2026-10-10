@@ -2,7 +2,7 @@
 
 Daily story mode is opt-in. Haystack prepares one standalone story from today's artwork and full forecast, then depicts the current hourly scene. Interactive editing, scenario overrides and artwork extension keep their independent prompts and original-only references.
 
-A local `codex exec` process uses the existing ChatGPT login with `gpt-6.1-sol` at medium effort. It receives the original artwork, today's forecast and up to 14 brief recent-story summaries. One bounded call proposes the cast, complete scene states, ending and a spoiler-free Spanish trailer. Structural validation protects identity and scene slots; narrative taste still needs household review.
+A local `codex exec` process uses the existing ChatGPT login with `gpt-6.1-sol` at medium effort. It receives the original artwork, today's forecast and up to 14 brief recent-story summaries. One bounded call proposes the cast, complete scene states, ending and a spoiler-free Spanish trailer. The baseline aims for noticeable changes in activity, positions and props, simple visual legibility, personality and a warm ending. Comedy, adventure, suspense, tenderness and inspiration are available; moral growth and a major plot turn every hour are not required. Structural validation protects identity and scene slots; narrative taste still needs household review.
 
 ## Configuration and activation
 
@@ -13,11 +13,11 @@ HAYSTACK_STORY_ENABLED=false
 HAYSTACK_STORY_PREPARE_TIME=06:45
 HAYSTACK_STORY_DIR=/absolute/path/to/story-state
 HAYSTACK_CODEX_PATH=/opt/homebrew/bin/codex
-# Optional: root of the existing synced Obsidian vault
+# Optional: root of the existing synced Obsidian vault (both public notes)
 HAYSTACK_TRAILER_DIR=/absolute/path/to/vault
 ```
 
-Story mode needs `HAYSTACK_IMAGE_DIR`, latitude, longitude and timezone. Preparation uses the configured timezone, normally Europe/Madrid; the shared trailer handoff requires Europe/Madrid. Active hours are exactly the existing start-inclusive/end-exclusive window, or all 24 hours if unset. Preparation is independent of that window: the resident server checks the morning time and catches up after waking before active end. It prepares only an unprepared date. No writer retry runs automatically after a persisted failed or interrupted attempt.
+Story mode needs `HAYSTACK_IMAGE_DIR`, latitude, longitude and timezone. Preparation uses the configured timezone, normally Europe/Madrid; the shared trailer handoff requires Europe/Madrid. Active hours are exactly the existing start-inclusive/end-exclusive window, or all 24 hours if unset. The current deployment configuration is 08:00–22:00, giving fourteen slots, 08 through 21. Preparation is independent of that window: the resident server checks the morning time and catches up after waking before active end. It prepares only an unprepared date. No writer retry runs automatically after a persisted failed or interrupted attempt.
 
 Authenticate with `codex login` and verify `codex login status` says ChatGPT. The executable path is absolute, so launchd's minimal PATH need not contain Codex. The writer uses a dedicated temporary cwd, ignores user configuration/rules, disables apps, MCP configuration inheritance, hooks, plugins and shell tools, and allowlists runtime/login environment fields. API keys and unrelated credentials never enter its environment. Execution is ephemeral and read-only, bounded to 300 seconds and 1 MiB of captured output. Read-only restricts writes; it is not filesystem read isolation. The writer receives no vault path or note contents.
 
@@ -28,7 +28,7 @@ This implementation does not change live environment files, install launchd jobs
 ```bash
 npm run story:prepare                 # prepare today, reusing a ready artifact
 npm run story:prepare -- --retry      # explicitly retry a failed attempt
-npm run story:prepare -- --export     # export an already-ready trailer only
+npm run story:prepare -- --export     # re-export the ready trailer and committed recap; no generation
 ```
 
 These commands use local configuration and can write the configured trailer destination. For trials, point story, rotation and trailer storage at temporary fixtures; do not use the live vault. Export failure does not discard a ready story. `--export` retries only the handoff, with no writer call. Missing forecast or incomplete/non-finite slots cannot produce a ready story or new trailer.
@@ -43,7 +43,7 @@ Story JSON, original and latest continuity snapshots live outside normal output 
 
 ## Public trailer contract
 
-Only `Haystack/TV Today.md` is exported, atomically after story commit:
+`Haystack/TV Today.md` keeps its exact original contract, atomically after story commit:
 
 ```yaml
 ---
@@ -56,7 +56,19 @@ generated_at: "2026-10-10T04:45:00.000Z"
 ---
 ```
 
-The body contains exactly the Spanish trailer sentence. Full beats, history and image references remain local. The date is never relabeled during re-export. Existing Obsidian Sync transports the note; no additional sync service is introduced. Carson must reject absent, invalid or stale notes and add the eligible trailer under `¿Qué pasa hoy en la tele?` in the established single 08:00 message. That consumer change belongs to its separate plan; the 07:30 priorities planner is unaffected.
+The body contains exactly the Spanish trailer sentence. Future beats, full premise/cast, separate ending, history and image references remain local. The date is never relabeled during re-export. Existing Obsidian Sync transports the note; no additional sync service is introduced. Carson must reject absent, invalid or stale notes and add the eligible trailer under `¿Qué pasa hoy en la tele?` in the established single 08:00 message. That consumer change belongs to its separate plan; the 07:30 priorities planner is unaffected.
+
+## Current story so far
+
+The same configured vault root receives one fixed `Haystack/TV Story So Far.md`. Its header contains `schema_version: 1`, the quoted Madrid-local `date`, `story_id`, `artwork_id`, `ready: true`, ISO `updated_at`, and nullable `latest_scene_hour`. The body starts with the spoiler-free trailer, followed only by chronological `## HH:00` sections containing the committed scenes' state/action. These hours identify story slots; they do not mean an action lasted an hour.
+
+Preparation initially publishes trailer-only zero progress. Only successfully committed same-story renders can advance it. Failed, skipped, interactive, wrong-story and future slots are excluded; skipped hours remain gaps. A later successful scene may describe current cumulative state without claiming the missing scene occurred. The full premise, cast catalogue, future scenes and separate ending field are never exported. The final scene's visible result becomes eligible when its render commits.
+
+Progress is captured durably outside normal image retention before purge. Retained commit evidence can repair a missed capture on restart, and `story:prepare -- --export` republishes without another writer or image call. Publication is atomic and ordered, with current-date/identity checks: delayed yesterday work cannot replace today's note, nor can an older prefix replace a newer one. Export failure does not invalidate an already successful render. No exported recap archive is created.
+
+A busy or failed final publication needs restart or explicit re-export if no later scene succeeds. During a progress-storage outage, cleanup preserves uncaptured sidecars and may temporarily retain more images than the configured limit; normal cleanup resumes after recovery.
+
+Carson's separately owned Spanish `tv-story-so-far` skill reads this exact note through its existing Obsidian capability. It validates current Madrid date/readiness/identity and never extrapolates the plot. Before the first render, it can give only the trailer and say that no story scene has been generated. A missing or stale note yields an honest unavailable response. Generated progress is not an acknowledgement that the TV displayed an image; the kiosk has no display acknowledgement. Delayed sync means the consumer reports the last available generated update.
 
 ## Release checks
 
@@ -90,3 +102,11 @@ Two further production-wrapper calls used the final prompt at `8a115af`, the sam
 Neither repeats concerts or croquet, but both reuse Inés/Tomás, helpers solving a practical problem and a warm cooperative finish. The dragon's proud adult learning from another character echoes the croquet arc. No written lettering or modern props were requested, and both trailers leave the resolution unrevealed. Setting preservation and current-weather authority are supported in the text and prompt; no image run demonstrates them.
 
 The compact human review is `.context/compound-engineering/daily-story-verification/final-prompt-review.md`, with source links and clearly marked spoiler scenes. Full prompts, proposals, validated stories and receipts are adjacent. These two runs close the final-writer-prompt smoke gap; they do not establish household acceptance or rendered visual quality. Runtime code is unchanged, so the existing build/637-test result still applies; only documentation verification was repeated.
+
+### Recap producer verification
+
+The U7 review completed at `/tmp/compound-engineering-501/ce-code-review/20261010-210438-ae0418b5`. Both confirmed findings were resolved: unavailable story storage now postpones purge of uncaptured commit evidence, and the future-scene recovery test retains its evidence through the late-clock assertion. The outage regression failed before the fix and passed afterward. Exact zero-progress and committed-progress notes assert every header field and the visible trailer/state/action content.
+
+Final TypeScript build and all 646 tests across 31 files passed after the fixes. ESLint remains unavailable because the existing repository has no ESLint 9 configuration. Three simplification reviewers found no useful reuse or clarity change; two bounded-work efficiency suggestions were skipped to retain conservative recovery timing.
+
+The approved single-call creative baseline produced today's real `El retrato del dueño`, using `gpt-6.1-sol` at medium effort and the frozen current `ghibli-bar.jpeg`. All fourteen slots, 08 through 21, validated. Its artwork hash matches the current rotation selection; preparation neither selected tomorrow nor regenerated an existing ready story. This is writer and identity evidence, not a full-day image-continuity trial.

@@ -4,6 +4,8 @@ import { getDateString } from "../src/server/image-rotation.js";
 import { CodexStoryWriter } from "../src/story/codex-writer.js";
 import { DailyStoryPreparer } from "../src/story/prepare-story.js";
 import { StoryStore } from "../src/story/story-store.js";
+import { OutputStore } from "../src/storage/output-store.js";
+import { exportRecap } from "../src/story/recap-export.js";
 import { exportTrailer } from "../src/story/trailer-export.js";
 
 dotenv.config({path:".env.local",quiet:true});
@@ -29,7 +31,8 @@ async function main(): Promise<void> {
   console.log(`Ready story: ${ready.story.id} (${ready.story.date})`);
   if (config.story.trailerDir) {
     await exportTrailer(store,date,config.story.trailerDir);
-    console.log("Dated public trailer exported");
+    await exportRecap(store,date,config.story.trailerDir,new OutputStore(config.outputDir,config.maxStoredOutputs));
+    console.log("Dated public trailer and current story recap exported");
   } else if (args.includes("--export")) throw new Error("HAYSTACK_TRAILER_DIR is required for export");
 }
 main().catch(()=>{console.error("Daily story operation failed; check local configuration/failure state. No automatic retry was attempted.");process.exitCode=1;});

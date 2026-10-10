@@ -986,7 +986,7 @@ describe("scheduled daily stories with durable stores", () => {
       return { metadata: (await outputs.resolve(meta.id))!.metadata, imagePath, imageBuffer: fs.readFileSync(imagePath) };
     });
     const pipeline = { generate, getStore: () => outputs } as unknown as import('../../src/engine/pipeline.js').Pipeline;
-    const scheduler = new HourlyScheduler(createSchedulerConfig({ pipeline, storyStore, imageDir: '/no-live-artwork-selection', activeStart: 9, activeEnd: 13, location: {lat:40,lon:-3,timezone:'Europe/Madrid'} }));
+    const scheduler = new HourlyScheduler(createSchedulerConfig({ pipeline, storyStore, trailerDir: path.join(dir,'vault'), imageDir: '/no-live-artwork-selection', activeStart: 9, activeEnd: 13, location: {lat:40,lon:-3,timezone:'Europe/Madrid'} }));
     return { scheduler, generate, storyStore, original, s, outputs };
   }
   it('jumps from first to fourth scene with original plus preceding success and deduplicates the story slot', async () => {
@@ -1006,6 +1006,23 @@ describe("scheduled daily stories with durable stores", () => {
     vi.setSystemTime(new Date('2026-10-10T10:50:00Z'));
     expect(await scheduler.runNowIfNoRecentRender(30*60*1000)).toMatchObject({generated:false,latest:{id:fourth.result.metadata.id}});
     expect(generate).toHaveBeenCalledTimes(2);
+  });
+  it('exports committed gaps and leaves successful renders valid when recap publication fails', async () => {
+    const {scheduler,generate}=await setup();
+    await scheduler.runNow();
+    const target=path.join(dir,'vault','Haystack','TV Story So Far.md');
+    expect(fs.readFileSync(target,'utf8')).toContain('latest_scene_hour: 9');
+    vi.setSystemTime(new Date('2026-10-10T08:05:00Z'));
+    generate.mockRejectedValueOnce(exhausted());
+    await expect(scheduler.runNow()).rejects.toBeInstanceOf(ProviderChainExhaustedError);
+    expect(fs.readFileSync(target,'utf8')).toContain('latest_scene_hour: 9');
+    vi.setSystemTime(new Date('2026-10-10T09:05:00Z'));
+    await scheduler.runNow();
+    const note=fs.readFileSync(target,'utf8');
+    expect(note).toContain('## 09:00'); expect(note).toContain('## 11:00'); expect(note).not.toContain('## 10:00');
+    fs.rmSync(path.join(dir,'vault'),{recursive:true}); fs.writeFileSync(path.join(dir,'vault'),'blocked');
+    vi.setSystemTime(new Date('2026-10-10T10:05:00Z'));
+    await expect(scheduler.runNow()).resolves.toMatchObject({metadata:{story:{sceneHour:12}}});
   });
   it('holds missing story without paying for legacy generation', async () => {
     const {scheduler, generate} = await setup();

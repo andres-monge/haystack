@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readdirSync, renameSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -102,4 +102,25 @@ it('rejects yesterday-dated sidecar conditions even when story fields were copie
   const copied = metadata(s, 'copied-story', 9);
   await outputs.save(await image('blue'), {...copied,scenario:{...copied.scenario,timestampLocal:'2026-10-09T07:00:00Z'}});
   expect((await store.getReferences(s, 10, outputs)).previous).toBeUndefined();
+});
+
+it('retains uncaptured commits while original is unavailable, then recovers before purge', async () => {
+  const { d, store, s, original } = await ready();
+  const now = new Date('2026-10-10T12:30:00Z');
+  const outputs = new OutputStore(join(d, 'outputs'), 1);
+  const committed = metadata(s, 'render-1', 9);
+  committed.scenario.timestampLocal = '2026-10-10T07:00:00Z';
+  committed.createdAt = '2026-10-10T07:05:00Z';
+  // Simulate a crash between sidecar promotion and story-owned progress capture.
+  await outputs.save(await image('blue'), committed);
+  outputs.setCommitObserver(output => store.recordCommittedProgress(output, now));
+  const missing = `${original.path}.unavailable`;
+  renameSync(original.path, missing);
+  try {
+    await expect(outputs.save(await image('green'), { ...metadata(s, 'render-2', 10), story: undefined })).resolves.toBeTruthy();
+    expect(await outputs.resolve('render-1')).not.toBeNull();
+  } finally { renameSync(missing, original.path); }
+  await outputs.save(await image('yellow'), { ...metadata(s, 'render-3', 11), story: undefined });
+  expect(await outputs.resolve('render-1')).toBeNull();
+  expect(store.committedHours(s, now)).toEqual([9]);
 });

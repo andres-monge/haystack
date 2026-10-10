@@ -1,0 +1,121 @@
+import { mkdtempSync, readFileSync, rmSync, readdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, expect, it, vi } from 'vitest';
+import { StoryStore } from '../../src/story/story-store.js';
+import { OutputStore } from '../../src/storage/output-store.js';
+import { exportRecap } from '../../src/story/recap-export.js';
+import { hours, image, story } from './fixtures.js';
+import type { RenderMetadata } from '../../src/engine/types.js';
+const dirs: string[] = [];
+afterEach(() => { vi.useRealTimers(); dirs.splice(0).forEach(d => rmSync(d, { recursive: true, force: true })); });
+async function fixture() {
+  vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-10T12:30:00Z'));
+  const d = mkdtempSync(join(tmpdir(), 'haystack-recap-')); dirs.push(d);
+  const store = new StoryStore(join(d, 'stories'));
+  const original = await store.snapshotOriginal('2026-10-10', await image());
+  const s = story(original.sha256);
+  s.premise = 'PRIVATE_PREMISE'; s.cast[0].identity = 'PRIVATE_CAST'; s.ending = 'PRIVATE_ENDING';
+  s.scenes[2].action = 'FUTURE_ACTION';
+  await store.commit(s, hours);
+  const outputs = new OutputStore(join(d, 'outputs'), 1);
+  const vault = join(d, 'vault');
+  const meta = (id: string, hour: number): RenderMetadata => ({ id, artworkSource: 'original.png', scenario: {timestampLocal: `2026-10-10T${String(hour-2).padStart(2,'0')}:00:00Z`, hour, isDay: true}, prompt: 'PRIVATE_PROMPT', model: 'fake', createdAt: `2026-10-10T${String(hour-2).padStart(2,'0')}:00:00Z`, outputPath: '', story: {id: s.id,date: s.date,artworkHash:s.artworkHash,originalHash:s.artworkHash,sceneHour:hour} }) as RenderMetadata;
+  return { d, store, s, outputs, vault, meta };
+}
+it('publishes ready trailer-only then committed gaps, excluding private and future fields', async () => {
+  const {store,s,outputs,vault,meta} = await fixture();
+  let target = await exportRecap(store,s.date,vault,outputs);
+  const header = `---\nschema_version: 1\ndate: "2026-10-10"\nstory_id: "story-2026-10-10"\nartwork_id: "${s.artworkHash}"\nready: true\nupdated_at: "2026-10-10T12:30:00.000Z"\n`;
+  expect(readFileSync(target,'utf8')).toBe(`${header}latest_scene_hour: null\n---\n\nUna niña prepara una sorpresa alegre entre las flores.\n`);
+  await outputs.save(await image('blue'),meta('r9',9));
+  target = await exportRecap(store,s.date,vault,outputs);
+  expect(readFileSync(target,'utf8')).toContain('## 09:00');
+  expect(readFileSync(target,'utf8')).not.toMatch(/PRIVATE_|FUTURE_ACTION|## 10:00/);
+  await outputs.save(await image('green'),meta('z11',11));
+  await exportRecap(store,s.date,vault,outputs);
+  const note=readFileSync(target,'utf8');
+  expect(note).toBe(`${header}latest_scene_hour: 11\n---\n\nUna niña prepara una sorpresa alegre entre las flores.\n\n## 09:00\n\nLa maceta sigue junto a la puerta.\n\nAna cuida el jardín a las 9.\n\n## 11:00\n\nLa maceta sigue junto a la puerta.\n\nFUTURE_ACTION\n`);
+  expect(readdirSync(join(vault,'Haystack'))).toEqual(['TV Story So Far.md']);
+});
+it('rejects copied identities and future-hour commits permanently, including after recovery',async()=>{
+  const {store,s,outputs,vault,meta}=await fixture();
+  vi.setSystemTime(new Date('2026-10-10T07:30:00Z'));
+  const future=meta('future',11); future.createdAt='2026-10-10T07:30:00Z';
+  await outputs.save(await image('blue'),future);
+  await exportRecap(store,s.date,vault,outputs);
+  vi.setSystemTime(new Date('2026-10-10T12:30:00Z'));
+  expect(await outputs.resolve('future')).not.toBeNull();
+  const recovered=await exportRecap(store,s.date,vault,outputs);
+  expect(readFileSync(recovered,'utf8')).toContain('latest_scene_hour: null');
+  expect(readFileSync(recovered,'utf8')).not.toContain('## 11:00');
+  const wrong=meta('wrong',10); wrong.story!.id='wrong-story';
+  await outputs.save(await image('green'),wrong);
+  const target=await exportRecap(store,s.date,vault,outputs);
+  expect(readFileSync(target,'utf8')).toContain('latest_scene_hour: null');
+});
+it('recovers commit evidence before purge and survives publication failure and restart',async()=>{
+  const {d,store,s,outputs,vault,meta}=await fixture();
+  outputs.setCommitObserver(async output => store.recordCommittedProgress(output));
+  await outputs.save(await image('blue'),meta('r9',9));
+  const unrelated={...meta('z-independent',10),story:undefined};
+  await outputs.save(await image('green'),unrelated);
+  expect(await outputs.resolve('r9')).toBeNull();
+  const restarted=new StoryStore(join(d,'stories'));
+  await expect(exportRecap(restarted,s.date,'/dev/null',outputs)).rejects.toThrow();
+  const target=await exportRecap(restarted,s.date,vault,outputs);
+  expect(readFileSync(target,'utf8')).toContain('## 09:00');
+});
+it('serializes snapshot creation and rechecks Madrid date after delayed loading',async()=>{
+  const {store,s,outputs,vault}=await fixture();
+  const original=store.load.bind(store); let release!:()=>void; let entered!:()=>void;
+  const loading=new Promise<void>(resolve=>{entered=resolve;});
+  vi.spyOn(store,'load').mockImplementationOnce(async date=>{ await new Promise<void>(resolve=>{release=resolve; entered();}); return original(date); });
+  const late=exportRecap(store,s.date,vault,outputs);
+  await loading; vi.setSystemTime(new Date('2026-10-10T22:00:00Z')); release();
+  await expect(late).rejects.toThrow(/current|date/i);
+});
+it('queued earlier exports cannot replace a newer prefix, and yesterday cannot replace today',async()=>{
+  const {store,s,outputs,vault,meta}=await fixture();
+  outputs.setCommitObserver(output=>store.recordCommittedProgress(output));
+  const original=store.load.bind(store); let release!:()=>void; let entered!:()=>void;
+  const loading=new Promise<void>(resolve=>{entered=resolve;});
+  vi.spyOn(store,'load').mockImplementationOnce(async date=>{await new Promise<void>(resolve=>{release=resolve;entered();});return original(date);});
+  const earlier=exportRecap(store,s.date,vault,outputs); await loading;
+  await outputs.save(await image('blue'),meta('r9',9));
+  const newer=exportRecap(store,s.date,vault,outputs); release();
+  await earlier; const target=await newer;
+  expect(readFileSync(target,'utf8')).toContain('latest_scene_hour: 9');
+  vi.setSystemTime(new Date('2026-10-10T22:01:00Z'));
+  const snapshot=await store.snapshotOriginal('2026-10-11',await image('green'));
+  const next={...s,date:'2026-10-11',id:'tomorrow',artworkHash:snapshot.sha256};
+  await store.commit(next,hours); await exportRecap(store,next.date,vault,outputs);
+  await expect(exportRecap(store,s.date,vault,outputs)).rejects.toThrow(/current|date/i);
+  expect(readFileSync(target,'utf8')).toContain('story_id: "tomorrow"');
+  expect(readFileSync(target,'utf8')).toContain('latest_scene_hour: null');
+  expect(readdirSync(join(vault,'Haystack'))).toEqual(['TV Story So Far.md']);
+});
+it('captures a crash-left sidecar before an unrelated purge; failed capture preserves recoverable evidence',async()=>{
+  const {d,store,s,outputs,vault,meta}=await fixture();
+  await outputs.save(await image('blue'),meta('r9',9));
+  outputs.setCommitObserver(async()=>{throw new Error('temporary capture failure');});
+  await expect(outputs.save(await image('green'),{...meta('z10',10),story:undefined})).resolves.toBeTruthy();
+  expect(await outputs.resolve('r9')).not.toBeNull();
+  const restarted=new StoryStore(join(d,'stories'));
+  outputs.setCommitObserver(output=>restarted.recordCommittedProgress(output));
+  await outputs.save(await image('yellow'),{...meta('zz11',11),story:undefined});
+  expect(await outputs.resolve('r9')).toBeNull();
+  const target=await exportRecap(restarted,s.date,vault,outputs);
+  expect(readFileSync(target,'utf8')).toContain('latest_scene_hour: 9');
+});
+it('requires a shared publication lease so a second producer cannot publish a stale snapshot',async()=>{
+  const {d,store,s,vault}=await fixture();
+  const target=await exportRecap(store,s.date,vault); const note=readFileSync(target,'utf8');
+  const lease=await store.acquireRecapPublication();
+  try {
+    const other=new StoryStore(join(d,'stories'));
+    await expect(exportRecap(other,s.date,vault)).rejects.toThrow(/progress/i);
+    expect(readFileSync(target,'utf8')).toBe(note);
+  } finally { await lease.release(); }
+  await expect(exportRecap(store,s.date,vault)).resolves.toBe(target);
+});

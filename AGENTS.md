@@ -52,7 +52,7 @@ src/engine/     — Core pipeline: scenario → prompt → Gemini API → output
 src/storage/    — Output store (images + metadata JSON sidecars)
 src/config/     — Environment-based configuration
 src/cli/        — CLI entry point for launchd scheduler
-src/story/      — Daily story writer, durable references and public trailer handoff
+src/story/      — Daily story writer, durable references and public trailer and committed-progress handoffs
 src/weather/    — Weather provider interface + Open-Meteo implementation
 src/server/     — Express API server for Lab UI
 lab-ui/         — React (Vite) frontend for prompt iteration
@@ -206,4 +206,4 @@ Open-Meteo (no API key required). Uses WMO weather codes. Provider interface is 
 
 ## Daily stories
 
-Story mode is opt-in and remains off until separately activated. See [daily stories](docs/daily-stories.md) for preparation, local retry/export commands, continuity and the exact public trailer contract. Never use the live vault for smoke tests or change Carson schedules as an implementation side effect.
+Story mode is opt-in and remains off until separately activated. See [daily stories](docs/daily-stories.md) for preparation, local retry/export commands, continuity and the two exact public-note contracts. Never use the live vault for smoke tests or change Carson schedules as an implementation side effect.

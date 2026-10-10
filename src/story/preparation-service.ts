@@ -3,6 +3,8 @@ import { getLocalTimeInTimezone } from "../server/timezone.js";
 import type { DailyStoryPreparer } from "./prepare-story.js";
 import type { StoryStore } from "./story-store.js";
 import type { ReadyStory } from "./types.js";
+import type { OutputStore } from "../storage/output-store.js";
+import { exportRecap } from "./recap-export.js";
 import { exportTrailer } from "./trailer-export.js";
 
 export interface StoryPreparationServiceConfig {
@@ -13,6 +15,7 @@ export interface StoryPreparationServiceConfig {
   activeStart?: number;
   activeEnd?: number;
   trailerDir?: string;
+  outputs?: OutputStore;
   onReady?: () => Promise<void>;
 }
 
@@ -60,6 +63,8 @@ export class StoryPreparationService {
     if (this.config.trailerDir) {
       try { await exportTrailer(this.config.store, date, this.config.trailerDir); }
       catch { console.warn(`[${new Date().toISOString()}] Daily trailer export failed; use story:prepare -- --export to retry`); }
+      try { await exportRecap(this.config.store, date, this.config.trailerDir, this.config.outputs); }
+      catch { console.warn(`[${new Date().toISOString()}] Daily recap export failed; use story:prepare -- --export to retry`); }
     }
     // A preparation crossing the day/end boundary must not trigger today's missed slot.
     const current = getLocalTimeInTimezone(new Date(), this.config.timezone);

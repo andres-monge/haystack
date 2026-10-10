@@ -11,6 +11,8 @@ import {
   toProviderFactoryConfig,
 } from "../config/config.js";
 import { HourlyScheduler } from "./scheduler.js";
+import { exportRecap } from "../story/recap-export.js";
+import { getDateString } from "./image-rotation.js";
 import { StoryStore } from "../story/story-store.js";
 import { CodexStoryWriter } from "../story/codex-writer.js";
 import { DailyStoryPreparer } from "../story/prepare-story.js";
@@ -38,6 +40,7 @@ if (config.imageDir && config.schedulerLocation) {
     activeStart: config.activeStart,
     activeEnd: config.activeEnd,
     storyStore,
+    trailerDir: config.story.trailerDir,
   });
   if (storyStore) {
     storyPreparation = new StoryPreparationService({
@@ -52,6 +55,7 @@ if (config.imageDir && config.schedulerLocation) {
       prepareTime: config.story.prepareTime,
       activeStart: config.activeStart, activeEnd: config.activeEnd,
       trailerDir: config.story.trailerDir,
+      outputs: pipeline.getStore(),
       onReady: async () => {
         if (scheduler?.isRunning()) await scheduler.runNowIfNoRecentRender(30 * 60 * 1000);
       },
@@ -72,6 +76,12 @@ const server = app.listen(port, config.bindHost, () => {
     `Haystack Lab server running at http://${config.bindHost}:${port}`,
   );
 });
+
+// Recovery also runs outside the active image window, without writer or provider work.
+if (storyStore && config.story.trailerDir) {
+  void exportRecap(storyStore, getDateString(new Date(), 'Europe/Madrid'), config.story.trailerDir, pipeline.getStore())
+    .catch(() => console.warn('Daily recap startup recovery unavailable; use story:prepare -- --export to retry'));
+}
 
 // Start scheduler after server is listening
 if (scheduler && config.schedulerLocation) {

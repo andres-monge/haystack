@@ -86,6 +86,7 @@ export class OutputStore {
   private readonly baseDir: string;
   private readonly maxOutputs: number;
   private readonly hooks: OutputStoreHooks;
+  private commitObserver?: (output: ResolvedOutput) => Promise<void>;
 
   constructor(
     baseDir: string,
@@ -99,6 +100,11 @@ export class OutputStore {
     this.maxOutputs = maxOutputs;
     this.hooks = hooks;
     fs.mkdirSync(this.baseDir, { recursive: true });
+  }
+
+  /** Persist story-owned evidence before retention; failure preserves sidecars for recovery. */
+  setCommitObserver(observer: (output: ResolvedOutput) => Promise<void>): void {
+    this.commitObserver = observer;
   }
 
   /**
@@ -179,6 +185,10 @@ export class OutputStore {
     }
 
     try {
+      if (this.commitObserver) {
+        // Replay all retained commits before any purge, covering a crash immediately after sidecar promotion.
+        for (const committed of await this.listResolved()) await this.commitObserver(committed);
+      }
       await this.purgeOldOutputs();
     } catch {
       // The render is already committed; retention remains best effort.

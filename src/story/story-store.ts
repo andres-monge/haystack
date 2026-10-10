@@ -1,13 +1,16 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { GenerationLock } from '../engine/generation-lock.js';
 import type { RenderMetadata } from '../engine/types.js';
 import { validateImage } from '../engine/image-validation.js';
 import type { OutputStore, ResolvedOutput } from '../storage/output-store.js';
+import { getCurrentHourInTimezone } from '../server/timezone.js';
 import { getDateString } from '../server/image-rotation.js';
 import { assertStoryDate, validateStory } from './schema.js';
 import type { ContinuitySnapshot, DailyStory, ImageSnapshot, ReadyStory, StoryFailure, StoryReferences, StoryRenderProvenance } from './types.js';
 
+interface ProgressRecord { renderId: string; sha256: string; createdAt: string; scenarioHour: number; timestampLocal: string; story: StoryRenderProvenance }
 interface ContinuityRecord extends ContinuitySnapshot { storyId: string; date: string; artworkHash: string }
 const extension = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' } as const;
 
@@ -15,6 +18,10 @@ const extension = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.w
 export class StoryStore {
   private readonly baseDir: string;
   constructor(baseDir: string) { this.baseDir = path.resolve(baseDir); fs.mkdirSync(this.baseDir, { recursive: true }); }
+
+  acquireRecapPublication() {
+    return new GenerationLock({lockPath: path.join(this.baseDir, '.recap-publication.lock')}).acquire({kind: 'cli'});
+  }
 
   async snapshotOriginal(date: string, bytes: Buffer): Promise<ImageSnapshot> {
     const inspected = await validateImage(Buffer.from(bytes));
@@ -77,6 +84,54 @@ export class StoryStore {
       if (ready) summaries.push({ date, title: ready.story.title, premise: ready.story.premise, ending: ready.story.ending });
     }
     return summaries;
+  }
+
+  /** Own only the small validated commit record; image retention cannot erase recap progress. */
+  async recordCommittedProgress(output: ResolvedOutput, now = new Date()): Promise<void> {
+    const p = output.metadata.story;
+    if (!p || p.date !== getDateString(now, 'Europe/Madrid')) return;
+    const ready = await this.load(p.date);
+    if (!ready) throw new Error('Committed story progress unavailable');
+    if (!this.renderBelongs(output.metadata, ready.story)) return;
+    const record: ProgressRecord = {
+      renderId: output.metadata.id, sha256: output.sha256,
+      createdAt: output.metadata.createdAt, scenarioHour: output.metadata.scenario.hour,
+      timestampLocal: output.metadata.scenario.timestampLocal, story: p,
+    };
+    if (!this.validProgress(record, ready.story, now)) return;
+    const target = this.file(p.date, `progress-${p.sceneHour}.json`);
+    // One successful frame owns each slot; retries do not rewrite its evidence.
+    if (!fs.existsSync(target)) this.atomicJson(target, record);
+  }
+
+  async recoverProgress(outputs: OutputStore, now = new Date()): Promise<void> {
+    for (const metadata of outputs.listCommittedMetadata()) {
+      if (!metadata.story || metadata.story.date !== getDateString(now, 'Europe/Madrid')) continue;
+      const output = await outputs.resolve(metadata.id);
+      if (output) await this.recordCommittedProgress(output, now);
+    }
+  }
+
+  committedHours(story: DailyStory, now = new Date()): number[] {
+    return story.scenes.flatMap(scene => {
+      const record = this.readJson(this.file(story.date, `progress-${scene.hour}.json`)) as ProgressRecord | null;
+      return record && record.story?.sceneHour === scene.hour && this.validProgress(record, story, now) ? [scene.hour] : [];
+    }).sort((a, b) => a - b);
+  }
+
+  private validProgress(record: ProgressRecord, story: DailyStory, now: Date): boolean {
+    if (!record || typeof record.renderId !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(record.renderId)
+      || typeof record.sha256 !== 'string' || !/^[0-9a-f]{64}$/.test(record.sha256)
+      || !record.story || !this.matches(record.story, story) || story.timezone !== 'Europe/Madrid'
+      || record.scenarioHour !== record.story.sceneHour || story.date !== getDateString(now, story.timezone)) return false;
+    const created = new Date(record.createdAt), scenario = new Date(record.timestampLocal);
+    return Number.isFinite(created.getTime()) && Number.isFinite(scenario.getTime())
+      && getDateString(created, story.timezone) === story.date
+      && getDateString(scenario, story.timezone) === story.date
+      && getCurrentHourInTimezone(story.timezone, scenario) === record.story.sceneHour
+      && record.story.sceneHour <= getCurrentHourInTimezone(story.timezone, created)
+      && created.getTime() <= now.getTime()
+      && record.story.sceneHour <= getCurrentHourInTimezone(story.timezone, now);
   }
 
   async commitContinuity(story: DailyStory, output: ResolvedOutput): Promise<ContinuitySnapshot> {
