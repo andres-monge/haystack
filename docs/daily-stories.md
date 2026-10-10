@@ -60,7 +60,7 @@ The body contains exactly the Spanish trailer sentence. Full beats, history and 
 
 ## Release checks
 
-Local tests cover identity, persistence, payload order, scheduling and fixture-note format. A bounded subscription-writer smoke test must confirm the actual model and structured response in a production-like environment. Review actual stories for specificity, warmth, visual feasibility, late entrances and trailer spoilers. Neither schema validation nor automated tests establish creative quality.
+Local tests cover identity, persistence, payload order, scheduling and fixture-note format. Five bounded subscription-writer fixture runs have confirmed structured responses using the configured model/effort and ChatGPT login in the production wrapper; actual launchd wake behavior still needs a release check. Review actual stories for specificity, warmth, visual feasibility, late entrances and trailer spoilers. Neither schema validation nor automated tests establish creative quality.
 
 Before live activation, confirm the Mac's morning wake behavior and the synced note's arrival/readiness before 08:00. Carson's active greeting source still needs verification and its own acceptance tests. D was selected from an eight-frame prototype; full-active-window stability and visual quality on Gemini/xAI remain unproven. Additional paid image trials require separate scope and budget.
 
@@ -76,4 +76,17 @@ Three actual subscription-backed writer calls used the production wrapper, `gpt-
 | Waterfall landscape / rain | El concierto de las gotas | Warm, visually concrete family premise; repeated the concert theme with no supplied history |
 | France landscape / recent story summaries | El capitán de las tres puertas | Different croquet premise with clear props and relationships |
 
-The writer and scene prompts now explicitly preserve existing text and setting and give current render conditions authority over forecast weather. That final wording has structural coverage but has not had another writer or image trial. Full local JSON samples and invocation receipts remain under `.context/compound-engineering/daily-story-verification/` for household review; they are not exported in the public note. Household creative acceptance, full-day image continuity, morning wake/sync and Carson greeting acceptance remain release checks.
+The writer prompt now forbids added lettering and asks to preserve setting and period; the scene prompt gives current render conditions authority over forecast weather. Two subsequent writer runs exercised that final wording; image rendering has not been trialed with it. Full local JSON samples and invocation receipts remain under `.context/compound-engineering/daily-story-verification/` for household review; they are not exported in the public note. Household creative acceptance, full-day image continuity, morning wake/sync and Carson greeting acceptance remain release checks.
+
+### Follow-up: final calibrated writer prompt
+
+Two further production-wrapper calls used the final prompt at `8a115af`, the same model/effort and temporary state. The lake/clear run received all three earlier summaries; the dancing/rain run received those plus the new lake summary, through the normal newest-first store history. Both returned valid 12-scene stories without retries (115.1 and 118.8 seconds).
+
+| Source / final-prompt story | Creative findings |
+|---|---|
+| `artwork/lake-landscape.png` — Una montaña con orejas | Painter/horse obstruction and portrait progression; controlled entrances and complete prop state. Tiny figures and canvas details may be hard to read on the TV. |
+| `artwork/dancing-landscape.png` — El dragón que no sabía hacer reverencias | Large puppet/branch/hat comedy offers stronger poses. Rain motivates shelter; written puddles need a fresh dry Scenario to override them. |
+
+Neither repeats concerts or croquet, but both reuse Inés/Tomás, helpers solving a practical problem and a warm cooperative finish. The dragon's proud adult learning from another character echoes the croquet arc. No written lettering or modern props were requested, and both trailers leave the resolution unrevealed. Setting preservation and current-weather authority are supported in the text and prompt; no image run demonstrates them.
+
+The compact human review is `.context/compound-engineering/daily-story-verification/final-prompt-review.md`, with source links and clearly marked spoiler scenes. Full prompts, proposals, validated stories and receipts are adjacent. These two runs close the final-writer-prompt smoke gap; they do not establish household acceptance or rendered visual quality. Runtime code is unchanged, so the existing build/637-test result still applies; only documentation verification was repeated.
