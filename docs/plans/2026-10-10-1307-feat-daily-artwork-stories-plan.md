@@ -6,7 +6,7 @@ artifact_contract: ce-unified-plan/v1
 product_contract_source: ce-brainstorm
 execution: code
 coordination_repo: personal-os
-coordination_commit: 25d4c63178994cd257a3930cf2334d31ef208a15
+coordination_commit: dc52f1e3716f1cdad17cd1d75655b1dd0aa667c0
 coordination_path: docs/plans/2026-10-10-1301-feat-haystack-daily-stories-coordination-plan.md
 ---
 
@@ -20,13 +20,13 @@ coordination_path: docs/plans/2026-10-10-1301-feat-haystack-daily-stories-coordi
 
 **Product authority:** The coordination revision in frontmatter records the approved shared scope. This plan implements its Haystack portion only.
 
-**Launch blockers:** None for local Haystack implementation. Live model availability and Obsidian note arrival are implementation checks. Carson deployment is outside this plan and blocked on identifying its active greeting source.
+**Launch blockers:** None for local Haystack implementation. Live model availability and Obsidian note arrival are implementation checks. Carson deployment is outside this plan. Its greeting/cron unit needs active-source verification; the independent recap skill needs Family workspace comparison and existing Obsidian-skill verification.
 
 ## Product Contract
 
 ### Summary
 
-Add daily story preparation, coherent scheduled images and a dated trailer export. Preserve independent interactive editing and existing TV delivery.
+Add daily story preparation, coherent scheduled images, a dated trailer export and a current-day elapsed-scene recap export. Preserve independent interactive editing and existing TV delivery.
 
 ### Problem Frame
 
@@ -46,18 +46,24 @@ The current hourly prompt repeatedly invents similar generic situations. The app
 
 - R6. The first daily image starts from the original artwork; later story images use that original and the previous successful image from the same story day.
 - R7. The published daily premise stays consistent with its trailer while current weather may change staging and lighting.
-- R9. Only a dated, ready trailer is made available to Carson through existing Obsidian sync; the full story remains with Haystack.
+- R9. A dated, ready trailer and a separate current-day recap of committed story scenes are made available through existing Obsidian sync. Future scenes and the full planned ending remain with Haystack.
 - R10. Preparation and synchronization finish before the greeting needs them; missing or stale trailers cause the greeting section to be omitted.
 - R12. Prepare and review repository-local changes independently; live schedule changes, deployment and test messages require a separate execution step.
-- R13. Do not grant the family assistant general private-note access to deliver the TV trailer.
+- R13. TV features use only their exact shared note paths; they do not introduce general private-note reading or whole-vault searches.
 - R14. Story mode does not change independent interactive, scenario-override or extend-artwork behavior.
+
+**On-demand recap producer**
+
+- R16. Export one current-day Markdown recap grouped by story hour, replaced each day, without an exported historical-story archive. Existing local narrative history is unaffected.
+- R17. Export only successfully committed same-story render progress; elapsed time, skipped/failed slots and future fields cannot advance the recap.
+- R18. Export exact dated/identified readiness and progress fields so Carson can validate them. A ready story before its first render exposes only its spoiler-free trailer.
 
 ### Key Decisions
 
 - **D is selected after visual review.** Governs R6. (session-settled: user-directed — chosen over A, B and C: D looked best, C degraded, and A/B were indistinguishable.)
 - **Standalone daily stories.** Governs R1. (session-settled: user-directed — chosen over recurring or multi-day stories: no prior-day context is needed.)
 - **Start with a single local writer.** Governs R2 and R4. (session-settled: user-approved — chosen over mandatory critics and tournaments: judge real samples before adding machinery.)
-- **Keep the full plot local.** Governs R9 and R13. (session-settled: user-approved — chosen over sharing the full story with Carson: the greeting needs only a spoiler-free trailer.)
+- **Keep future plot local; export completed scenes for questions.** Governs R9, R13 and R16–R18. (session-settled: user-directed — the on-demand recap extension supersedes the earlier trailer-only handoff. Morning greeting still uses only the trailer.)
 
 ### Actors and Flows
 
@@ -66,6 +72,7 @@ A1 is the household; A2 is Haystack; A3 is the local Codex writer; A4 is Carson 
 - F1. Before the greeting, A2 selects today's artwork and forecast, asks A3 for a story, commits validated story state and exports the trailer under R9.
 - F2. Each active hour A2 selects the current scene, builds current Scenario conditions and uses R6's references.
 - F3. A4 consumes the shared trailer under the separate Carson plan; Haystack supplies only the producer side.
+- F4. A2 publishes a current-day elapsed-scene note for the separately owned Family skill that answers household Spanish TV-story questions.
 
 ### Acceptance Examples
 
@@ -75,6 +82,11 @@ A1 is the household; A2 is Haystack; A3 is the local Codex writer; A4 is Carson 
 - AE4. A missing or yesterday-dated trailer is ineligible for today's greeting. Covers R9 and R10; consumer proof belongs to Carson.
 - AE5. Changed weather does not replace the announced premise or cast. Covers R7.
 
+- AE6. At 14:30 with a failed 14:00 render, the note ends at the last successful 13:00 scene rather than the scheduled 14:00 action. Covers R17.
+- AE7. Before the first render, only the spoiler-free trailer is exported in the recap. Covers R18.
+- AE8. Rollover and delayed completions cannot overwrite today's recap with yesterday's story; no recap archive is created. Covers R16–R18.
+- AE9. Future scene and ending markers in local story fixtures are absent from all exported recap fields. Covers R9 and R17.
+
 ### Success Criteria
 
 Use human judgment on story specificity, warmth, visual readability and progression. The porter/pelican sequence is a taste reference, not a daily plot template. Tests establish structural correctness rather than a numerical humor score. D's eight-frame result is evidence for selection, not proof of full-day or multi-provider stability.
@@ -82,13 +94,13 @@ Use human judgment on story specificity, warmth, visual readability and progress
 <!-- ce-section: work-relationships -->
 ### Ownership and Scope Boundaries
 
-This plan covers Haystack's producer and renderer only. Coordination R8 and R11 cover adding `¿Qué pasa hoy en la tele?` to the 08:00 greeting; their consumer implementation belongs to Carson and is deferred until the active greeting source is verified. The dog-walk section is already gone according to the user. The separate 07:30 priorities planner is unaffected.
+This plan covers Haystack's producer and renderer only, including the recap exporter. Coordination R15 and the consumer portion of R18 belong to the `carson-family` model-invocable `tv-story-so-far` skill; no Family skill files are created here. Coordination R8 and R11 cover adding `¿Qué pasa hoy en la tele?` to the 08:00 greeting; their consumer implementation belongs to Carson and is deferred until the active greeting source is verified. The dog-walk section is already gone according to the user. The separate 07:30 priorities planner is unaffected.
 
 No recurring cast, multi-day serial, mandatory critic, candidate tournament, image-based plot replanning, aesthetic retries, extra messages, new sync service, whole-vault reading or general agent platform is included. Do not broaden active-hour rules, refactor provider deadlines, or redesign the Lab UI.
 
 ## Planning Contract
 
-**Product Contract preservation:** Scoped projection of coordination R1–R7, R9–R10 and R12–R13; R8/R11 remain Carson-owned. R14 preserves existing non-story paths.
+**Product Contract preservation:** Regenerated scoped projection of coordination commit `dc52f1e3716f1cdad17cd1d75655b1dd0aa667c0`: R1–R7, R9–R10, R12–R13 and producer portions of R16–R18; R8/R11/R15 and consumer behavior remain Carson-owned. R14 preserves existing non-story paths. U1–U6 are implemented in PR #3; U7 below is the new planned extension, not a claim of implemented recap support.
 
 ### Key Technical Decisions
 
@@ -100,6 +112,8 @@ No recurring cast, multi-day serial, mandatory critic, candidate tournament, ima
 - KTD6. **Successful same-story references and story-aware dedup.** A previous frame must match story ID, date and artwork hash and precede the requested scene hour. A failed attempt never becomes a reference. Both scheduler precheck and mutex-owned check match the story/slot rather than generic latest output. Disable alternate-artwork fallback for ready story mode while keeping the existing provider chain. Governs R6 and R7.
 - KTD7. **Exact shared trailer note.** Follow the coordination commit's Shared Handoff Contract: one atomic `Haystack/TV Today.md` note, allowed header fields and the approved body. Configure its destination separately from local story state. Do not supply vault paths, private-note contents, trailer destinations or Carson connectors to the writer. Read-only mode is a write restriction, not a claim of filesystem read isolation. Publishing failure is logged and an explicit export operation can retry without another writer call. Governs R9, R10 and R13.
 - KTD8. **Morning preparation independent of image hours.** Configure a preparation time, default 06:45 Europe/Madrid, with startup catch-up before today's active-end boundary. Catch-up prepares only Unprepared state; a persisted Failed attempt requires the explicit local retry command. Reuse `getImageForToday` for today only; never mutate rotation by asking it to select tomorrow. Snapshot the source before writer invocation and use that committed snapshot throughout the day. Prepare with full-day `getForecast`; a missing/invalid forecast yields no ready story or trailer. Governs R2, R7 and R10.
+
+- KTD9. **Publish only committed progress at the source.** Add the exact `Haystack/TV Story So Far.md` contract from the coordination revision alongside the unchanged trailer note. Publish trailer-only zero-progress after daily story commit; then replace the recap after each successful same-story Render commit. Build hour sections from validated commit evidence and the corresponding current scene state/action, never full premise, full cast, future scenes or separate ending. Reject future-hour/wrong-identity commits and previous-day late completions. Recovery/export retry reuses committed state, with no writer/image call. Use a single fixed note, atomic replacement and versioned date/story identity; no recap archive. Governs R9 and R16–R18.
 
 ### High-Level Technical Design
 
@@ -117,6 +131,9 @@ flowchart TB
   Render --> Continuity[Latest successful continuity snapshot]
   Continuity --> Scene
   Render --> Kiosk[Kiosk]
+  Render --> Recap[Current-day elapsed-scene note]
+  Recap --> Sync
+  Sync --> Questions[Family on-demand Spanish recap skill]
 ```
 
 ```mermaid
@@ -286,6 +303,31 @@ Running the writer as a paid text API call inside Haystack would avoid CLI lifec
 
 **Verification:** Review captures actual sample outcomes and distinguishes the existing eight-frame proof from a future full-active-window trial. New paid image trials require their own scope and budget; deployment remains separate.
 
+### U7. Export the current story so far
+
+**Status:** Planned extension after implemented U1–U6; not deployed.
+
+**Goal:** Give the Family skill a small current-day Markdown note containing context and committed progress without future spoilers.
+
+**Requirements:** R9, R13 and R16–R18; F4; AE6–AE9; KTD9. **Dependencies:** U1, U4 and U5.
+
+**Files:** New `src/story/recap-export.ts` and `tests/story/recap-export.test.ts`; `src/story/preparation-service.ts`, `src/story/story-store.ts`, `src/server/scheduler.ts`, `scripts/prepare-daily-story.ts`, relevant scheduler/service tests and `docs/daily-stories.md`.
+
+**Approach:** Reuse the configured vault root, trailer atomic-write pattern and Render commit identity/ownership. Initialize an empty-progress note when today's story becomes ready. After a successful story Render, publish the eligible committed scene sections up to current Madrid time. Failed/skipped slots are not added; later scene cumulative state may explain the current situation without inventing skipped events. Keep the latest-scene hour and updated-at explicit. Replay eligible current-day commit evidence for recovery and provide explicit re-export without generation. Keep exporter errors from invalidating successful renders. Serialize snapshot/publication ownership so an older export cannot replace a newer prefix; recheck date at publication and reject late yesterday exports. No new telemetry, retention framework or private-note search.
+
+**Test scenarios:**
+
+- Before the first frame, the note contains only trailer/context and nullable progress.
+- At 14:30 a failed 14:00 slot leaves 13:00 as latest; future/interactive/wrong-story renders are excluded.
+- Skipped slots remain gaps; later committed current-state descriptions do not manufacture a missing sequence.
+- Future cast/scene/ending fixture markers never enter note body or metadata.
+- A committed ending enters the recap only when its final frame commits.
+- Midnight and delayed earlier exports cannot replace today's note or a newer same-day prefix.
+- Export failure/restart recovery republishes from committed evidence without another writer/image call; normal image purge does not erase required recap evidence (use durable story-owned progress, not only retained image files).
+- Only the two fixed current-day public notes are written; no dated recap files or live-vault tests.
+
+**Verification:** Temporary-vault and scheduler/service integration fixtures establish prefix ownership, recovery and no-spoiler fields. Family's Spanish invocation/no-spoiler behavior is verified in its separate owning plan. Commit progress is generated-scene evidence, not a kiosk display acknowledgement.
+
 ## Verification Contract
 
 | Check | Evidence | Units |
@@ -295,17 +337,18 @@ Running the writer as a paid text API call inside Haystack would avoid CLI lifec
 | Regression suite | `npm run test:run` once after focused checks pass | U1–U5 |
 | Writer CLI smoke | Recorded model/effort, schema-valid output and ChatGPT login under production-like environment, outside live vault | U2, U5 |
 | Creative review | Household judgment of actual sample stories and spoiler-free trailers | U6 |
+| Recap producer | Current-day zero-progress/committed-prefix, future-marker exclusion, publication ordering and date reset using temp fixtures | U7 |
 | Carson end-to-end handoff | Deferred to separate owning plan; exact date/readiness and existing single-message contract | Outside this execution |
 
 ## Definition of Done
 
-The Haystack implementation supports a reusable daily story, original-plus-eligible-previous-frame scheduled rendering, strict producer trailer export and unchanged independent editing paths. Required build and behavioral checks pass; writer runtime is demonstrated; docs explain activation and unproven provider/full-day visual quality. No claim is made that the live 08:00 greeting is changed or that trailer sync is proven until the Carson plan's acceptance checks pass.
+The Haystack implementation supports a reusable daily story, original-plus-eligible-previous-frame scheduled rendering, strict producer trailer and elapsed-scene recap export and unchanged independent editing paths. Required build and behavioral checks pass; writer runtime is demonstrated; docs explain activation and unproven provider/full-day visual quality. Recap export is a planned U7 extension; its producer and consumer must be verified before claiming on-demand support. No claim is made that the live 08:00 greeting is changed or that trailer sync is proven until the Carson plan's acceptance checks pass.
 
 ## Risks and Release Boundaries
 
 Subscription access can expire or exhaust usage; preparation failure publishes no new trailer and is visible in local status/logs. The Mac can sleep through preparation; startup catch-up cannot repair a missed greeting. Output metadata remains the commit authority, and a local lock must not be cleared while its owner is alive. Avoid extra retention policies, sync restarts, cron retries or monitoring systems beyond the minimal story/reference ownership required by KTD2.
 
-Carson's documented live cron path was unavailable during read-only inspection. Its implementation plan must locate the actual active source and pass the repository comparison gate before Family branches/artifacts are created. Do not deploy this plan by editing Carson or reinstalling launchd as a side effect of local implementation.
+Carson's documented live cron path was unavailable during read-only inspection. The Family repository comparison gate still precedes any Family branch/artifact. Active greeting-source verification gates only the greeting/cron unit; the independent recap skill additionally verifies the existing Obsidian read capability. Do not deploy this plan by editing Carson or reinstalling launchd as a side effect of local implementation.
 
 ## Sources / Research
 
