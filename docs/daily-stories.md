@@ -21,7 +21,7 @@ Story mode needs `HAYSTACK_IMAGE_DIR`, latitude, longitude and timezone. Prepara
 
 Authenticate with `codex login` and verify `codex login status` says ChatGPT. The executable path is absolute, so launchd's minimal PATH need not contain Codex. The writer uses a dedicated temporary cwd, ignores user configuration/rules, disables apps, MCP configuration inheritance, hooks, plugins and shell tools, and allowlists runtime/login environment fields. API keys and unrelated credentials never enter its environment. Execution is ephemeral and read-only, bounded to 300 seconds and 1 MiB of captured output. Read-only restricts writes; it is not filesystem read isolation. The writer receives no vault path or note contents.
 
-This implementation does not change live environment files, install launchd jobs or activate any schedule. Restarting the resident server with explicitly enabled configuration is a separate deployment step. The Mac must be awake; launchd cannot overcome clamshell sleep.
+Activation requires explicitly enabled configuration and a resident-server restart. The approved production deployment is recorded below. The Mac must be awake; launchd cannot overcome clamshell sleep.
 
 ## Inspect and recover locally
 
@@ -74,7 +74,7 @@ Carson's separately owned Spanish `tv-story-so-far` skill reads this exact note 
 
 Local tests cover identity, persistence, payload order, scheduling and fixture-note format. Five bounded subscription-writer fixture runs have confirmed structured responses using the configured model/effort and ChatGPT login in the production wrapper; actual launchd wake behavior still needs a release check. Review actual stories for specificity, warmth, visual feasibility, late entrances and trailer spoilers. Neither schema validation nor automated tests establish creative quality.
 
-Before live activation, confirm the Mac's morning wake behavior and the synced note's arrival/readiness before 08:00. Carson's active greeting source still needs verification and its own acceptance tests. D was selected from an eight-frame prototype; full-active-window stability and visual quality on Gemini/xAI remain unproven. Additional paid image trials require separate scope and budget.
+For each rollout, verify the synced note's arrival/readiness and Carson's active greeting source. The deployment below records those current runtime checks. Morning wake behavior and the next natural greeting still need observation. D was selected from an eight-frame prototype; full-active-window stability and visual quality on Gemini/xAI remain unproven. Additional paid image trials require separate scope and budget.
 
 ## Local verification record — 2026-10-10
 
@@ -110,3 +110,15 @@ The U7 review completed at `/tmp/compound-engineering-501/ce-code-review/2026101
 Final TypeScript build and all 646 tests across 31 files passed after the fixes. ESLint remains unavailable because the existing repository has no ESLint 9 configuration. Three simplification reviewers found no useful reuse or clarity change; two bounded-work efficiency suggestions were skipped to retain conservative recovery timing.
 
 The approved single-call creative baseline produced today's real `El retrato del dueño`, using `gpt-6.1-sol` at medium effort and the frozen current `ghibli-bar.jpeg`. All fourteen slots, 08 through 21, validated. Its artwork hash matches the current rotation selection; preparation neither selected tomorrow nor regenerated an existing ready story. This is writer and identity evidence, not a full-day image-continuity trial.
+
+## Production deployment — 2026-10-10
+
+Reviewed code `93068f2` was fast-forwarded into clean `main` and pushed. Story mode was enabled with 06:45 preparation in Europe/Madrid, the existing 08:00–22:00 image window, the existing synced Andres vault and durable state under `~/.haystack/stories`. The installed server job was restarted without reinstalling launchd. Its startup log records Node v22.22.0; the scheduler health endpoint reports running. The unchanged backup trigger remains HH:05, with a 660-second wait and no curl retry.
+
+Today's ready story is `ce4cd9a2-9655-41ac-a1a0-884bf738bb17`. Both notes initially exported only its trailer. Normal late-wake catch-up then committed `20261010_191715_801220c2` for slot 21 through OpenAI in 22.35 seconds. This first story render correctly bootstrapped from the frozen original. Durable progress and the recap contain only scene 21; earlier ungenerated slots remain absent. The actual Family parser accepts the two Mac public notes and verifies the recap body matches that committed scene's state/action. The kiosk-facing latest-image API returns the same render and serves bytes matching its saved SHA-256.
+
+The concrete rollback is `~/.haystack/deployments/20261010-daily-story-recap/rollback.py`. It restores the previous server source/configuration and exact predeployment public-note state without resetting the repository or discarding durable stories. Sanitized writer, export, runtime and review-resolution receipts are alongside it; private configuration backups stay local.
+
+The separately reviewed Family consumer was pushed and deployed at `a7abe02`. OpenClaw reports `tv-story-so-far` eligible, model-visible and user-invocable. Both exact public-note hashes on its existing synced mount match the Mac, and its runtime reader returns the eligible trailer and only committed scene 21. The existing 08:00 job received exactly the reviewed TV appendix after immediate drift checks; its original prompt, conditional walk advice, schedule and delivery settings remain unchanged. Next run is 2026-10-11 at 08:00 Europe/Madrid. No 07:30 planner edit, service restart or family test message was performed. Family's private prompt rollback is `/root/carson-tv-rollback/20261010-a7abe02`; its local runbook describes drift-gated restoration.
+
+Generation, serving and public-note export are verified. The next 06:45 preparation/08:00 greeting, full-day reference continuity and physical TV display have not been observed; there is no kiosk display acknowledgement.
