@@ -13,10 +13,10 @@ describe("DEFAULT_TEMPLATE", () => {
 
   it("uses a concise open-ended double-take direction instead of story mechanics", () => {
     expect(DEFAULT_TEMPLATE).toContain(
-      "Tell an interesting story within this artwork that makes the viewer do a double take and wonder what is going on.",
+      "The story and events should make the viewer do a double take and wonder what is going on, not merely an ordinary everyday activity.",
     );
     expect(DEFAULT_TEMPLATE).toContain(
-      "Invent the situation freely based on the artwork, time, and weather.",
+      "Invent the story freely based on the artwork, time, and weather.",
     );
     expect(DEFAULT_TEMPLATE).not.toContain(
       "visible action, reaction, relationships, consequences, or other evidence",
@@ -28,12 +28,12 @@ describe("DEFAULT_TEMPLATE", () => {
 
   it("asks for an interesting situation without prescribing its structure", () => {
     expect(DEFAULT_TEMPLATE).toContain(
-      "Something genuinely interesting should be happening, not merely an ordinary everyday activity",
+      "not merely an ordinary everyday activity",
     );
     expect(DEFAULT_TEMPLATE).toContain(
       "Arrange the action compellingly within the artwork's existing composition",
     );
-    expect(DEFAULT_TEMPLATE).toContain("Invent the situation freely");
+    expect(DEFAULT_TEMPLATE).toContain("Invent the story freely");
     expect(DEFAULT_TEMPLATE).not.toContain("micro-story");
     expect(DEFAULT_TEMPLATE).not.toContain("Decide who is present");
     expect(DEFAULT_TEMPLATE).not.toMatch(/for example|such as|choose from|catalog|taxonomy/i);
@@ -114,7 +114,7 @@ describe("composePrompt", () => {
   it("defaults to DEFAULT_PROMPT_CONFIG when config is omitted", () => {
     const scenario = createScenarioFromHour(14);
     const prompt = composePrompt(scenario);
-    expect(prompt).toContain("Tell an interesting story within this artwork");
+    expect(prompt).toContain("Create a composition that tells an interesting story within this artwork");
   });
 
   it("includes weather in scenario description when set", () => {
@@ -135,7 +135,7 @@ describe("composePrompt", () => {
     expect(prompt).toContain("heavy snow");
     expect(prompt).toContain("snowfall 2.4cm/h");
     expect(prompt).toContain(
-      "When the weather offers an interesting opportunity, let it influence what is happening",
+      "The time and weather should influence what is happening rather than only changing the scene's appearance",
     );
     expect(prompt).toContain(
       "Preserve the EXACT artistic style, medium, and rendering technique",
@@ -154,7 +154,7 @@ describe("composePrompt", () => {
 
     expect(prompt).toContain("clear sky");
     expect(prompt).toContain(
-      "Something genuinely interesting should be happening, not merely an ordinary everyday activity",
+      "not merely an ordinary everyday activity",
     );
   });
 
@@ -163,7 +163,7 @@ describe("composePrompt", () => {
 
     expect(prompt).toContain("9 AM, day");
     expect(prompt).toContain(
-      "Tell an interesting story within this artwork",
+      "Create a composition that tells an interesting story within this artwork",
     );
   });
 

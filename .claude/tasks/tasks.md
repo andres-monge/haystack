@@ -94,17 +94,17 @@ After #8 is done, these two are independent.
 Plan: `docs/plans/2026-10-10-1307-feat-daily-artwork-stories-plan.md`
 
 - [x] U1 Durable daily story and reference state
-- [ ] U2 Subscription-backed local writer and preparation
+- [x] U2 Subscription-backed local writer and preparation
 - [x] U3 Ordered references across image providers
-- [ ] U4 Scheduled story scenes, deduplication and continuity
-- [ ] U5 Trailer export and preparation scheduling
-- [ ] U6 Verification and activation documentation
+- [x] U4 Scheduled story scenes, deduplication and continuity
+- [x] U5 Trailer export and preparation scheduling
+- [x] U6 Local verification and activation documentation (household acceptance remains a release check)
 
 | Unit | Status | Date |
 |------|--------|------|
 | U1 | done | 2026-10-10 |
-| U2 | writer wrapper verified; preparation pending | 2026-10-10 |
+| U2 | done; real writer smoke verified | 2026-10-10 |
 | U3 | done | 2026-10-10 |
-| U4 | pending | |
-| U5 | configuration verified; integration pending | 2026-10-10 |
-| U6 | pending | |
+| U4 | done | 2026-10-10 |
+| U5 | done; temporary-vault contract verified | 2026-10-10 |
+| U6 | local verification done; release checks documented | 2026-10-10 |

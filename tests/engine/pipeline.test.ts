@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import sharp from "sharp";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -141,19 +142,23 @@ describe("Pipeline provider-chain integration", () => {
 
   it("persists story identity and actual ordered reference hashes", async () => {
     const previousPath = path.join(tempDir, "previous.png");
-    fs.writeFileSync(previousPath, PNG_BUFFER);
+    const previousBytes = await sharp(PNG_BUFFER).negate().png().toBuffer();
+    fs.writeFileSync(previousPath, previousBytes);
     const order = ["gemini"] as const;
     const chain = mockChain(async input => success(input.chainId!, "gemini", order, [attempt("gemini", "successful", 1)]), order);
     const pipeline = makePipeline(chain);
     const hash = validated().sha256;
+    const previousHash = validated(previousBytes).sha256;
+    expect(previousHash).not.toBe(hash);
     const result = await pipeline.generate(testImagePath, createScenarioFromHour(18), "story", {
       referenceImagePaths: [previousPath],
       story: { id: "story-1", date: "2026-10-10", artworkHash: hash, sceneHour: 18, previousRenderId: "render-17" },
     });
-    expect(chain.editImage.mock.calls[0][0].references).toMatchObject([{ sha256: hash }]);
+    expect(chain.editImage.mock.calls[0][0].source).toMatchObject({ sha256: hash, bytes: PNG_BUFFER });
+    expect(chain.editImage.mock.calls[0][0].references).toMatchObject([{ sha256: previousHash, bytes: previousBytes }]);
     expect(result.metadata.story).toEqual({
       id: "story-1", date: "2026-10-10", artworkHash: hash, sceneHour: 18,
-      originalHash: hash, previousRenderId: "render-17", previousHash: hash,
+      originalHash: hash, previousRenderId: "render-17", previousHash,
     });
     const persisted = (await pipeline.getStore().listAll())[0];
     expect(persisted.story).toEqual(result.metadata.story);

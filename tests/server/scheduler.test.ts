@@ -30,6 +30,10 @@ import {
   createMockWeatherProvider,
   getGenerateCallArgs,
 } from "../helpers/mock-factories.js";
+import { StoryStore } from "../../src/story/story-store.js";
+import { OutputStore } from "../../src/storage/output-store.js";
+import { image, story } from "../story/fixtures.js";
+import type { GenerateOptions } from "../../src/engine/pipeline.js";
 import { composePrompt, composePromptFromText } from "../../src/engine/prompt.js";
 
 function createSchedulerConfig(overrides: Partial<SchedulerConfig> = {}): SchedulerConfig {
@@ -249,7 +253,7 @@ describe("HourlyScheduler", () => {
       const { scenario, promptOverride } = getGenerateCallArgs(config.pipeline);
       expect(promptOverride).toBeUndefined();
       expect(composePrompt(scenario)).toContain(
-        "makes the viewer do a double take and wonder what is going on",
+        "Outcome:",
       );
     });
 
@@ -279,7 +283,7 @@ describe("HourlyScheduler", () => {
       const { promptOverride } = getGenerateCallArgs(config.pipeline);
       expect(promptOverride).toBe(expectedPrompt);
       expect(promptOverride).toContain(scenarioOverride);
-      expect(promptOverride).toContain("makes the viewer do a double take and wonder what is going on");
+      expect(promptOverride).toContain("Outcome:");
       expect(result.metadata.prompt).toBe(expectedPrompt);
     });
 
@@ -390,7 +394,7 @@ describe("HourlyScheduler", () => {
       const { scenario, promptOverride } = getGenerateCallArgs(config.pipeline);
       const effectivePrompt = composePrompt(scenario);
       expect(promptOverride).toBeUndefined();
-      expect(effectivePrompt).toContain("makes the viewer do a double take and wonder what is going on");
+      expect(effectivePrompt).toContain("Outcome:");
       expect(effectivePrompt).not.toContain(priorPrompt);
       expect(scenario).not.toEqual(previous.scenario);
     });
@@ -509,7 +513,7 @@ describe("HourlyScheduler", () => {
       expect(calls[1][2]).toBeUndefined();
       expect(composePrompt(secondScenario)).toBe(composePrompt(firstScenario));
       expect(composePrompt(firstScenario)).toContain(
-        "makes the viewer do a double take and wonder what is going on",
+        "Outcome:",
       );
     });
 
@@ -616,7 +620,7 @@ describe("HourlyScheduler", () => {
       const secondPrompt = calls[1][2] as string | undefined;
       expect(firstPrompt).toBe(composePromptFromText("A stormy night scene"));
       expect(secondPrompt).toBe(firstPrompt);
-      expect(secondPrompt).toContain("makes the viewer do a double take and wonder what is going on");
+      expect(secondPrompt).toContain("Outcome:");
       expect(calls[1][1]).toBe(calls[0][1]);
 
       // Verify different image was used
@@ -961,4 +965,111 @@ describe("HourlyScheduler", () => {
       ).toBe(true);
     });
   });
+});
+
+describe("scheduled daily stories with durable stores", () => {
+  let dir: string;
+  beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(new Date('2026-10-10T07:05:00Z')); dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sched-story-')); clearWeatherCache(); });
+  afterEach(() => { vi.useRealTimers(); fs.rmSync(dir, { recursive: true, force: true }); vi.restoreAllMocks(); });
+  async function setup() {
+    const storyStore = new StoryStore(path.join(dir, 'stories'));
+    const original = await storyStore.snapshotOriginal('2026-10-10', await image());
+    const s = story(original.sha256);
+    s.scenes.push({ hour: 12, presentCast: ['ana'], state: 'All three planted pots stand beside the door.', action: 'Ana shares the flowers.' });
+    await storyStore.commit(s, [9,10,11,12]);
+    const outputs = new OutputStore(path.join(dir, 'outputs'));
+    let count = 0;
+    const generate = vi.fn(async (source: string, scenario: import('../../src/engine/types.js').Scenario, prompt?: string, options?: GenerateOptions) => {
+      const meta = makeMetadata({ id: `story-render-${++count}`, artworkSource: source, createdAt: new Date().toISOString(), prompt,
+        scenario: { ...scenario, timestampLocal: scenario.timestampLocal.toISOString() }, story: options?.story as import('../../src/engine/types.js').StoryRenderMetadata });
+      const imagePath = await outputs.save(await image('blue'), meta);
+      return { metadata: (await outputs.resolve(meta.id))!.metadata, imagePath, imageBuffer: fs.readFileSync(imagePath) };
+    });
+    const pipeline = { generate, getStore: () => outputs } as unknown as import('../../src/engine/pipeline.js').Pipeline;
+    const scheduler = new HourlyScheduler(createSchedulerConfig({ pipeline, storyStore, imageDir: '/no-live-artwork-selection', activeStart: 9, activeEnd: 13, location: {lat:40,lon:-3,timezone:'Europe/Madrid'} }));
+    return { scheduler, generate, storyStore, original, s, outputs };
+  }
+  it('jumps from first to fourth scene with original plus preceding success and deduplicates the story slot', async () => {
+    const {scheduler, generate, original, s, outputs} = await setup();
+    const first = await scheduler.runNow();
+    expect(first.metadata.story?.originalHash).toBe(original.sha256);
+    expect(first.metadata.story?.previousRenderId).toBeUndefined();
+    vi.setSystemTime(new Date('2026-10-10T10:05:00Z'));
+    await outputs.save(await image('green'), makeMetadata({ id:'interactive', createdAt:new Date().toISOString(), scenario:{timestampLocal:new Date().toISOString(),hour:12,isDay:true} }));
+    const fourth = await scheduler.runNowIfNoRecentRender(30*60*1000);
+    expect(fourth.generated).toBe(true);
+    if (!fourth.generated) throw new Error('expected render');
+    expect(fourth.result.metadata.story?.previousRenderId).toBe(first.metadata.id);
+    expect(fourth.result.metadata.prompt).toContain(s.scenes[3].state);
+    expect(generate.mock.calls[1][0]).toBe(original.path);
+    expect(generate.mock.calls[1][3]?.referenceImagePaths).toHaveLength(1);
+    vi.setSystemTime(new Date('2026-10-10T10:50:00Z'));
+    expect(await scheduler.runNowIfNoRecentRender(30*60*1000)).toMatchObject({generated:false,latest:{id:fourth.result.metadata.id}});
+    expect(generate).toHaveBeenCalledTimes(2);
+  });
+  it('holds missing story without paying for legacy generation', async () => {
+    const {scheduler, generate} = await setup();
+    vi.setSystemTime(new Date('2026-10-11T07:05:00Z'));
+    await expect(scheduler.runNow()).rejects.toThrow(/story/i); expect(generate).not.toHaveBeenCalled();
+  });
+  it('late bootstrap and exhausted attempt never switch artwork or advance continuity', async () => {
+    const {scheduler,generate,storyStore,s} = await setup();
+    vi.setSystemTime(new Date('2026-10-10T09:05:00Z'));
+    generate.mockRejectedValueOnce(exhausted());
+    await expect(scheduler.runNow()).rejects.toBeInstanceOf(ProviderChainExhaustedError);
+    expect(generate).toHaveBeenCalledOnce(); expect((await storyStore.getReferences(s,12)).previous).toBeUndefined();
+    const late = await scheduler.runNow(); expect(late.metadata.story?.previousRenderId).toBeUndefined();
+    vi.setSystemTime(new Date('2026-10-10T10:05:00Z'));
+    const next = await scheduler.runNow(); expect(next.metadata.story?.previousRenderId).toBe(late.metadata.id);
+  });
+  it('ignores yesterday, future-slot and wrong-artwork frames as references', async () => {
+    const {scheduler, outputs,s} = await setup();
+    const base = {id:s.id,date:s.date,artworkHash:s.artworkHash,originalHash:s.artworkHash,sceneHour:9};
+    for (const [i, provenance] of [{...base,date:'2026-10-09'}, {...base,sceneHour:12}, {...base,artworkHash:'a'.repeat(64)}].entries()) {
+      await outputs.save(await image('green'), makeMetadata({id:`foreign-${i}`, story:provenance, scenario:{timestampLocal:'2026-10-10T07:00:00Z',hour:provenance.sceneHour,isDay:true}}));
+    }
+    vi.setSystemTime(new Date('2026-10-10T09:05:00Z'));
+    const rendered = await scheduler.runNow(); expect(rendered.metadata.story?.previousRenderId).toBeUndefined();
+  });
+  it('repairs continuity after restart and holds when its required durable bytes are corrupt', async () => {
+    const {scheduler, outputs,s,storyStore,generate} = await setup();
+    await outputs.save(await image('green'), makeMetadata({id:'committed-before-crash',story:{id:s.id,date:s.date,artworkHash:s.artworkHash,originalHash:s.artworkHash,sceneHour:9},scenario:{timestampLocal:'2026-10-10T07:00:00Z',hour:9,isDay:true}}));
+    vi.setSystemTime(new Date('2026-10-10T09:05:00Z'));
+    const recovered = await scheduler.runNow(); expect(recovered.metadata.story?.previousRenderId).toBe('committed-before-crash');
+    const refs = await storyStore.getReferences(s,12); fs.writeFileSync(refs.previous!.path,'corrupt');
+    vi.setSystemTime(new Date('2026-10-10T10:05:00Z'));
+    await expect(scheduler.runNow()).rejects.toThrow(/unavailable/); expect(generate).toHaveBeenCalledOnce();
+  });
+  it('keeps a late completion owned by yesterday and bootstraps the new day from its original', async () => {
+    const {scheduler,generate,storyStore,s} = await setup();
+    const impl = generate.getMockImplementation()!;
+    let release!: () => void;
+    generate.mockImplementationOnce(async (...args) => { await new Promise<void>(resolve => { release = resolve; }); return impl(...args); });
+    const running = scheduler.runNow();
+    // Real filesystem validation completes outside fake timer advancement.
+    while (!release) await vi.advanceTimersByTimeAsync(0);
+    vi.setSystemTime(new Date('2026-10-11T07:05:00Z'));
+    const original = await storyStore.snapshotOriginal('2026-10-11',await image('yellow'));
+    const today = {...s,date:'2026-10-11',id:'story-today',artworkHash:original.sha256};
+    await storyStore.commit(today,[9,10,11,12]);
+    release(); const late = await running;
+    expect(late.metadata.story?.date).toBe('2026-10-10');
+    expect((await storyStore.getReferences(today,10)).previous).toBeUndefined();
+    const current = await scheduler.runNow(); expect(current.metadata.story?.date).toBe(today.date); expect(current.metadata.story?.previousRenderId).toBeUndefined();
+  });
+
+  it('rechecks the story slot inside the mutex after a concurrent primary render commits', async () => {
+    const {scheduler,generate} = await setup();
+    const impl = generate.getMockImplementation()!;
+    let release!: () => void;
+    generate.mockImplementationOnce(async (...args) => { await new Promise<void>(resolve => { release = resolve; }); return impl(...args); });
+    const primary = scheduler.runNow();
+    while (!release) await vi.advanceTimersByTimeAsync(0);
+    const backup = scheduler.runNowIfNoRecentRender(30*60*1000);
+    release();
+    const rendered = await primary;
+    expect(await backup).toMatchObject({generated:false,latest:{id:rendered.metadata.id}});
+    expect(generate).toHaveBeenCalledOnce();
+  });
+
 });

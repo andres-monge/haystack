@@ -32,6 +32,13 @@ describe('durable story store', () => {
     await expect(store.snapshotOriginal(s.date, await image('blue'))).rejects.toThrow();
     expect((await store.load(s.date, hours))?.original.sha256).toBe(original.sha256);
   });
+  it('retains the existing story when a competing commit uses different configured hours', async () => {
+    const { store, s } = await ready();
+    const extended = { ...s, id: 'replacement-story', scenes: [...s.scenes, { ...s.scenes[0], hour: 12 }] };
+    const result = await store.commit(extended, [9, 10, 11, 12]);
+    expect(result.story).toEqual(s);
+    expect((await store.load(s.date))?.story).toEqual(s);
+  });
   it('preserves original and continuity after output purge', async () => {
     const { d, store, s } = await ready(); const outputs = new OutputStore(join(d, 'outputs'), 1);
     await outputs.save(await image('blue'), metadata(s, 'render-1', 9));
@@ -87,4 +94,12 @@ it('holds if a same-story committed frame was corrupted before continuity recove
   const outputPath = await outputs.save(await image('blue'), metadata(s, 'render-broken', 9));
   writeFileSync(outputPath, 'broken');
   await expect(store.getReferences(s, 10, outputs)).rejects.toThrow(/continuity|committed/i);
+});
+
+
+it('rejects yesterday-dated sidecar conditions even when story fields were copied', async () => {
+  const { d, store, s } = await ready(); const outputs = new OutputStore(join(d, 'outputs'));
+  const copied = metadata(s, 'copied-story', 9);
+  await outputs.save(await image('blue'), {...copied,scenario:{...copied.scenario,timestampLocal:'2026-10-09T07:00:00Z'}});
+  expect((await store.getReferences(s, 10, outputs)).previous).toBeUndefined();
 });

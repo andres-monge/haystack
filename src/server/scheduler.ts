@@ -1,12 +1,16 @@
 // src/server/scheduler.ts — Hourly generation scheduler
 
+import { readFile } from "node:fs/promises";
+import type { StoryStore } from "../story/story-store.js";
+import type { ReadyStory } from "../story/types.js";
+import { composeScenePrompt } from "../story/scene-prompt.js";
 import type { Pipeline } from "../engine/pipeline.js";
 import type { GenerateResult, RenderMetadata } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
 import { ProviderChainExhaustedError } from "../engine/provider-chain.js";
 import { composePromptFromText } from "../engine/prompt.js";
 import { describeScenario } from "../engine/scenario.js";
-import { getImageForToday, getAlternateImages } from "./image-rotation.js";
+import { getDateString, getImageForToday, getAlternateImages } from "./image-rotation.js";
 import { buildScheduledScenario } from "./scenario-builder.js";
 import {
   getCurrentHourInTimezone,
@@ -25,6 +29,12 @@ export interface SchedulerConfig {
   activeStart?: number;
   /** Hour (0–23) when scheduled generation stops (exclusive). */
   activeEnd?: number;
+  /** Presence enables opt-in scheduled daily stories. Overrides remain independent. */
+  storyStore?: StoryStore;
+}
+
+export class StoryUnavailableError extends Error {
+  constructor() { super("Today's story or required references are unavailable"); this.name = "StoryUnavailableError"; }
 }
 
 export type ConditionalRunResult =
@@ -94,6 +104,46 @@ export class HourlyScheduler {
     return isRecent && this.isRenderForCurrentPeriod(metadata, now);
   }
 
+  /** Both trigger precheck and mutex check use exactly the same story-slot ownership. */
+  async findRecentRender(dedupWindowMs: number, now: Date = new Date()): Promise<RenderMetadata | null> {
+    const outputs = this.config.pipeline.getStore();
+    if (!this.config.storyStore) {
+      const latest = await outputs.getLatest();
+      return latest && this.isRecentRenderForCurrentPeriod(latest, dedupWindowMs, now) ? latest : null;
+    }
+    const ready = await this.loadCurrentStory(now);
+    return this.findStorySlotRender(ready, now);
+  }
+
+  private async findStorySlotRender(ready: ReadyStory, now: Date): Promise<RenderMetadata | null> {
+    const outputs = this.config.pipeline.getStore();
+    const hour = getCurrentHourInTimezone(this.config.location.timezone, now);
+    const candidates = outputs.listCommittedMetadata().filter(meta => {
+      const p = meta.story;
+      return p?.id === ready.story.id && p.date === ready.story.date
+        && p.artworkHash === ready.story.artworkHash && p.originalHash === ready.story.artworkHash
+        && p.sceneHour === hour && this.isRenderForCurrentPeriod(meta, now);
+    }).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    for (const candidate of candidates) {
+      const resolved = await outputs.resolve(candidate.id);
+      if (resolved) return resolved.metadata;
+    }
+    return null;
+  }
+
+  private async loadCurrentStory(now: Date = new Date()): Promise<ReadyStory> {
+    const local = getLocalTimeInTimezone(now, this.config.location.timezone);
+    const date = getDateString(now, this.config.location.timezone);
+    const start = this.config.activeStart ?? 0;
+    const end = this.config.activeEnd ?? 24;
+    const hours = Array.from({ length: end - start }, (_, i) => start + i);
+    const ready = await this.config.storyStore!.load(date, hours);
+    if (!ready || ready.story.timezone !== this.config.location.timezone || !ready.story.scenes.some(scene => scene.hour === local.hour)) {
+      throw new StoryUnavailableError();
+    }
+    return ready;
+  }
+
   /**
    * Start scheduling. Schedules the first tick at the next top-of-hour.
    */
@@ -137,11 +187,8 @@ export class HourlyScheduler {
     dedupWindowMs: number,
   ): Promise<ConditionalRunResult> {
     return this.runWithMutex(async () => {
-      const latest = await this.config.pipeline.getStore().getLatest();
-      if (
-        latest &&
-        this.isRecentRenderForCurrentPeriod(latest, dedupWindowMs)
-      ) {
+      const latest = await this.findRecentRender(dedupWindowMs);
+      if (latest) {
         return { generated: false, latest };
       }
 
@@ -221,6 +268,36 @@ export class HourlyScheduler {
    */
   private async tick(scenarioOverride?: string): Promise<GenerateResult> {
     const { pipeline, weatherProvider, imageDir, location } = this.config;
+
+    if (this.config.storyStore && scenarioOverride === undefined) {
+      const startedAt = new Date();
+      const ready = await this.loadCurrentStory(startedAt);
+      const hour = getCurrentHourInTimezone(location.timezone, startedAt);
+      const scene = ready.story.scenes.find(slot => slot.hour === hour)!;
+      const latest = await this.findStorySlotRender(ready, startedAt);
+      if (latest) {
+        const output = await pipeline.getStore().resolve(latest.id);
+        if (!output) throw new StoryUnavailableError();
+        return { metadata: latest, imagePath: output.imagePath, imageBuffer: await readFile(output.imagePath) };
+      }
+      let references;
+      try { references = await this.config.storyStore.getReferences(ready.story, hour, pipeline.getStore()); }
+      catch { throw new StoryUnavailableError(); }
+      const scenario = await buildScheduledScenario(location.lat, location.lon, location.timezone, weatherProvider, startedAt);
+      const result = await pipeline.generate(references.original.path, scenario,
+        composeScenePrompt(ready.story, scene, scenario, Boolean(references.previous)), {
+          referenceImagePaths: references.previous ? [references.previous.path] : [],
+          story: {
+            id: ready.story.id, date: ready.story.date, artworkHash: ready.story.artworkHash,
+            sceneHour: hour, originalHash: references.original.sha256,
+            ...(references.previous ? { previousRenderId: references.previous.renderId, previousHash: references.previous.sha256 } : {}),
+          },
+        });
+      const committed = await pipeline.getStore().resolve(result.metadata.id);
+      if (!committed) throw new Error('Successful story render is not committed');
+      await this.config.storyStore.commitContinuity(ready.story, committed);
+      return result;
+    }
 
     // Get today's base image (timezone-aware day boundary)
     const imagePath = getImageForToday(imageDir, location.timezone);

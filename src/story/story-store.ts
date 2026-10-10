@@ -1,8 +1,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
+import type { RenderMetadata } from '../engine/types.js';
 import { validateImage } from '../engine/image-validation.js';
 import type { OutputStore, ResolvedOutput } from '../storage/output-store.js';
+import { getDateString } from '../server/image-rotation.js';
 import { assertStoryDate, validateStory } from './schema.js';
 import type { ContinuitySnapshot, DailyStory, ImageSnapshot, ReadyStory, StoryFailure, StoryReferences, StoryRenderProvenance } from './types.js';
 
@@ -38,7 +40,7 @@ export class StoryStore {
     const story = validateStory(input, { date: input.date, artworkHash: input.artworkHash, hours });
     const original = await this.loadOriginal(story.date);
     if (!original || original.sha256 !== story.artworkHash) throw new Error('Story original snapshot mismatch');
-    const existing = await this.load(story.date, hours);
+    const existing = await this.load(story.date);
     if (existing) return existing; // A ready artifact wins over stale or competing preparation.
     this.atomicJson(this.file(story.date, 'story.json'), story);
     return { story, original };
@@ -102,12 +104,12 @@ export class StoryStore {
     let previous = this.readContinuity(story);
     if (outputs) {
       // OutputStore resolves the committed sidecar and validates its bytes. Uncommitted files never enter this list.
-      const candidates = outputs.listCommittedMetadata().filter(metadata => {
-        const p = (metadata as { story?: StoryRenderProvenance }).story;
-        return p && this.matches(p, story) && p.sceneHour < hour;
+      const candidates = outputs.listCommittedMetadata().filter((metadata): metadata is RenderMetadata & { story: StoryRenderProvenance } => {
+        const p = metadata.story;
+        return p !== undefined && this.renderBelongs(metadata, story) && p.sceneHour < hour;
       }).sort((a, b) => {
-        const ah = (a as { story: StoryRenderProvenance }).story.sceneHour;
-        const bh = (b as { story: StoryRenderProvenance }).story.sceneHour;
+        const ah = a.story.sceneHour;
+        const bh = b.story.sceneHour;
         return bh - ah || b.createdAt.localeCompare(a.createdAt);
       });
       for (const candidate of candidates) {
@@ -120,9 +122,9 @@ export class StoryStore {
         if (previous && previous.sceneHour >= hour) {
           const snapshot = await this.snapshot(story.date, fs.readFileSync(resolved.imagePath));
           if (snapshot.sha256 !== resolved.sha256) throw new Error('Committed render changed before snapshot');
-          return { original, previous: { ...snapshot, renderId: resolved.metadata.id, sceneHour: (candidate as { story: StoryRenderProvenance }).story.sceneHour } };
+          return { original, previous: { ...snapshot, renderId: resolved.metadata.id, sceneHour: candidate.story.sceneHour } };
         }
-        if (!previous || previous.sceneHour < (candidate as { story: StoryRenderProvenance }).story.sceneHour) {
+        if (!previous || previous.sceneHour < candidate.story.sceneHour) {
           previous = { ...await this.commitContinuity(story, resolved), storyId: story.id, date: story.date, artworkHash: story.artworkHash };
         }
         break;
@@ -138,9 +140,14 @@ export class StoryStore {
   private matches(p: StoryRenderProvenance, story: DailyStory): boolean {
     return p.id === story.id && p.date === story.date && p.artworkHash === story.artworkHash && p.originalHash === story.artworkHash && Number.isInteger(p.sceneHour) && story.scenes.some(s => s.hour === p.sceneHour);
   }
+  private renderBelongs(metadata: RenderMetadata, story: DailyStory): boolean {
+    const p = metadata.story;
+    const instant = new Date(metadata.scenario.timestampLocal);
+    return p !== undefined && this.matches(p, story) && metadata.scenario.hour === p.sceneHour
+      && Number.isFinite(instant.getTime()) && getDateString(instant, story.timezone) === story.date;
+  }
   private provenance(output: ResolvedOutput, story: DailyStory): StoryRenderProvenance | null {
-    const p = (output.metadata as { story?: StoryRenderProvenance }).story;
-    return p && this.matches(p, story) && output.metadata.scenario.hour === p.sceneHour ? p : null;
+    return this.renderBelongs(output.metadata, story) ? output.metadata.story! : null;
   }
   private readContinuity(story: DailyStory): ContinuityRecord | null {
     const raw = this.readJson(this.file(story.date, 'continuity.json')) as ContinuityRecord | null;

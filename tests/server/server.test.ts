@@ -5,11 +5,12 @@ import * as os from "node:os";
 import * as path from "node:path";
 import request from "supertest";
 import sharp from "sharp";
+import type { Express } from "express";
 import { createApp } from "../../src/server/server.js";
 import { OutputStore } from "../../src/storage/output-store.js";
 import type { Pipeline } from "../../src/engine/pipeline.js";
 import type { WeatherProvider } from "../../src/weather/types.js";
-import type { HourlyScheduler } from "../../src/server/scheduler.js";
+import { StoryUnavailableError, HourlyScheduler } from "../../src/server/scheduler.js";
 import {
   makeMetadata,
   makeGenerateResult,
@@ -17,10 +18,33 @@ import {
   createMockWeatherProvider,
   getGenerateCallArgs,
 } from "../helpers/mock-factories.js";
+import { StoryStore } from "../../src/story/story-store.js";
+import { image, story, hours } from "../story/fixtures.js";
 import { clearWeatherCache } from "../../src/server/scenario-builder.js";
 import { ProviderChainExhaustedError } from "../../src/engine/provider-chain.js";
 import type { ProviderChainRunData } from "../../src/engine/provider-chain.js";
 import { composePrompt, DEFAULT_TEMPLATE } from "../../src/engine/prompt.js";
+
+const localTestServers = new Set<http.Server>();
+
+/** Bind fixture listeners explicitly; wildcard dual-stack sockets fail on this host. */
+async function requestLocal(app: Express) {
+  const server = http.createServer(app);
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => { server.removeListener("error", reject); resolve(); });
+  });
+  localTestServers.add(server);
+  return request(server);
+}
+
+afterEach(async () => {
+  for (const server of localTestServers) {
+    server.closeAllConnections();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+  }
+  localTestServers.clear();
+});
 
 /** Create a small valid PNG buffer (1x1 pixel) for upload tests. */
 function createTestPng(): Buffer {
@@ -120,7 +144,7 @@ describe("Express API Server", () => {
     it("returns 200 with metadata and imageUrl for valid image + hour", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "14");
@@ -138,7 +162,7 @@ describe("Express API Server", () => {
     it("returns 400 when no image is provided", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/generate")
         .field("hour", "14");
 
@@ -150,7 +174,7 @@ describe("Express API Server", () => {
     it("passes hour override to scenario builder", async () => {
       const app = createTestApp();
 
-      await request(app)
+      await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "22");
@@ -162,7 +186,7 @@ describe("Express API Server", () => {
     it("fetches weather when lat/lon/timezone provided", async () => {
       const app = createTestApp();
 
-      await request(app)
+      await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12")
@@ -184,7 +208,7 @@ describe("Express API Server", () => {
     it("uses explicit weather overrides instead of fetching", async () => {
       const app = createTestApp();
 
-      await request(app)
+      await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12")
@@ -203,7 +227,7 @@ describe("Express API Server", () => {
     it("routes a whitespace-only Lab override through the default story-rich prompt", async () => {
       const app = createTestApp();
 
-      await request(app)
+      await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12")
@@ -212,7 +236,7 @@ describe("Express API Server", () => {
       const { promptOverride, scenario } = getGenerateCallArgs(pipeline);
       expect(promptOverride).toBeUndefined();
       expect(composePrompt(scenario)).toContain(
-        "makes the viewer do a double take and wonder what is going on",
+        "make the viewer do a double take and wonder what is going on",
       );
     });
 
@@ -220,7 +244,7 @@ describe("Express API Server", () => {
       const app = createTestApp();
       const completePrompt = "Only repaint the bicycle red.";
 
-      await request(app)
+      await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12")
@@ -229,7 +253,7 @@ describe("Express API Server", () => {
       const { promptOverride } = getGenerateCallArgs(pipeline);
       expect(promptOverride).toBe(completePrompt);
       expect(promptOverride).not.toContain(
-        "makes the viewer do a double take and wonder what is going on",
+        "make the viewer do a double take and wonder what is going on",
       );
     });
 
@@ -239,7 +263,7 @@ describe("Express API Server", () => {
 
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12")
@@ -261,7 +285,7 @@ describe("Express API Server", () => {
 
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12");
@@ -322,7 +346,7 @@ describe("Express API Server", () => {
         },
       );
 
-      await request(app)
+      await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12");
@@ -336,7 +360,7 @@ describe("Express API Server", () => {
     it("returns 400 for invalid hour (non-numeric)", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "banana");
@@ -349,7 +373,7 @@ describe("Express API Server", () => {
     it("returns 400 for out-of-range hour", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "99");
@@ -362,7 +386,7 @@ describe("Express API Server", () => {
     it("ignores non-numeric weather override values", async () => {
       const app = createTestApp();
 
-      await request(app)
+      await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12")
@@ -383,7 +407,7 @@ describe("Express API Server", () => {
         },
       );
 
-      await request(app)
+      await (await requestLocal(app))
         .post("/api/generate")
         .attach("image", testPngPath)
         .field("hour", "12");
@@ -406,7 +430,7 @@ describe("Express API Server", () => {
       vi.mocked(pipeline.getStore().listAll).mockReturnValue(renders);
 
       const app = createTestApp();
-      const res = await request(app).get("/api/history");
+      const res = await (await requestLocal(app)).get("/api/history");
 
       expect(res.status).toBe(200);
       expect(res.body.renders).toHaveLength(2);
@@ -425,7 +449,7 @@ describe("Express API Server", () => {
       vi.mocked(pipeline.getStore().listAll).mockReturnValue(renders);
 
       const app = createTestApp();
-      const res = await request(app).get("/api/history?limit=3");
+      const res = await (await requestLocal(app)).get("/api/history?limit=3");
 
       expect(res.status).toBe(200);
       expect(res.body.renders).toHaveLength(3);
@@ -438,7 +462,7 @@ describe("Express API Server", () => {
       vi.mocked(pipeline.getStore().listAll).mockReturnValue(renders);
 
       const app = createTestApp();
-      const res = await request(app).get("/api/history");
+      const res = await (await requestLocal(app)).get("/api/history");
 
       expect(res.status).toBe(200);
       expect(res.body.renders).toHaveLength(24);
@@ -446,7 +470,7 @@ describe("Express API Server", () => {
 
     it("returns empty array when no renders exist", async () => {
       const app = createTestApp();
-      const res = await request(app).get("/api/history");
+      const res = await (await requestLocal(app)).get("/api/history");
 
       expect(res.status).toBe(200);
       expect(res.body.renders).toEqual([]);
@@ -520,7 +544,7 @@ describe("Express API Server", () => {
       vi.mocked(pipeline.getStore().listAll).mockReturnValue(renders);
 
       const app = createTestApp();
-      const res = await request(app).get("/api/history?limit=-1");
+      const res = await (await requestLocal(app)).get("/api/history?limit=-1");
 
       expect(res.status).toBe(200);
       // slice(0, -1) drops last element — returns empty for single-item array
@@ -532,7 +556,7 @@ describe("Express API Server", () => {
       vi.mocked(pipeline.getStore().listAll).mockReturnValue(renders);
 
       const app = createTestApp();
-      const res = await request(app).get("/api/history?limit=abc");
+      const res = await (await requestLocal(app)).get("/api/history?limit=abc");
 
       expect(res.status).toBe(200);
       // parseInt("abc") = NaN; slice(0, NaN) returns []
@@ -546,7 +570,7 @@ describe("Express API Server", () => {
     it("serves existing image with correct content type", async () => {
       const app = createTestApp();
 
-      const res = await request(app).get(
+      const res = await (await requestLocal(app)).get(
         "/api/outputs/20260214_120000_abc12345",
       );
 
@@ -632,7 +656,7 @@ describe("Express API Server", () => {
     it("returns 404 for non-existent output", async () => {
       const app = createTestApp();
 
-      const res = await request(app).get("/api/outputs/nonexistent_id");
+      const res = await (await requestLocal(app)).get("/api/outputs/nonexistent_id");
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe("Output not found");
@@ -641,7 +665,7 @@ describe("Express API Server", () => {
     it("returns 400 for invalid ID (directory traversal attempt)", async () => {
       const app = createTestApp();
 
-      const res = await request(app).get("/api/outputs/..%2F..%2Fetc%2Fpasswd");
+      const res = await (await requestLocal(app)).get("/api/outputs/..%2F..%2Fetc%2Fpasswd");
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe("Invalid output ID");
@@ -655,7 +679,7 @@ describe("Express API Server", () => {
       const app = createTestApp();
 
       // These are resolved by Express's path normalization before reaching the handler
-      const res = await request(app).get(`/api/outputs/${id}`);
+      const res = await (await requestLocal(app)).get(`/api/outputs/${id}`);
       expect(res.status).toBe(404);
     });
   });
@@ -666,7 +690,7 @@ describe("Express API Server", () => {
     it("returns locations from weather provider", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/location/search")
         .send({ query: "Madrid" });
 
@@ -679,7 +703,7 @@ describe("Express API Server", () => {
     it("returns 400 when query is missing", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/location/search")
         .send({});
 
@@ -690,7 +714,7 @@ describe("Express API Server", () => {
     it("returns 400 when query is not a string", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/location/search")
         .send({ query: 123 });
 
@@ -705,7 +729,7 @@ describe("Express API Server", () => {
     it("returns current and hourly conditions via single getForecast call", async () => {
       const app = createTestApp();
 
-      const res = await request(app).get(
+      const res = await (await requestLocal(app)).get(
         "/api/weather?lat=40.4168&lon=-3.7038&timezone=Europe/Madrid",
       );
 
@@ -725,7 +749,7 @@ describe("Express API Server", () => {
     it("returns 400 when params are missing", async () => {
       const app = createTestApp();
 
-      const res = await request(app).get("/api/weather?lat=40.4168");
+      const res = await (await requestLocal(app)).get("/api/weather?lat=40.4168");
 
       expect(res.status).toBe(400);
       expect(res.body.error).toBe("lat, lon, and timezone are required");
@@ -734,7 +758,7 @@ describe("Express API Server", () => {
     it("returns 400 when lat is not a number", async () => {
       const app = createTestApp();
 
-      const res = await request(app).get(
+      const res = await (await requestLocal(app)).get(
         "/api/weather?lat=abc&lon=-3.7038&timezone=Europe/Madrid",
       );
 
@@ -747,7 +771,7 @@ describe("Express API Server", () => {
 
       const app = createTestApp();
 
-      const res = await request(app).get(
+      const res = await (await requestLocal(app)).get(
         "/api/weather?lat=40.4168&lon=-3.7038&timezone=Europe/Madrid",
       );
 
@@ -762,13 +786,13 @@ describe("Express API Server", () => {
     it("returns the default prompt template", async () => {
       const app = createTestApp();
 
-      const res = await request(app).get("/api/config/default-template");
+      const res = await (await requestLocal(app)).get("/api/config/default-template");
 
       expect(res.status).toBe(200);
       expect(res.body.template).toBe(DEFAULT_TEMPLATE);
-      expect(res.body.template).toContain("makes the viewer do a double take and wonder what is going on");
+      expect(res.body.template).toContain("make the viewer do a double take and wonder what is going on");
       expect(res.body.template).toContain(
-        "Something genuinely interesting should be happening, not merely an ordinary everyday activity",
+        "not merely an ordinary everyday activity",
       );
     });
   });
@@ -779,7 +803,7 @@ describe("Express API Server", () => {
     it("returns scenario description for time-only request", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/scenario-preview")
         .send({ hour: 14, isDay: true });
 
@@ -790,7 +814,7 @@ describe("Express API Server", () => {
     it("includes weather data when provided", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/scenario-preview")
         .send({
           hour: 12,
@@ -807,7 +831,7 @@ describe("Express API Server", () => {
     it("includes sun/moon data when location provided", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/scenario-preview")
         .send({
           hour: 12,
@@ -825,7 +849,7 @@ describe("Express API Server", () => {
     it("returns 400 for missing hour", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/scenario-preview")
         .send({ isDay: true });
 
@@ -836,7 +860,7 @@ describe("Express API Server", () => {
     it("returns 400 for invalid hour", async () => {
       const app = createTestApp();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/scenario-preview")
         .send({ hour: 99, isDay: true });
 
@@ -860,7 +884,7 @@ describe("Express API Server", () => {
       vi.mocked(pipeline.getStore().getLatest).mockReturnValue(latestMeta);
 
       const app = createTestApp();
-      const res = await request(app).get("/api/latest");
+      const res = await (await requestLocal(app)).get("/api/latest");
 
       expect(res.status).toBe(200);
       expect(res.body.metadata).toBeDefined();
@@ -875,7 +899,7 @@ describe("Express API Server", () => {
 
     it("returns 404 when no renders exist", async () => {
       const app = createTestApp();
-      const res = await request(app).get("/api/latest");
+      const res = await (await requestLocal(app)).get("/api/latest");
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe("No renders available");
@@ -886,7 +910,7 @@ describe("Express API Server", () => {
       vi.mocked(pipeline.getStore().getLatest).mockReturnValue(latestMeta);
 
       const app = createTestApp();
-      const res = await request(app).get("/api/latest");
+      const res = await (await requestLocal(app)).get("/api/latest");
 
       expect(res.body.imageUrl).toMatch(/^\/api\/outputs\/[a-zA-Z0-9_-]+$/);
     });
@@ -913,6 +937,10 @@ describe("Express API Server", () => {
         isInActiveHours: vi.fn().mockReturnValue(inActiveHours),
         isRenderForCurrentPeriod: vi.fn().mockReturnValue(true),
         isRecentRenderForCurrentPeriod: vi.fn().mockReturnValue(true),
+        findRecentRender: vi.fn(async function(this: HourlyScheduler, window: number) {
+          const latest = await pipeline.getStore().getLatest();
+          return latest && this.isRecentRenderForCurrentPeriod(latest, window) ? latest : null;
+        }),
       } as unknown as HourlyScheduler;
     }
 
@@ -930,10 +958,18 @@ describe("Express API Server", () => {
       return { app, mockScheduler };
     }
 
+    it("holds display when the story precheck is unavailable", async () => {
+      const {app, mockScheduler} = createAppWithTriggerScheduler();
+      vi.mocked(mockScheduler.findRecentRender).mockRejectedValue(new StoryUnavailableError());
+      const res = await (await requestLocal(app)).post('/api/scheduler/trigger');
+      expect(res.status).toBe(200); expect(res.body).toMatchObject({triggered:false});
+      expect(mockScheduler.runNowIfNoRecentRender).not.toHaveBeenCalled();
+    });
+
     it("returns 503 when scheduler is not configured", async () => {
       const app = createTestApp();
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(503);
       expect(res.body.error).toBe("Scheduler not configured");
@@ -942,7 +978,7 @@ describe("Express API Server", () => {
     it("returns triggered: false when scheduler is paused", async () => {
       const { app } = createAppWithTriggerScheduler({ running: false });
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(false);
@@ -952,7 +988,7 @@ describe("Express API Server", () => {
     it("returns triggered: false when outside active hours", async () => {
       const { app } = createAppWithTriggerScheduler({ inActiveHours: false });
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(false);
@@ -966,7 +1002,7 @@ describe("Express API Server", () => {
 
       const { app } = createAppWithTriggerScheduler();
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(false);
@@ -992,10 +1028,14 @@ describe("Express API Server", () => {
         isInActiveHours: vi.fn().mockReturnValue(true),
         isRenderForCurrentPeriod: vi.fn().mockReturnValue(true),
         isRecentRenderForCurrentPeriod: vi.fn().mockReturnValue(false),
+        findRecentRender: vi.fn(async function(this: HourlyScheduler, window: number) {
+          const latest = await pipeline.getStore().getLatest();
+          return latest && this.isRecentRenderForCurrentPeriod(latest, window) ? latest : null;
+        }),
       } as unknown as HourlyScheduler;
       const app = createApp({ pipeline, weatherProvider, outputDir, scheduler: mockScheduler });
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(false);
@@ -1012,7 +1052,7 @@ describe("Express API Server", () => {
       const { app, mockScheduler } = createAppWithTriggerScheduler();
       vi.mocked(mockScheduler.isRecentRenderForCurrentPeriod).mockReturnValue(false);
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(true);
@@ -1027,7 +1067,7 @@ describe("Express API Server", () => {
       const { app, mockScheduler } = createAppWithTriggerScheduler();
       vi.mocked(mockScheduler.isRecentRenderForCurrentPeriod).mockReturnValue(false);
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(true);
@@ -1037,7 +1077,7 @@ describe("Express API Server", () => {
     it("triggers generation (happy path, no recent render)", async () => {
       const { app, mockScheduler } = createAppWithTriggerScheduler();
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(true);
@@ -1051,7 +1091,7 @@ describe("Express API Server", () => {
 
       const { app, mockScheduler } = createAppWithTriggerScheduler();
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(true);
@@ -1061,7 +1101,7 @@ describe("Express API Server", () => {
     it("triggers when no active hours configured", async () => {
       const { app, mockScheduler } = createAppWithTriggerScheduler({ inActiveHours: true });
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(true);
@@ -1074,7 +1114,7 @@ describe("Express API Server", () => {
         new Error("Gemini API error"),
       );
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe("Trigger generation failed");
@@ -1086,7 +1126,7 @@ describe("Express API Server", () => {
         exhaustedWith(["rate_limited", "rate_limited"]),
       );
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(429);
       expect(res.body.error).toContain("Rate limited");
@@ -1098,7 +1138,7 @@ describe("Express API Server", () => {
 
       const { app } = createAppWithTriggerScheduler();
 
-      const res = await request(app).post("/api/scheduler/trigger");
+      const res = await (await requestLocal(app)).post("/api/scheduler/trigger");
 
       expect(res.status).toBe(200);
       expect(res.body.triggered).toBe(false);
@@ -1121,13 +1161,18 @@ describe("Express API Server", () => {
         isInActiveHours: vi.fn().mockReturnValue(true),
         isRenderForCurrentPeriod: vi.fn().mockReturnValue(true),
         isRecentRenderForCurrentPeriod: vi.fn().mockReturnValue(false),
+        findRecentRender: vi.fn(async function(this: HourlyScheduler, window: number) {
+          const latest = await pipeline.getStore().getLatest();
+          return latest && this.isRecentRenderForCurrentPeriod(latest, window) ? latest : null;
+        }),
       } as unknown as HourlyScheduler;
 
       const app = createApp({ pipeline, weatherProvider, outputDir, scheduler: mockScheduler });
 
       // Use native http to test concurrent requests — supertest serializes
       // on keep-alive connections, making true concurrency impossible.
-      const server = app.listen(0);
+      const server = http.createServer(app);
+      await new Promise<void>(resolve => server.listen(0, "127.0.0.1", resolve));
       const port = (server.address() as { port: number }).port;
 
       function postTrigger(): Promise<{ status: number; body: Record<string, unknown> }> {
@@ -1167,7 +1212,8 @@ describe("Express API Server", () => {
         expect(firstRes.status).toBe(200);
         expect(firstRes.body.triggered).toBe(true);
       } finally {
-        server.close();
+        server.closeAllConnections();
+        await new Promise<void>(resolve => server.close(() => resolve()));
       }
     });
   });
@@ -1197,7 +1243,7 @@ describe("Express API Server", () => {
 
     it("returns 503 when scheduler is not configured", async () => {
       const app = createTestApp();
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/override")
         .send({ scenario: "A snowy winter night" });
 
@@ -1212,7 +1258,7 @@ describe("Express API Server", () => {
     ])("returns 400 when scenario is %s", async (_label, body) => {
       const { app } = createAppWithScheduler();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/override")
         .send(body);
 
@@ -1223,7 +1269,7 @@ describe("Express API Server", () => {
     it("returns 400 when scenario exceeds 500 characters", async () => {
       const { app } = createAppWithScheduler();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/override")
         .send({ scenario: "x".repeat(501) });
 
@@ -1234,7 +1280,7 @@ describe("Express API Server", () => {
     it("triggers generation with valid scenario", async () => {
       const { app, mockScheduler } = createAppWithScheduler();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/override")
         .send({ scenario: "A stormy night scene" });
 
@@ -1251,7 +1297,7 @@ describe("Express API Server", () => {
         new Error("Generation failed"),
       );
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/override")
         .send({ scenario: "A rainy day" });
 
@@ -1265,7 +1311,7 @@ describe("Express API Server", () => {
         exhaustedWith(["rate_limited", "rate_limited"]),
       );
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/override")
         .send({ scenario: "A rainy day" });
 
@@ -1276,7 +1322,7 @@ describe("Express API Server", () => {
     it("accepts scenario with HTML-like content (stored verbatim)", async () => {
       const { app, mockScheduler } = createAppWithScheduler();
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/override")
         .send({ scenario: '<script>alert("xss")</script>' });
 
@@ -1289,7 +1335,7 @@ describe("Express API Server", () => {
     it("validates input before checking scheduler availability", async () => {
       // No scheduler configured AND invalid scenario — should get 400 (validation first)
       const app = createTestApp();
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/override")
         .send({ scenario: "" });
 
@@ -1325,7 +1371,7 @@ describe("Express API Server", () => {
     describe("GET /api/scheduler/status", () => {
       it("returns running: false when no scheduler configured", async () => {
         const app = createTestApp();
-        const res = await request(app).get("/api/scheduler/status");
+        const res = await (await requestLocal(app)).get("/api/scheduler/status");
 
         expect(res.status).toBe(200);
         expect(res.body.running).toBe(false);
@@ -1335,12 +1381,12 @@ describe("Express API Server", () => {
         const { app, mockScheduler } = createAppWithScheduler();
 
         // Initially not running
-        let res = await request(app).get("/api/scheduler/status");
+        let res = await (await requestLocal(app)).get("/api/scheduler/status");
         expect(res.body.running).toBe(false);
 
         // Start it
         mockScheduler.start();
-        res = await request(app).get("/api/scheduler/status");
+        res = await (await requestLocal(app)).get("/api/scheduler/status");
         expect(res.body.running).toBe(true);
       });
     });
@@ -1348,7 +1394,7 @@ describe("Express API Server", () => {
     describe("POST /api/scheduler/pause", () => {
       it("returns 503 when no scheduler configured", async () => {
         const app = createTestApp();
-        const res = await request(app).post("/api/scheduler/pause");
+        const res = await (await requestLocal(app)).post("/api/scheduler/pause");
 
         expect(res.status).toBe(503);
         expect(res.body.error).toBe("Scheduler not configured");
@@ -1358,7 +1404,7 @@ describe("Express API Server", () => {
         const { app, mockScheduler } = createAppWithScheduler();
         mockScheduler.start();
 
-        const res = await request(app).post("/api/scheduler/pause");
+        const res = await (await requestLocal(app)).post("/api/scheduler/pause");
 
         expect(res.status).toBe(200);
         expect(res.body.running).toBe(false);
@@ -1369,7 +1415,7 @@ describe("Express API Server", () => {
     describe("POST /api/scheduler/resume", () => {
       it("returns 503 when no scheduler configured", async () => {
         const app = createTestApp();
-        const res = await request(app).post("/api/scheduler/resume");
+        const res = await (await requestLocal(app)).post("/api/scheduler/resume");
 
         expect(res.status).toBe(503);
         expect(res.body.error).toBe("Scheduler not configured");
@@ -1378,7 +1424,7 @@ describe("Express API Server", () => {
       it("starts the scheduler and returns running: true", async () => {
         const { app, mockScheduler } = createAppWithScheduler();
 
-        const res = await request(app).post("/api/scheduler/resume");
+        const res = await (await requestLocal(app)).post("/api/scheduler/resume");
 
         expect(res.status).toBe(200);
         expect(res.body.running).toBe(true);
@@ -1400,6 +1446,10 @@ describe("Express API Server", () => {
         isRunning: vi.fn().mockReturnValue(true),
         isInActiveHours: vi.fn().mockReturnValue(true),
         isRecentRenderForCurrentPeriod: vi.fn().mockReturnValue(false),
+        findRecentRender: vi.fn(async function(this: HourlyScheduler, window: number) {
+          const latest = await pipeline.getStore().getLatest();
+          return latest && this.isRecentRenderForCurrentPeriod(latest, window) ? latest : null;
+        }),
       } as unknown as HourlyScheduler;
       return {
         app: createApp({
@@ -1418,7 +1468,7 @@ describe("Express API Server", () => {
       "accepts socket-derived loopback address %s and ignores forwarding headers",
       async remoteAddress => {
         const { app } = createGuardedApp(remoteAddress);
-        const res = await request(app)
+        const res = await (await requestLocal(app))
           .post("/api/generate")
           .set("X-Forwarded-For", "203.0.113.40")
           .attach("image", testPngPath)
@@ -1434,9 +1484,9 @@ describe("Express API Server", () => {
 
       // No body is needed: 403 (rather than the route's normal 400 for a
       // missing upload) proves the guard ran before multer.
-      const mutation = await request(app).post("/api/generate");
-      const trigger = await request(app).post("/api/scheduler/trigger");
-      const readOnly = await request(app).get("/api/history");
+      const mutation = await (await requestLocal(app)).post("/api/generate");
+      const trigger = await (await requestLocal(app)).post("/api/scheduler/trigger");
+      const readOnly = await (await requestLocal(app)).get("/api/history");
 
       expect(mutation.status).toBe(403);
       expect(trigger.status).toBe(403);
@@ -1448,7 +1498,7 @@ describe("Express API Server", () => {
     it("rejects an untrusted browser Origin before JSON parsing and scheduler work", async () => {
       const { app, mockScheduler } = createGuardedApp("127.0.0.1");
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/override")
         .set("Origin", "https://evil.example")
         .set("Content-Type", "application/json")
@@ -1468,7 +1518,7 @@ describe("Express API Server", () => {
     ])("allows the explicit local Lab origin %s", async origin => {
       const { app, mockScheduler } = createGuardedApp("127.0.0.1");
 
-      const res = await request(app)
+      const res = await (await requestLocal(app))
         .post("/api/override")
         .set("Origin", origin)
         .send({ scenario: "Soft rain" });
@@ -1485,7 +1535,7 @@ describe("Express API Server", () => {
     ])("protects state-changing scheduler route %s", async route => {
       const { app, mockScheduler } = createGuardedApp("10.0.0.50");
 
-      const res = await request(app).post(route).send({ scenario: "Rain" });
+      const res = await (await requestLocal(app)).post(route).send({ scenario: "Rain" });
 
       expect(res.status).toBe(403);
       expect(mockScheduler.start).not.toHaveBeenCalled();
@@ -1500,11 +1550,32 @@ describe("Express API Server", () => {
   describe("GET /kiosk", () => {
     it("serves the kiosk HTML page", async () => {
       const app = createTestApp();
-      const res = await request(app).get("/kiosk");
+      const res = await (await requestLocal(app)).get("/kiosk");
 
       expect(res.status).toBe(200);
       expect(res.headers["content-type"]).toMatch(/html/);
       expect(res.text).toContain("<!DOCTYPE html>");
     });
   });
+});
+
+it('trigger precheck uses real same-story slot ownership even when an interactive render is newest', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(),'story-trigger-'));
+  vi.useFakeTimers({toFake:['Date']}); vi.setSystemTime(new Date('2026-10-10T09:05:00Z'));
+  let scheduler: HourlyScheduler | undefined;
+  try {
+    const storyStore = new StoryStore(path.join(dir,'stories'));
+    const original = await storyStore.snapshotOriginal('2026-10-10',await image());
+    const s = story(original.sha256); await storyStore.commit(s,hours);
+    const outputs = new OutputStore(path.join(dir,'outputs'));
+    await outputs.save(await image('blue'),makeMetadata({id:'story-slot',createdAt:'2026-10-10T09:00:00Z',story:{id:s.id,date:s.date,artworkHash:s.artworkHash,originalHash:s.artworkHash,sceneHour:11},scenario:{timestampLocal:'2026-10-10T09:00:00Z',hour:11,isDay:true}}));
+    await outputs.save(await image('green'),makeMetadata({id:'interactive-newest',createdAt:'2026-10-10T09:04:00Z'}));
+    const generate = vi.fn();
+    const pipeline = {generate,getStore:()=>outputs} as unknown as Pipeline;
+    scheduler = new HourlyScheduler({pipeline,storyStore,weatherProvider:createMockWeatherProvider(),imageDir:'/unused',activeStart:9,activeEnd:12,location:{lat:40,lon:-3,timezone:'Europe/Madrid'}});
+    scheduler.start();
+    const app = createApp({pipeline,weatherProvider:createMockWeatherProvider(),outputDir:dir,scheduler});
+    const res = await (await requestLocal(app)).post('/api/scheduler/trigger');
+    expect(res.status).toBe(200); expect(res.body).toMatchObject({triggered:false,latestId:'story-slot'}); expect(generate).not.toHaveBeenCalled();
+  } finally {scheduler?.stop();vi.useRealTimers();fs.rmSync(dir,{recursive:true,force:true});}
 });

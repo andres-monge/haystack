@@ -37,7 +37,7 @@ These commands use local configuration and can write the configured trailer dest
 
 The original is frozen before writing and remains canonical all day even if the rotation directory changes. The first successful image starts from that original, including a late first render. Later images use the original followed by the preceding successful same-story frame. Its story ID, local date, artwork hash and preceding scene hour must all match. Failed attempts and interactive outputs never become story references. The current scene carries cumulative props/location state and only its present characters, allowing missed hours without backlog replay.
 
-Fresh Scenario conditions control weather and light while the prepared cast and premise stay fixed. All providers receive the same ordered references and use geometry from the original. Story mode never changes artwork after provider exhaustion. Missing story, unavailable required snapshots or generation failure retains the displayed Render. Current-slot deduplication matches story identity, so an interactive image in that hour does not suppress the scheduled scene.
+Fresh Scenario conditions control weather and light while the prepared cast and premise stay fixed. All providers receive the same ordered references and use geometry from the original. Story mode never changes artwork after provider exhaustion. Changing active hours preserves an already-ready story; rendering holds if its committed slots no longer match the configured window. Missing story, unavailable required snapshots or generation failure retains the displayed Render. Current-slot deduplication matches story identity, so an interactive image in that hour does not suppress the scheduled scene.
 
 Story JSON, original and latest continuity snapshots live outside normal output retention. Image sidecars remain the Render commit authority. On restart, validated committed same-story outputs repair a lagging continuity pointer. A required corrupt frame holds rendering rather than silently dropping the second reference. A new local date owns its own story and references; a late prior-day completion cannot advance the new day's pointer.
 
@@ -63,3 +63,17 @@ The body contains exactly the Spanish trailer sentence. Full beats, history and 
 Local tests cover identity, persistence, payload order, scheduling and fixture-note format. A bounded subscription-writer smoke test must confirm the actual model and structured response in a production-like environment. Review actual stories for specificity, warmth, visual feasibility, late entrances and trailer spoilers. Neither schema validation nor automated tests establish creative quality.
 
 Before live activation, confirm the Mac's morning wake behavior and the synced note's arrival/readiness before 08:00. Carson's active greeting source still needs verification and its own acceptance tests. D was selected from an eight-frame prototype; full-active-window stability and visual quality on Gemini/xAI remain unproven. Additional paid image trials require separate scope and budget.
+
+## Local verification record — 2026-10-10
+
+The TypeScript build passed and all 637 Vitest tests passed with file parallelism disabled. ESLint could not run: the repository has no ESLint 9 configuration file. No live service, launchd job, vault or image provider was changed or called for these checks.
+
+Three actual subscription-backed writer calls used the production wrapper, `gpt-6.1-sol` at medium effort, ChatGPT authentication and the allowlisted environment. Each produced a schema-valid 12-scene story in approximately 98–109 seconds, using temporary state and fixture forecasts:
+
+| Artwork / forecast | Story | Observation |
+|---|---|---|
+| Hotel Adriano / sunny | El concierto de las cucharas | Visible ensemble premise; initially introduced a sign and overly fixed weather language |
+| Waterfall landscape / rain | El concierto de las gotas | Warm, visually concrete family premise; repeated the concert theme with no supplied history |
+| France landscape / recent story summaries | El capitán de las tres puertas | Different croquet premise with clear props and relationships |
+
+The writer and scene prompts now explicitly preserve existing text and setting and give current render conditions authority over forecast weather. That final wording has structural coverage but has not had another writer or image trial. Full local JSON samples and invocation receipts remain under `.context/compound-engineering/daily-story-verification/` for household review; they are not exported in the public note. Household creative acceptance, full-day image continuity, morning wake/sync and Carson greeting acceptance remain release checks.

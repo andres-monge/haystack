@@ -10,5 +10,7 @@ describe('daily story schema', () => {
     { scenes: [story(hash).scenes[0], story(hash).scenes[0], story(hash).scenes[2]] },
     { scenes: [{ ...story(hash).scenes[0], presentCast: ['unknown'] }, ...story(hash).scenes.slice(1)] },
     { extra: 'not in schema' }, { trailer: 'Primera frase. Segunda frase.' },
+    { trailer: 'Primera frase. Segunda frase sin punto final' },
+    { scenes: [...story(hash).scenes].reverse() },
   ])('rejects incompatible or malformed story %j', change => expect(() => validateStory({ ...story(hash), ...change }, expected)).toThrow());
 });

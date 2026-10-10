@@ -2,8 +2,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { GenerationLock, isGenerationLockBusyError } from '../engine/generation-lock.js';
-import { getImageForToday } from '../server/image-rotation.js';
-import { getLocalTimeInTimezone } from '../server/timezone.js';
+import { getDateString, getImageForToday } from '../server/image-rotation.js';
 import { OpenMeteoProvider } from '../weather/open-meteo.js';
 import type { HourlyConditions, WeatherProvider } from '../weather/types.js';
 import type { StoryWriter } from './codex-writer.js';
@@ -55,8 +54,7 @@ export class DailyStoryPreparer {
 
   prepare(options: { retryFailed?: boolean; now?: Date } = {}): Promise<ReadyStory | null> {
     const now = options.now ?? new Date();
-    const local = getLocalTimeInTimezone(now, this.config.location.timezone);
-    const date = `${local.year}-${String(local.month).padStart(2, '0')}-${String(local.day).padStart(2, '0')}`;
+    const date = getDateString(now, this.config.location.timezone);
     const key = path.join(path.resolve(this.config.stateDir), `.story-preparation-${date}.lock`);
     const existing = pending.get(key);
     if (existing) return existing;
@@ -67,14 +65,14 @@ export class DailyStoryPreparer {
 
   private async prepareOwned(date: string, now: Date, lockPath: string, retryFailed: boolean): Promise<ReadyStory | null> {
     const { store, location, writer } = this.config;
-    const ready = await store.load(date, this.hours);
+    const ready = await store.load(date);
     if (ready) return ready;
     const lock = new GenerationLock({ lockPath });
     let lease;
     try { lease = await lock.acquire({ kind: 'scheduler' }); }
-    catch (error) { if (isGenerationLockBusyError(error)) return store.load(date, this.hours); throw error; }
+    catch (error) { if (isGenerationLockBusyError(error)) return store.load(date); throw error; }
     try {
-      const committed = await store.load(date, this.hours);
+      const committed = await store.load(date);
       if (committed) return committed;
       if (store.loadFailure(date) && !retryFailed) return null;
       // Journal before any awaited preparation or writer work: restart never silently retries an interrupted attempt.
@@ -97,7 +95,7 @@ export class DailyStoryPreparer {
         return result;
       } catch {
         // A competing committed artifact is authoritative, and failure text must not leak child credentials or paths.
-        const committedAfterFailure = await store.load(date, this.hours);
+        const committedAfterFailure = await store.load(date);
         if (committedAfterFailure) { store.clearFailure(date); return committedAfterFailure; }
         store.recordFailure(date, 'preparation_failed');
         return null;

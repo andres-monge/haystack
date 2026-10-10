@@ -1,3 +1,4 @@
+import type { StoryRenderMetadata } from '../engine/types.js';
 import type { SupportedImageMimeType } from '../engine/provider-types.js';
 
 export interface StoryCharacter { id: string; identity: string }
@@ -29,13 +30,5 @@ export interface ContinuitySnapshot extends ImageSnapshot { renderId: string; sc
 export interface ReadyStory { story: DailyStory; original: ImageSnapshot }
 export interface StoryReferences { original: ImageSnapshot; previous?: ContinuitySnapshot }
 export interface StoryFailure { date: string; error: string; failedAt: string }
-/** Structural counterpart of optional RenderMetadata.story; sidecars own render commits. */
-export interface StoryRenderProvenance {
-  id: string;
-  date: string;
-  artworkHash: string;
-  sceneHour: number;
-  previousRenderId?: string;
-  originalHash: string;
-  previousHash?: string;
-}
+/** Same authoritative provenance shape as committed Render sidecars. */
+export type StoryRenderProvenance = StoryRenderMetadata;

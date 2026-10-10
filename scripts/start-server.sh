@@ -41,6 +41,8 @@ if [ -z "$NODE_DIR" ]; then
   exit 1
 fi
 export PATH="$NODE_DIR:$PATH"
+# Daily story writer resolves its configured absolute HAYSTACK_CODEX_PATH.
+# It does not depend on this launchd PATH discovering a codex executable.
 
 # Ensure output + log directories exist
 mkdir -p "$HOME/.haystack"

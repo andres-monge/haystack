@@ -13,7 +13,7 @@ import multer from "multer";
 import type { Pipeline } from "../engine/pipeline.js";
 import type { RenderMetadata } from "../engine/types.js";
 import type { WeatherProvider } from "../weather/types.js";
-import type { HourlyScheduler } from "./scheduler.js";
+import { StoryUnavailableError, type HourlyScheduler } from "./scheduler.js";
 import { createScenarioFromHour, describeScenario } from "../engine/scenario.js";
 import { DEFAULT_TEMPLATE } from "../engine/prompt.js";
 import { buildScenario, computeSunMoon } from "./scenario-builder.js";
@@ -487,11 +487,18 @@ export function createApp(config: CreateAppConfig): Express {
     }
 
     // Dedup: skip if a render happened within the last 30 minutes
-    const latest = await pipeline.getStore().getLatest();
-    if (
-      latest &&
-      scheduler.isRecentRenderForCurrentPeriod(latest, DEDUP_WINDOW_MS)
-    ) {
+    let latest: RenderMetadata | null;
+    try { latest = await scheduler.findRecentRender(DEDUP_WINDOW_MS); }
+    catch (err) {
+      if (err instanceof StoryUnavailableError) {
+        res.json({ triggered: false, reason: err.message });
+        return;
+      }
+      console.error(`[${new Date().toISOString()}] Trigger precheck failed`);
+      res.status(500).json({ error: "Trigger generation failed" });
+      return;
+    }
+    if (latest) {
       console.log(`[${new Date().toISOString()}] Trigger skipped: recent generation exists (${latest.id})`);
       res.json({ triggered: false, reason: "Recent generation exists", latestId: latest.id });
       return;
@@ -529,7 +536,9 @@ export function createApp(config: CreateAppConfig): Express {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       console.error(`[${new Date().toISOString()}] Trigger error:`, message);
-      if (isEntireChainRateLimited(err)) {
+      if (err instanceof StoryUnavailableError) {
+        res.json({ triggered: false, reason: err.message });
+      } else if (isEntireChainRateLimited(err)) {
         res.status(429).json({ error: "Rate limited — try again later" });
       } else if (isGenerationLockBusyError(err)) {
         res.status(409).json({ error: "Generation already in progress" });

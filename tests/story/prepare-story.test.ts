@@ -40,6 +40,16 @@ describe('daily preparation', () => {
     expect(await store.load(date)).toEqual(first); expect(write).toHaveBeenCalledTimes(1);
     expect(await a.prepare({ now, retryFailed: true })).toEqual(first); expect(write).toHaveBeenCalledTimes(1);
   });
+  it('preserves the committed daily story after active hours change without another writer call', async () => {
+    const { store, config, write, getForecast } = await setup();
+    const first = await new DailyStoryPreparer(config).prepare({ now });
+    const changed = await new DailyStoryPreparer({ ...config, activeEnd: 13 }).prepare({ now, retryFailed: true });
+    expect(changed).toEqual(first);
+    expect(await store.load(date)).toEqual(first);
+    expect(await store.load(date, [9, 10, 11, 12])).toBeNull();
+    expect(write).toHaveBeenCalledTimes(1);
+    expect(getForecast).toHaveBeenCalledTimes(1);
+  });
   it('journals interruption before writer and requires explicit retry preserving frozen artwork', async () => {
     const { store, config, write } = await setup();
     const valid = write.getMockImplementation()!;

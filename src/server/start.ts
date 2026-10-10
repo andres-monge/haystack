@@ -11,6 +11,10 @@ import {
   toProviderFactoryConfig,
 } from "../config/config.js";
 import { HourlyScheduler } from "./scheduler.js";
+import { StoryStore } from "../story/story-store.js";
+import { CodexStoryWriter } from "../story/codex-writer.js";
+import { DailyStoryPreparer } from "../story/prepare-story.js";
+import { StoryPreparationService } from "../story/preparation-service.js";
 
 const config = loadConfigFromEnv();
 const pipeline = createProductionPipeline(
@@ -19,6 +23,9 @@ const pipeline = createProductionPipeline(
 );
 const weatherProvider = new OpenMeteoProvider();
 const port = parseInt(process.env.HAYSTACK_LAB_PORT ?? "4321", 10);
+
+const storyStore = config.story.enabled ? new StoryStore(config.story.stateDir) : undefined;
+let storyPreparation: StoryPreparationService | undefined;
 
 // Create scheduler when both imageDir and schedulerLocation are configured
 let scheduler: HourlyScheduler | undefined;
@@ -30,7 +37,26 @@ if (config.imageDir && config.schedulerLocation) {
     location: config.schedulerLocation,
     activeStart: config.activeStart,
     activeEnd: config.activeEnd,
+    storyStore,
   });
+  if (storyStore) {
+    storyPreparation = new StoryPreparationService({
+      store: storyStore,
+      preparer: new DailyStoryPreparer({
+        store: storyStore, stateDir: config.story.stateDir,
+        writer: new CodexStoryWriter({ executable: config.story.codexPath }),
+        imageDir: config.imageDir, location: config.schedulerLocation,
+        weather: weatherProvider, activeStart: config.activeStart, activeEnd: config.activeEnd,
+      }),
+      timezone: config.schedulerLocation.timezone,
+      prepareTime: config.story.prepareTime,
+      activeStart: config.activeStart, activeEnd: config.activeEnd,
+      trailerDir: config.story.trailerDir,
+      onReady: async () => {
+        if (scheduler?.isRunning()) await scheduler.runNowIfNoRecentRender(30 * 60 * 1000);
+      },
+    });
+  }
 }
 
 const app = createApp({
@@ -50,12 +76,14 @@ const server = app.listen(port, config.bindHost, () => {
 // Start scheduler after server is listening
 if (scheduler && config.schedulerLocation) {
   scheduler.start();
+  storyPreparation?.start();
   const { lat, lon } = config.schedulerLocation;
   console.log(`Hourly scheduler started (location: ${lat}, ${lon})`);
 }
 
 // Graceful shutdown
 function shutdown() {
+  storyPreparation?.stop();
   if (scheduler) {
     scheduler.stop();
   }
