@@ -95,6 +95,7 @@ export type AspectRatio = ConfiguredAspectRatio;
 
 export interface GeminiConfig {
   model:
+    | "gemini-nano-banana-2.1"
     | "gemini-3.1-flash-lite-image"
     | "gemini-3.1-flash-image"
     | "gemini-3-pro-image"

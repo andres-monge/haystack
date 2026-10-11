@@ -110,3 +110,11 @@ Plan: `docs/plans/2026-10-10-1307-feat-daily-artwork-stories-plan.md`
 | U5 | done; temporary-vault contract verified | 2026-10-10 |
 | U6 | local verification done; release checks documented | 2026-10-10 |
 | U7 | done; full review findings fixed, build and 646 tests pass | 2026-10-10 |
+
+## Gemini fallback upgrade (2026-10-11)
+
+- [x] Upgrade normal Gemini renders to Nano Banana 2.1 at 1K; preserve OpenAI priority/settings and extension models.
+
+| Task | Status | Date |
+|------|--------|------|
+| Nano Banana 2.1 fallback | build and 648 tests pass; reviewed; API compatibility confirmed; live server restarted; lint unavailable because the repo has no ESLint configuration | 2026-10-11 |

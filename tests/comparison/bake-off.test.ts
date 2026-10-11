@@ -431,7 +431,7 @@ describe("Round 1 bake-off", () => {
     expect(report.ready).toBe(false);
     expect(fetchImpl).toHaveBeenCalledTimes(3);
     expect(fetchImpl.mock.calls.map(call => String(call[0]))).toEqual([
-      expect.stringContaining("gemini-3.1-flash-lite-image"),
+      expect.stringContaining("gemini-nano-banana-2.1"),
       expect.stringContaining("gpt-image-2"),
       expect.stringContaining("grok-imagine-image-2.0"),
     ]);

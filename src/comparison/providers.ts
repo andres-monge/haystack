@@ -15,7 +15,7 @@ import type {
 } from "./types.js";
 
 export const ROUND1_MODELS = {
-  gemini: "gemini-3.1-flash-lite-image",
+  gemini: "gemini-nano-banana-2.1",
   openai: "gpt-image-2",
   xai: "grok-imagine-image-2.0",
 } as const;

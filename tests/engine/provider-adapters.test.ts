@@ -193,7 +193,7 @@ describe("production provider adapters", () => {
 
     expect(normal).toMatchObject({
       outcome: "successful",
-      requestedModel: "gemini-3.1-flash-lite-image",
+      requestedModel: "gemini-nano-banana-2.1",
       resolvedModel: "resolved-gemini",
     });
     expect(cleanup).toMatchObject({
@@ -205,7 +205,7 @@ describe("production provider adapters", () => {
       requestedModel: "gemini-3.1-flash-image",
     });
     expect(editImage.mock.calls[0][2]).toEqual({
-      model: "gemini-3.1-flash-lite-image",
+      model: "gemini-nano-banana-2.1",
       imageSize: "1K",
       thinkingLevel: "high",
       inputMediaResolution: "ultra_high",

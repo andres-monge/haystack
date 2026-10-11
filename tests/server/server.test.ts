@@ -493,7 +493,7 @@ describe("Express API Server", () => {
             stage: "normal",
             ordinal: 1,
             provider: "gemini",
-            requestedModel: "gemini-3.1-flash-lite-image",
+            requestedModel: "gemini-nano-banana-2.1",
             startedAt: "2026-02-14T12:00:00.000Z",
             completedAt: "2026-02-14T12:00:01.000Z",
             durationMs: 1000,

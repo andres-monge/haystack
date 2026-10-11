@@ -75,9 +75,9 @@ describe("Round 1 comparison providers", () => {
 
     const result = await provider.editImage(PNG_BUFFER, "add heavy snow");
 
-    expect(provider.model).toBe("gemini-3.1-flash-lite-image");
+    expect(provider.model).toBe("gemini-nano-banana-2.1");
     expect(editImage).toHaveBeenCalledWith(PNG_BUFFER, "add heavy snow", {
-      model: "gemini-3.1-flash-lite-image",
+      model: "gemini-nano-banana-2.1",
     });
     expect(result.status).toBe("successful");
   });

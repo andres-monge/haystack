@@ -41,7 +41,7 @@ describe("loadConfigFromEnv", () => {
     expect(config.googleApiKey).toBe("test-google-key");
     expect(config.outputDir).toContain(".haystack");
     expect(config.outputDir).toContain("outputs");
-    expect(config.defaultModel).toBe("gemini-3.1-flash-lite-image");
+    expect(config.defaultModel).toBe("gemini-nano-banana-2.1");
     expect(config.defaultAspectRatio).toBeUndefined();
     expect(config.defaultSeed).toBeUndefined();
     expect(config.maxStoredOutputs).toBe(24);
@@ -83,6 +83,8 @@ describe("loadConfigFromEnv", () => {
   });
 
   it.each([
+    "gemini-nano-banana-2.1",
+    "gemini-3.1-flash-lite-image",
     "gemini-3.1-flash-image",
     "gemini-3-pro-image",
   ])("accepts valid model value %s", model => {

@@ -16,6 +16,7 @@ import {
 import type { ComparisonProviderKeys } from "../comparison/types.js";
 
 const VALID_MODELS: ReadonlySet<GeminiConfig["model"]> = new Set([
+  "gemini-nano-banana-2.1",
   "gemini-3.1-flash-lite-image",
   "gemini-3.1-flash-image",
   "gemini-3-pro-image",
@@ -100,7 +101,7 @@ function parseIntStrict(raw: string | undefined, fallback: number, name: string)
 }
 
 function parseModel(raw: string | undefined, name = "HAYSTACK_MODEL"): GeminiConfig["model"] {
-  if (!raw) return "gemini-3.1-flash-lite-image";
+  if (!raw) return "gemini-nano-banana-2.1";
   const replacement = RETIRED_MODEL_REPLACEMENTS[raw];
   if (replacement) {
     throw new Error(

@@ -72,7 +72,8 @@ CONCEPTS.md     — Shared project vocabulary for domain entities, processes, an
 
 | Model | ID | Use case |
 |-------|----|----------|
-| Flash Lite Image | `gemini-3.1-flash-lite-image` | Default -- fast, cheapest, hourly updates (1K only) |
+| Nano Banana 2.1 | `gemini-nano-banana-2.1` | Default -- hourly/story fallback (1K), improved reference consistency |
+| Flash Lite Image | `gemini-3.1-flash-lite-image` | Optional -- fast, cheapest, single-image edits (1K only) |
 | 3.1 Flash Image | `gemini-3.1-flash-image` | Extend artwork (2K default), thinking mode |
 | Pro Image | `gemini-3-pro-image` | High quality, up to 4K |
 | Flash Image (retiring) | `gemini-2.5-flash-image` | Retires October 2026; migrate before then |
@@ -89,7 +90,7 @@ OPENAI_API_KEY                    — Direct OpenAI API key.
 XAI_API_KEY                       — Direct xAI API key.
 HAYSTACK_IMAGE_PROVIDER_ORDER     — Optional unique subset/order; defaults to available keys in openai,gemini,xai order.
 HAYSTACK_OUTPUT_DIR               — Output directory (default: ~/.haystack/outputs)
-HAYSTACK_MODEL                    — Gemini model ID (default: gemini-3.1-flash-lite-image)
+HAYSTACK_MODEL                    — Gemini model ID (default: gemini-nano-banana-2.1)
 HAYSTACK_EXTEND_MODEL             — Gemini model for /extend-artwork (default: gemini-3.1-flash-image)
 HAYSTACK_ASPECT_RATIO             — Optional, omit to match input
 HAYSTACK_SEED                     — Optional, for reproducible outputs

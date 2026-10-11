@@ -24,7 +24,7 @@ describe("comparison gallery", () => {
 
     expect(html).toContain("Hopper");
     expect(html).toContain("Heavy rain");
-    expect(html).toContain("gemini-3.1-flash-lite-image");
+    expect(html).toContain("gemini-nano-banana-2.1");
     expect(html).toContain("gpt-image-2");
     expect(html).toContain("grok-imagine-image-2.0");
     expect(html).toContain("1536x1024 / low");
