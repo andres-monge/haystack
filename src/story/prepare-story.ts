@@ -5,7 +5,7 @@ import { GenerationLock, isGenerationLockBusyError } from '../engine/generation-
 import { getDateString, getImageForToday } from '../server/image-rotation.js';
 import { OpenMeteoProvider } from '../weather/open-meteo.js';
 import type { HourlyConditions, WeatherProvider } from '../weather/types.js';
-import type { StoryWriter } from './codex-writer.js';
+import { StoryWriterError, type StoryWriter } from './codex-writer.js';
 import { buildWriterPrompt } from './writer-prompt.js';
 import { STORY_JSON_SCHEMA, validateStory } from './schema.js';
 import { StoryStore } from './story-store.js';
@@ -93,11 +93,13 @@ export class DailyStoryPreparer {
         const result = await store.commit(story, this.hours);
         store.clearFailure(date);
         return result;
-      } catch {
+      } catch (error) {
         // A competing committed artifact is authoritative, and failure text must not leak child credentials or paths.
         const committedAfterFailure = await store.load(date);
         if (committedAfterFailure) { store.clearFailure(date); return committedAfterFailure; }
-        store.recordFailure(date, 'preparation_failed');
+        const failureCode = error instanceof StoryWriterError ? error.code : 'preparation_failed';
+        store.recordFailure(date, failureCode);
+        console.warn(`[${new Date().toISOString()}] Daily story preparation failed: ${failureCode}`);
         return null;
       }
     } finally { await lease.release(); }

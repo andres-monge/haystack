@@ -6,7 +6,7 @@ import { DailyStoryPreparer } from '../../src/story/prepare-story.js';
 import { GenerationLock } from '../../src/engine/generation-lock.js';
 import { StoryStore } from '../../src/story/story-store.js';
 import { setStateDir, resetStateDir, resetImageCache } from '../../src/server/image-rotation.js';
-import type { WriterRequest } from '../../src/story/codex-writer.js';
+import { StoryWriterError, type WriterRequest } from '../../src/story/codex-writer.js';
 import type { WeatherProvider, HourlyConditions } from '../../src/weather/types.js';
 import { image, story } from './fixtures.js';
 const dirs: string[] = [];
@@ -67,6 +67,12 @@ describe('daily preparation', () => {
     const { store, config, write } = await setup(); const valid = write.getMockImplementation()!;
     write.mockImplementation(async req => ({ ...await valid(req), [key]: 'changed' }));
     expect(await new DailyStoryPreparer(config).prepare({ now })).toBeNull(); expect(await store.load(date)).toBeNull();
+  });
+  it('persists a safe writer failure code instead of discarding the cause', async () => {
+    const {store,config,write}=await setup();
+    write.mockRejectedValue(new StoryWriterError('writer_capacity'));
+    expect(await new DailyStoryPreparer(config).prepare({now})).toBeNull();
+    expect(store.loadFailure(date)?.error).toBe('writer_capacity');
   });
   it.each(['hole', 'wrong-date', 'nonfinite'])('does not invoke writer with invalid forecast %s', async kind => {
     const { config, write, getForecast } = await setup(); const forecast = await getForecast();

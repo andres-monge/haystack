@@ -128,3 +128,15 @@ Plan: `docs/plans/2026-10-10-1307-feat-daily-artwork-stories-plan.md`
 | Task | Status | Date |
 |------|--------|------|
 | Hourly story preparation recovery | done; build and 655 tests pass | 2026-10-13 |
+
+## Story writer capacity recovery (2026-10-13)
+
+- [x] Reproduce primary model capacity failure with the production login/environment and verify the fallback model responds.
+- [x] Fall back from `gpt-6.1-sol` to `gpt-6-sol` on capacity or primary timeout within shared 300-second/1 MiB limits.
+- [x] Persist safe writer failure codes; verify build and all 662 tests.
+- [x] Recover today's real story and publish its TV notes using the fallback.
+- [x] Verify a new 09:46 Madrid image is committed and served by `/api/latest`; activate the writer fallback in the resident server.
+
+| Task | Status | Date |
+|------|--------|------|
+| Story writer capacity recovery | build and 662 tests pass; real story recovered | 2026-10-13 |

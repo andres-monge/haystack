@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -43,5 +43,32 @@ describe("local subscription writer", () => {
   });
   it("rejects relative executable without spawning", async () => {
     await expect(new CodexStoryWriter({executable:"codex"}).write(request)).rejects.toThrow(/absolute/);
+  });
+  it("uses the fallback model when the primary reports capacity across stderr chunks", async () => {
+    const {executable} = fixture(`const fs=require('node:fs');const a=process.argv;const model=a[a.indexOf('--model')+1];if(model==='gpt-6.1-sol'){process.stderr.write('ERROR: Selected model is at ');setTimeout(()=>{process.stderr.write('capacity. Please try a different model.');},20);setInterval(()=>{},1000);}else{fs.writeFileSync(a[a.indexOf('-o')+1],JSON.stringify({model}));}`);
+    await expect(new CodexStoryWriter({executable,timeoutMs:2000}).write(request)).resolves.toEqual({model:'gpt-6-sol'});
+  });
+  it("reports capacity safely when both models are unavailable", async () => {
+    const {executable} = fixture(`process.stderr.write('ERROR: Selected model is at capacity. secret credential');process.exit(1);`);
+    await expect(new CodexStoryWriter({executable}).write(request)).rejects.toThrow(/^writer_capacity$/);
+  });
+  it("does not retry unrelated writer errors", async () => {
+    const {dir,executable} = fixture(`const fs=require('node:fs');const path=require('node:path');fs.appendFileSync(path.join(__dirname,'attempts'),'x');process.stderr.write('ERROR: Unauthorized secret credential');process.exit(1);`);
+    await expect(new CodexStoryWriter({executable}).write(request)).rejects.toThrow(/^writer_exit$/);
+    expect(readFileSync(join(dir,'attempts'),'utf8')).toBe('x');
+  });
+  it("reserves time for fallback when the primary hangs", async () => {
+    const {executable} = fixture(`const fs=require('node:fs');const a=process.argv;const model=a[a.indexOf('--model')+1];if(model==='gpt-6.1-sol'){setInterval(()=>{},1000);}else{fs.writeFileSync(a[a.indexOf('-o')+1],JSON.stringify({model}));}`);
+    await expect(new CodexStoryWriter({executable,timeoutMs:2000}).write(request)).resolves.toEqual({model:'gpt-6-sol'});
+  });
+  it("shares the time limit across both stalled models", async () => {
+    const {executable}=fixture(`setInterval(()=>{},1000);`);
+    const started=Date.now();
+    await expect(new CodexStoryWriter({executable,timeoutMs:1200}).write(request)).rejects.toThrow('writer_timeout');
+    expect(Date.now()-started).toBeLessThan(1800);
+  });
+  it("shares the captured output limit across capacity and fallback attempts", async () => {
+    const {executable}=fixture(`const fs=require('node:fs');const a=process.argv;if(a[a.indexOf('--model')+1]==='gpt-6.1-sol'){process.stderr.write('ERROR: Selected model is at capacity.');process.exit(1);}else{process.stdout.write('x'.repeat(80));fs.writeFileSync(a[a.indexOf('-o')+1],'{}');}`);
+    await expect(new CodexStoryWriter({executable,maxOutputBytes:100,timeoutMs:2000}).write(request)).rejects.toThrow('writer_output_limit');
   });
 });
