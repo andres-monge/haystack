@@ -118,3 +118,13 @@ Plan: `docs/plans/2026-10-10-1307-feat-daily-artwork-stories-plan.md`
 | Task | Status | Date |
 |------|--------|------|
 | Nano Banana 2.1 fallback | build and 648 tests pass; reviewed; API compatibility confirmed; live server restarted; lint unavailable because the repo has no ESLint configuration | 2026-10-11 |
+
+## Hourly story preparation recovery (2026-10-13)
+
+- [x] Retry failed or interrupted preparation in each later local hour before active end; preserve same-hour restart and concurrent-attempt guards.
+- [x] Verify retry cadence, readiness, contention and active-end cutoff; build and all 655 tests pass.
+- [x] Activate the retry policy in the running server; scheduler health confirmed after restart.
+
+| Task | Status | Date |
+|------|--------|------|
+| Hourly story preparation recovery | done; build and 655 tests pass | 2026-10-13 |

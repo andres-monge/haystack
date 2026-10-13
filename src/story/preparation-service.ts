@@ -24,6 +24,7 @@ export class StoryPreparationService {
   private timer: ReturnType<typeof setTimeout> | undefined;
   private running = false;
   private inspectedDate: string | undefined;
+  private failedAttemptHour: string | undefined;
   private pending: Promise<ReadyStory | null> | undefined;
 
   constructor(private readonly config: StoryPreparationServiceConfig) {}
@@ -47,16 +48,31 @@ export class StoryPreparationService {
     if (date === this.inspectedDate
       || local.hour * 60 + local.minute < hour * 60 + minute
       || local.hour >= (this.config.activeEnd ?? 24)) return Promise.resolve(null);
-    this.pending = this.prepareAndPublish(now, date).finally(() => { this.pending = undefined; });
+    const attemptHour = `${date}:${local.hour}`;
+    this.pending = this.prepareAndPublish(now, date, attemptHour).finally(() => { this.pending = undefined; });
     return this.pending;
   }
 
-  private async prepareAndPublish(now: Date, date: string): Promise<ReadyStory | null> {
-    const ready = await this.config.preparer.prepare({now});
+  private async prepareAndPublish(now: Date, date: string, attemptHour: string): Promise<ReadyStory | null> {
+    const failure = this.config.store.loadFailure(date);
+    let retryDeferred = false;
+    if (failure) {
+      const failedAt = new Date(failure.failedAt);
+      const failedHour = Number.isNaN(failedAt.getTime()) ? undefined
+        : `${getDateString(failedAt, this.config.timezone)}:${getLocalTimeInTimezone(failedAt, this.config.timezone).hour}`;
+      // Persisted timestamps also prevent a restart from retrying within the failure's hour.
+      retryDeferred = attemptHour === failedHour || attemptHour === this.failedAttemptHour;
+    }
+    // A ready commit is authoritative even if its owner's crash left the failure journal behind.
+    const ready = retryDeferred ? await this.config.store.load(date)
+      : await this.config.preparer.prepare(failure ? {now, retryFailed: true} : {now});
+    if (retryDeferred && !ready) return null;
     // Lock contention is pending, not a failed attempt: inspect again for the owner's commit.
-    if (ready || this.config.store.loadFailure(date)) this.inspectedDate = date;
+    if (ready) this.inspectedDate = date;
+    const latestFailure = this.config.store.loadFailure(date);
+    if (!ready && latestFailure && latestFailure.failedAt !== failure?.failedAt) this.failedAttemptHour = attemptHour;
     if (!ready) {
-      console.warn(`[${new Date().toISOString()}] Daily story pending or unavailable for ${date}; persisted failures require explicit retry`);
+      console.warn(`[${new Date().toISOString()}] Daily story pending or unavailable for ${date}; failed preparation retries next local hour`);
       return null;
     }
     console.log(`[${new Date().toISOString()}] Daily story ready: ${ready.story.id}`);

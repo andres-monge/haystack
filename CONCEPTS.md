@@ -30,7 +30,7 @@ The cumulative visible state and current action at a planned hour, naming only c
 Ordered references consisting of the canonical original followed by the preceding successful Render from the same Daily Story. The first successful Render uses the original alone.
 
 ### Ready Story
-A validated story committed atomically with its frozen original. Failed or interrupted preparation is not ready and requires an explicit retry.
+A validated story committed atomically with its frozen original. Failed or interrupted preparation is not ready; the resident service retries in each later local hour before active end, or the CLI can retry immediately with `--retry`.
 
 ### Daily Trailer
 The one-sentence spoiler-free Spanish introduction exported after story commit through the dated public `Haystack/TV Today.md` handoff.
