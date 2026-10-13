@@ -140,3 +140,12 @@ Plan: `docs/plans/2026-10-10-1307-feat-daily-artwork-stories-plan.md`
 | Task | Status | Date |
 |------|--------|------|
 | Story writer capacity recovery | build and 662 tests pass; real story recovered | 2026-10-13 |
+
+## Visual-first story calibration (2026-10-13)
+
+- [x] Apply accepted visual-first writer paragraphs and temporary-composition renderer clause, with artwork-neutral staging language.
+- [x] Preserve production models/fallback, image chain/quality, continuity, schedules and public-note contracts; verify build, 662 tests and focused review.
+
+| Task | Status | Date |
+|------|--------|------|
+| Visual-first story calibration | verified; accepted rendered evidence retains the weaker 12→13 transition | 2026-10-13 |

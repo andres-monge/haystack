@@ -8,7 +8,7 @@ export function composeScenePrompt(story: DailyStory, scene: StoryScene, scenari
     .map(character => ({ id: character.id, identity: character.identity }));
   return [
     'Render this complete visible scene as an edit of the canonical original artwork.',
-    'Preserve the exact artistic style, medium, brushwork and character identity. Keep permanent architecture, setting and environment layout identical. Do not change camera angle, framing, scale or composition. Place temporary props and characters only where physically plausible; do not introduce modern or anachronistic elements. Do not add text, watermarks or UI elements.',
+    'Preserve the exact artistic style, medium, brushwork and character identity. Keep permanent architecture, setting and environment layout identical. Keep the original camera angle, framing and permanent architectural geometry. Allow the temporary composition to change substantially as required by the current scene: foreground objects and people may be prominent through natural perspective, and activity can occupy the whole existing frame. Do not preserve empty spaces or obsolete foreground staging. Place temporary props and characters only where physically plausible; do not introduce modern or anachronistic elements. Do not add text, watermarks or UI elements.',
     hasPrevious
       ? 'Image 1 is the canonical original for composition and style. Image 2 is the previous successful scene for character and prop continuity. Advance to the current complete state; do not simply copy its earlier action.'
       : 'Image 1 is the canonical original. This is the first successful scene today; establish the complete current state directly, without replaying earlier scenes.',
