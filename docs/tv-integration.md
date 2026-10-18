@@ -1,6 +1,6 @@
 # Sony TV integration: baseline and recovery
 
-Status on 18 October 2026: **Projectivy Home and manual free setup accepted from Andrés's physical checks and confirmation, relayed by the parent chat. Andrés also accepts qualitative Home and HDMI responsiveness. The signed static Sony screensaver capability is accepted: normal selection, preview, natural idle entry and physical remote exit passed. Full artwork delivery/cache and lifecycle acceptance remain pending. No numerical speedup is claimed.**
+Status on 18 October 2026: **Projectivy Home and manual free setup accepted from Andrés's physical checks and confirmation, relayed by the parent chat. Andrés also accepts qualitative Home and HDMI responsiveness. The signed static Sony screensaver capability is accepted: normal selection, preview, natural idle entry and physical remote exit passed. Native v4 quality and physical exit are accepted; refresh, offline process recovery and restored-production device restart checks passed. Final Netflix/Cast playback acceptance remains pending. No numerical speedup is claimed.**
 
 The [revised proposal](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) keeps dynamic Home art optional, targeted cleanup/privacy separate, and native idle artwork independent. Following a new explicit free-TV authorization and disclosure of the accessibility service's broader window-content/key-filtering capability, Andrés installed Projectivy and enabled its own launcher override manually. Stock Home remains enabled. See [the current Home evidence](#accepted-home-and-manual-setup--18-october-2026) for the accepted checks and their source.
 
@@ -508,3 +508,34 @@ A local native API-28 diagnostic decoded those exact source bytes to 1920×1065 
 The authorized next correction aligns final drawable placement to whole physical pixels while preserving aspect fit, filtered decoding and the built-in fixture. It changes neither global display size nor source pixels, and adds no sharpening or nearest-neighbor mode. A reviewed version-4 artifact and renewed physical quality acceptance are required before resuming lifecycle/playback trials.
 
 Version 4 applies a bitmap-only Canvas translation around standard ImageView drawing; it does not replace layout or affect vector drawing. Native API-28/35 regression tests first failed on physical drawable bounds at y=7.5, then passed with y=8. Coverage includes odd horizontal margins, view resize, drawable replacement, density conversion and retained bitmap filtering. The vector test observes the physical Canvas transform against standard ImageView; deliberately applying the bitmap adjustment to vectors makes that test fail. The restored full build passes 27 JVM tests, debug/release and lint (zero errors, one retained data-extraction warning); API-28 signing and the production origin are verified. These tests establish local placement behavior, not corrected physical Sony quality. Review and exact-artifact approval precede another TV update.
+
+## U6 version-4 live checks — 18 October 2026
+
+The exact reviewed version-4 production APK was installed with data preserved, then pulled back and checked against its approved hash and update certificate. Screensaver selection, 300000 ms idle delay, sleep -1 and the Projectivy accessibility service were unchanged. Its non-test dream entered naturally and showed the current production render. The Sony capture matched an integer-position native reference of the same image at RMSE 0.216/255 (61.43 dB); the previous half-row-blended model fit substantially worse. Andrés then explicitly reported: “Quality is satisfactory; exit works.” This establishes human quality acceptance and physical remote exit for v4, separately from the screenshot measurement.
+
+The temporary v4 test-origin build has the same version and certificate. Independent comparison found identical manifests and non-DEX ZIP payloads; all 53 DEX methods, string tables, fields and class definitions matched after normalizing only the configured port from 62293 to 4321. This supports the origin-only configuration difference, not a reproducible-build or runtime equivalence claim. The fixture listener bound only the Mac's existing LAN IP; production server and household networking stayed available.
+
+On the Sony, one naturally entered dream displayed A, retained A through B's HTTP 404, then retried the unchanged B ID and visibly displayed B within an observed upper bound of 49.7 seconds after successful publication. The same dream token persisted through those observations. Logs distinguish actual Sony requests from host control requests. Offline recovery, exact production restoration and final playback checks are recorded separately; this freshness result alone does not complete U6.
+
+With the owned test listener stopped, the original app process was force-stopped without clearing data. A different PID then entered the dream naturally and displayed cached B while that endpoint was still unavailable. This is a real offline **process** restart, not an offline device-reboot claim. For the separate stop check, the owned listener was made available and an injected Home key dismissed the dream. Over 92.8 seconds, requests stayed at 8 while the same app PID remained alive. That technical dismissal does not replace the separately accepted physical remote exit.
+
+The exact accepted production v4 APK (`a1c671a04545acbc1c845b644f5123db02b9093524ad81616426c1f8470b0dd2`) was restored before any device reboot. Its pulled hash, certificate, production origin and selected system settings matched; current production art then naturally replaced the distinct fixture. Production-cache replacement is inferred from that visible image and the reviewed commit-before-publish code, not direct access to app-private ID/bytes. The owned listeners were stopped, and the local default release output was rebuilt to the identical production hash.
+
+A separate online device reboot changed the kernel boot ID and recovered authenticated TCP ADB access. The production APK hash, screensaver selection, five-minute delay, sleep -1 and Projectivy accessibility service persisted. Post-reboot natural-art and final playback observations are recorded separately. No persistent ADB, household network or production server configuration was changed. Offline device reboot was deliberately not combined with the fixture trial, avoiding a temporary-origin build being stranded if ADB did not return.
+
+Post-reboot, the production dream entered naturally and displayed the current Mac render `20261018_170030_46095313`. This confirms actual artwork after the online device restart, rather than selection alone. A new v4 standby/wake injection was not repeated; earlier U2 physical wake evidence remains separate.
+
+| Current v4 check | Result |
+|---|---|
+| On-panel quality and physical remote exit | Human accepted: “Quality is satisfactory; exit works” |
+| Natural current-art entry | Passed before and after the real device reboot |
+| Failed B download retains A; same B ID retries | Passed under one dream token; B visible within 49.7 seconds of successful publication |
+| Offline new-process startup | Passed with cached B, a changed PID and the test endpoint unavailable |
+| Polling ends after dismissal | Passed: no requests for 92.8 seconds while the same process stayed alive and listener was available; dismissal used an injected Home key |
+| Exact production restoration | Pulled APK matches `a1c671a04545acbc1c845b644f5123db02b9093524ad81616426c1f8470b0dd2`; certificate/origin/settings verified, real art replaced fixture |
+| Online device restart | Changed kernel boot ID, ADB returned, settings/APK survived and natural artwork returned |
+| Offline device reboot | Not tested as a combined scenario; offline process and online device restart were separate |
+| New v4 standby/wake trial | Not repeated; earlier physical U2 evidence is separate |
+| Active Netflix DRM playback and actual Google Cast | Pending final owner picture/audio observations for at least six untouched minutes each |
+
+The heartbeat stays off. U3 cleanup remains deferred, and no manufacturer telemetry reduction is claimed. The accepted launcher usage OFF/crash ON preference was carried forward without changing Projectivy settings; those internal switches were not freshly read during the v4 playback preparation. Continue Watching repair remains unconfirmed and does not justify enabling unwanted recommendation rows.
