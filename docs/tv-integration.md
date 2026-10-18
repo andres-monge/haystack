@@ -1,7 +1,7 @@
 # Sony TV integration: baseline and recovery
 
-Status on 18 October 2026: **Stock restored; no accepted replacement Home. Projectivy is withdrawn from the revised proposal.**
-The [revised proposal](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) requires free custom artwork and proposes a bounded native-client feasibility trial before further implementation. It is awaiting user review; prior away-from-home trial authorization does not authorize resuming it. The heartbeat is paused.
+Status on 18 October 2026: **Stock restored; no accepted replacement Home. The prior Projectivy trial remains ended; the reduced-scope comparison proposes a new free-tier candidate decision.**
+The [revised proposal](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) makes dynamic Home art optional and proposes an unchanged free launcher plus targeted cleanup/privacy work and a separate native Haystack screensaver. Projectivy free is the current first candidate after a fresh comparison; FLauncher is a viable alternative. Neither is approved for installation by the comparison. It is awaiting user review; prior away-from-home trial authorization does not authorize resuming it. The heartbeat is paused.
 The Projectivy sections below retain historical preparation and restoration evidence only. Their installation/configuration commands are inactive and must not be executed as current instructions. No purchase was made. U3–U7 remain unstarted.
 
 ## Evidence and scope
@@ -307,6 +307,6 @@ Own temporary screenshot/XML files on the TV were removed after saving the evide
 
 ### Revised next step and remaining acceptance
 
-Do not reinstall Projectivy or resume its settings trial. The revised plan replaces that route with a free native-client proposal and a bounded Sony routing/fixture/dream compatibility gate. No live changes are authorized by the planning revision.
+Do not reinstall Projectivy or resume its settings trial without a new explicit live-phase decision. The reduced-scope plan proposes a free existing-launcher trial and an independent minimal dream capability gate; no custom launcher or separate fullscreen viewer is proposed. Dynamic Home art is deferred. The previous oracle review of a three-surface custom client does not endorse this changed architecture. No live changes are authorized by the planning revision.
 
 Existing baseline and restore evidence can be reused, but refresh exact state before a future authorized trial. Clean default Home/Back, used apps, restart and standby/wake persistence, actual DRM/casting/audio/remote/keyboard operation and HDMI/Pi picture/latency remain unaccepted. Casting playback needs a successful current baseline before a later failure can be called a regression. U2 is unchecked; restoration success does not satisfy its product requirements. U3 and artwork work remain unstarted.
