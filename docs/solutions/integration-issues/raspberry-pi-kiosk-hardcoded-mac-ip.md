@@ -32,6 +32,8 @@ tags:
 
 The TV stopped showing new Haystack images even though the Pi was powered and the Mac was still generating images. Chromium on the Pi was pinned to `http://192.168.0.20:4321/kiosk`, but the Mac had received `192.168.0.13` after moving between the primary Wi-Fi SSID and its extender.
 
+**Current setup, 2026-10-18:** The extender has been removed. References to it here describe the historical incident; current operation uses the home Wi-Fi network. Keep the Mac's Fixed private address, its `192.168.0.20` reservation and LAN reachability intact when moving the laptop between rooms.
+
 This is a delivery/configuration failure, not an image-generation failure. The Pi deliberately runs only Chromium and depends on the Mac-hosted Express server over the LAN ([`AGENTS.md:91`](../../../AGENTS.md#raspberry-pi-kiosk-setup)).
 
 ## Symptoms
@@ -57,7 +59,7 @@ The stale display is expected when delivery fails. The kiosk polls `/api/latest`
 Keep the Mac's network identity stable on the primary SSID, then reserve the IP already embedded in the Pi configuration.
 
 1. In macOS, open the primary home network under **System Settings → Wi-Fi → Details** and set **Private Wi-Fi Address** to **Fixed**.
-2. Read the private Wi-Fi address displayed for that SSID. It is network-specific; do not substitute the hardware MAC or the extender SSID's private address.
+2. Read the private Wi-Fi address displayed for that SSID. It is network-specific; do not substitute the hardware MAC or a private address from another network.
 3. In the router's expert LAN settings, add one static DHCP rule:
 
    ```text
@@ -87,14 +89,13 @@ Two independent conditions must agree:
 1. Haystack must listen on a LAN-accessible interface.
 2. The router must assign the Mac the same literal address that Chromium requests.
 
-Before the repair, Haystack was correctly exposed at `.13`, but Chromium still requested `.20`. A DHCP reservation is keyed to the MAC address presented to the router. macOS uses network-specific private Wi-Fi identities, so a reservation for one identity is not automatically valid for another SSID such as `_EXT`. It can also stop matching after the primary network's private identity changes.
+Before the repair, Haystack was correctly exposed at `.13`, but Chromium still requested `.20`. A DHCP reservation is keyed to the MAC address presented to the router. macOS uses network-specific private Wi-Fi identities, so a reservation for one identity is not automatically valid for another network. It can also stop matching after the primary network's private identity changes.
 
 Setting the primary SSID's private address to **Fixed** stabilizes that identity. Reserving `.20` for that exact identity makes the router consistently return the address already configured on the Pi. Once reachable, the kiosk's existing polling loop detects the newest output and updates without regeneration or Pi software changes.
 
 ## Prevention
 
 - Keep **Private Wi-Fi Address: Fixed** for the primary SSID. If the network is forgotten/re-added or the displayed address changes, update the router reservation to match.
-- Treat the primary SSID and extender SSID as separate network identities. The reservation protects the primary SSID; using the extender may still interrupt the kiosk unless it presents the same reachable LAN and has an appropriate reservation.
 - Preserve the router's `.20` static lease and `HAYSTACK_BIND_HOST=0.0.0.0`.
 - After replacing or resetting the router, verify all four invariants: the Mac's Fixed private address, the `.20` reservation, Haystack listening on `0.0.0.0:4321`, and the Pi URL targeting `.20`.
 - When the TV is stale, separate **generation** from **delivery**:
