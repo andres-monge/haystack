@@ -1,8 +1,10 @@
 # Sony TV integration: baseline and recovery
 
-Status on 18 October 2026: **Stock restored; no accepted replacement Home. The prior Projectivy trial remains ended; the reduced-scope comparison proposes a new free-tier candidate decision.**
-The [revised proposal](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) makes dynamic Home art optional and proposes an unchanged free launcher plus targeted cleanup/privacy work and a separate native Haystack screensaver. Projectivy free is the current first candidate after a fresh comparison; FLauncher is a viable alternative. Neither is approved for installation by the comparison. The user approved updating the plan around this direction; U2 local preparation is now authorized and recorded in the current section below. The prior away-from-home authorization does not authorize resuming live work. The heartbeat remains paused.
-The sections explicitly marked historical, and the ended live attempt, retain preparation and restoration evidence only. Their installation/configuration commands are inactive and must not be executed as current instructions. No purchase was made. U3–U7 remain unstarted.
+Status on 18 October 2026: **Projectivy Home and manual free setup accepted from Andrés's physical checks and confirmation, relayed by the parent chat. Sony screensaver capability and measured speed improvement remain pending.**
+
+The [revised proposal](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) keeps dynamic Home art optional, targeted cleanup/privacy separate, and native idle artwork independent. Following a new explicit free-TV authorization and disclosure of the accessibility service's broader window-content/key-filtering capability, Andrés installed Projectivy and enabled its own launcher override manually. Stock Home remains enabled. See [the current Home evidence](#accepted-home-and-manual-setup--18-october-2026) for the accepted checks and their source.
+
+The earlier restored trial and the subsequent local-preparation sections below are historical records. Their pending-Home statements describe those earlier stages; the current Home evidence supersedes them. Old commands and gate sheets do not authorize new actions. Preserve the successful manual override; missing screensaver proof is not a reason to roll it back. No purchase was made. U3 cleanup and Sony screensaver work have not started; the heartbeat remains off.
 
 ## Evidence and scope
 
@@ -97,7 +99,7 @@ adb -s 192.168.0.24:5555 shell pm enable --user 0 com.google.android.tvlauncher/
 adb -s 192.168.0.24:5555 shell pm set-home-activity --user 0 com.google.android.tvlauncher/.MainActivity
 ```
 
-Verify Home resolution and physically press Home, Settings and Inputs before removing a trial launcher. The TV's `pm help` exposes `set-home-activity` and `default-state`; the earlier trial demonstrated exact captured package/settings/component restoration and stock Home/Inputs screenshots. Physical remote, audio, HDMI/Pi picture and full household recovery remain unverified. Do not disable stock Home before the replacement and recovery route work. If ADB is unavailable, use physical controls/default-app UI only when verified accessible; do not promise ADB recovery from a boot loop. Retain the stock launcher and Pi so a failed experiment does not require uninstalling household apps.
+Verify Home resolution and physically press Home, Settings and Inputs before removing a trial launcher. The TV's `pm help` exposes `set-home-activity` and `default-state`; the earlier trial demonstrated exact captured package/settings/component restoration and stock Home/Inputs screenshots. Those historical restoration screenshots did not establish physical remote, audio, HDMI/Pi picture or full household recovery. Later human-reported Home/household passes are recorded separately below; they do not establish execution of rollback for the current accepted setup. Do not disable stock Home before the replacement and recovery route work. If ADB is unavailable, use physical controls/default-app UI only when verified accessible; do not promise ADB recovery from a boot loop. Retain the stock launcher and Pi so a failed experiment does not require uninstalling household apps.
 
 Pi fallback: physically open Inputs and select HDMI 1 using the Sony remote. Confirm the existing Haystack image and return to the previous viewing source. HDMI 1 is the documented Pi connection; its label/path and actual picture require physical confirmation. Do not guess an Android TV input ID from HW numbering. If the Pi image is stale, consult the [existing LAN recovery guide](solutions/integration-issues/raspberry-pi-kiosk-hardcoded-mac-ip.md); changing Pi/server/router state is outside U1.
 
@@ -106,6 +108,8 @@ On any later loss of Home, Inputs, remote, keyboard, audio, casting or a preserv
 Android command semantics are documented in [PackageManager shell source](https://android.googlesource.com/platform/frameworks/base/%2B/8517e8d998be/services/core/java/com/android/server/pm/PackageManagerShellCommand.java) and [Settings command source](https://android.googlesource.com/platform/frameworks/base/%2B/c484f54/cmds/settings/src/com/android/commands/settings/SettingsCmd.java). Local Sony help is the compatibility evidence; physical effects remain to be tested. The generic Settings source documents syntax families; the Sony help takes precedence for argument placement and its list/delete limitations.
 
 ## Repeatable timing and acceptance protocol
+
+The unverified boundaries below describe U1 automated measurement coverage. Later human-reported functional passes do not supply elapsed timings or retroactively turn those probes into visible-readiness measurements.
 
 Use repeatable automated engineering probes as the default for baseline, U2, each U3 batch and artwork-enabled comparison. Keep the command, destination component, starting activity, network, app versions, Home arrangement, animation state and warm-up method comparable. Record date/time/timezone, device uptime, versions, background playback/downloads and the exact probe definition. Keep the three animation keys absent throughout this comparison. Do not clear caches, force-stop apps or change background limits to manufacture a result.
 
@@ -194,7 +198,9 @@ Passive mDNS browsing discovered a BRAVIA `_googlecast._tcp` advertisement. Rece
 
 At session close the package-ID set still matched the original 198-package inventory. ADB was explicitly disconnected; TV-side debugging-off status remains unconfirmed. Neither remote input timeout nor host disconnect proves a TV setting change or rollback. No packages/settings were altered by the agent; no app/data restore was attempted.
 
-## Acceptance ledger and next session
+## Historical U1 acceptance ledger and next-session notes
+
+This ledger records the earlier U1/withdrawn-trial evidence gaps. The current accepted Home and household passes are recorded separately at the end; these old unchecked boxes do not revoke them.
 
 - [x] Original private configuration snapshot read; stock Home, selected settings and selected installed package states documented.
 - [x] Household preservation and U3-only removal scope recorded.
@@ -271,7 +277,7 @@ The withdrawn recipe proposed opening Projectivy as an ordinary app, testing sup
 
 The inspected APK, signature and permission evidence above remain historical facts, not a reason to resume the candidate. No paid wallpaper option was purchased, no accessibility/notification grant was applied, and there is no accepted replacement Home.
 
-## U2 live attempt and stock restoration — 18 October 2026
+## Historical U2 live attempt and stock restoration — 18 October 2026
 
 **Outcome: blocked, restored, not complete.** The free-TV authorization covered the live U2 trial; it did not authorize U3 cleanup, a purchase or stock-launcher disabling. ADB connected without a new physical authorization prompt. Fresh user-0 Home/package and full secure/system/global namespace snapshots were captured before installation. Private logs, focused screenshots and the mutation ledger are in ignored `tv-local/20261018-u2-live/`; no account/profile imagery, raw dumps or binaries are committed.
 
@@ -312,7 +318,9 @@ Do not reinstall Projectivy or resume its settings trial without a new explicit 
 Existing baseline and restore evidence can be reused, but refresh exact state before a future authorized trial. Clean default Home/Back, used apps, restart and standby/wake persistence, actual DRM/casting/audio/remote/keyboard operation and HDMI/Pi picture/latency remain unaccepted. Casting playback needs a successful current baseline before a later failure can be called a regression. U2 is unchecked; restoration success does not satisfy its product requirements. U3 and artwork work remain unstarted.
 
 
-## Current U2 local preparation — 18 October 2026
+## U2 local preparation record — 18 October 2026
+
+This is the preparation-time record before the separately authorized manual Home trial. The accepted Home/setup evidence at the end supersedes its pending Home and free-control checks. It does not supersede the independent Sony dream gate.
 
 This section supersedes the historical trial recipe. Its scope is local package rechecking, a routing decision, the independent static DreamService fixture and a future live test sheet. No ADB connection, TV action, installation, permission grant, purchase, network/Cast trial, Haystack server change or Pi/router change is authorized by this preparation. There is no new accepted Home or Sony dream result. Dynamic Home artwork is deferred; no custom launcher, HomeActivity, app catalog or standalone ArtActivity is proposed. FLauncher remains a separately considered alternative, not an automatic fallback installation.
 
@@ -378,3 +386,34 @@ Local toolchain: portable Temurin JDK 17, checksum-pinned Gradle 8.11.1 wrapper,
 | Local ARM64 Android TV API 31 smoke | Signed release installed on the explicitly selected local emulator. Framework forced dream entry identified the Haystack service; a 1920×1080 screenshot showed the intended artwork, and D-pad center dismissed it with current dream returning to null. This is preview/input smoke only. |
 
 The official API-28 Android TV system image is x86-only, so this Apple Silicon Mac uses API-31 ARM64 for actual framework runtime checks and API-28 JVM resource/manifest/render coverage. It is not an Android-9 Sony runtime test. The final combined debug/release/unit/lint/instrumentation run passed after comment-only simplification. No TV connection or installation happened. No Sony service-selection, natural-idle, physical-remote, restart/wake or playback result is implied. U4 refresh/cache and U6 full delivery/playback verification remain deferred behind their gates.
+
+
+## Accepted Home and manual setup — 18 October 2026
+
+**Source and evidence type:** Andrés's physical observations and explicit confirmation in the parent chat, relayed to this implementer on 18 October 2026. These are accepted human-reported passes, not automated observations or a request to repeat the checks. The source is parent chat `01a14da5-d80c-7773-8251-f866efd4e1c2`; the owner confirmed that he had completed every item in the quoted manual setup/household-check list.
+
+| Check | Current accepted evidence |
+|---|---|
+| Settings → physical Home | In response to the explicit clean-return/no-stock-sponsored-flash question, Andrés reported: “Projectivy opens cleanly.” |
+| Netflix → physical Back/Exit | In response to opening Netflix and exiting it with Back/Exit, Andrés reported: “Returns cleanly to Projectivy.” |
+| Free launcher setup | Andrés explicitly confirmed Projectivy free setup covering all 13 household apps, Settings/Inputs access and hiding unwanted content rows. This confirms the reported required setup; individual preference values not reported separately are not invented. |
+| Launcher privacy configuration | Andrés confirmed usage reporting and crash reporting OFF. This is a configuration pass, not proof of no network tracking or manufacturer-telemetry cleanup. |
+| Persistence and household operation | Andrés confirmed restart/wake persistence, remote controls, app access, Chromecast and Pi HDMI 1. These passes are human-reported; no new automated playback, casting, restart, wake or input-switch probe was run to duplicate them. |
+
+### Read-only corroboration and exact-state preservation
+
+Before the manual installation, a fresh frozen baseline at 14:30–14:32 Madrid recorded Sony Android 9/API 28, user 0, 198 packages, Projectivy absent and stock Home selected. It preserved exact secure/system/global key presence and values and all 198 package user states, including stock Home's default package state and 13 enabled/one disabled component overrides. Speaker volume had changed from the earlier historical value 10 to **3**; the fresh value 3 was preserved rather than reset.
+
+After Andrés reported enabling Override, read-only verification at 14:45 Madrid found Projectivy 4.72/code 97 installed by `com.android.vending`. The installed Play Store base APK verified on API 28 with v3 and a verified source stamp; its certificate SHA-256 matches the earlier official standalone release: `f6697bf4082ee97511e4de07863193884a015b7ab5860430321bda1042b0aadd`. The split-package base has a different byte digest from the standalone APK, as expected. Only Projectivy was added; no package was removed.
+
+The secure changes were exactly `accessibility_enabled: 0 → 1` and previously absent `enabled_accessibility_services` becoming only `com.spocky.projengmenu/com.spocky.projengmenu.services.ProjectivyAccessibilityService`. That service was bound. System/global settings, volume 3, selected/default Backdrop, dream/idle timers and stock Home package/component state were unchanged at this readback. Projectivy was the resumed/focused activity. The preferred HOME resolver still named stock Home; that is distinct from the subsequently observed successful physical Home interception.
+
+The app-private Override value **before** Andrés enabled it was not observed. His manual action was reported before the planned post-install observation; do not infer an initial OFF value. No root, run-as or app-private-data access was used. Raw captures, exact deltas, conditional restore plan and the two individual physical-route reports remain private under ignored `tv-local/20261018-u2-home-baseline-143010/`, with post-override evidence in its `post-override-144515/` child. The broader completed-setup confirmation is recorded here from the parent relay; it is not backed by an invented device capture.
+
+### Remaining independent gates
+
+The **Home/setup branch is accepted on the stated human evidence**. U2 as a whole remains incomplete because Sony dream selection, natural idle entry and remote exit are not yet proven. Restart/wake confirmation above concerns the Home setup, not an uninstalled Haystack screensaver. The static fixture remains locally verified only; no screensaver installation, selection or timer change follows from this confirmation.
+
+No comparable before/after timing establishes a Home, app, Chromecast or HDMI speed improvement. Keep Inputs-menu opening separate from source-selection-to-stable-picture/audio; Pi HDMI 1 working does not supply those latency measurements. The fresh recovery plan is prepared, but exact rollback of this accepted manual setup was **not executed** and is not claimed. Full-project completion, U3 manufacturer cleanup, U4/U6 delivery/cache and broader unreported playback/broadcast details are not implied.
+
+The next substantive branch is bounded **local Aerial Views qualification** before full custom screensaver development. This evidence update does not start that work, adopt Aerial Views, authorize its TV installation, extend the Home experiment or turn the heartbeat on. Preserve the current working manual Projectivy override and do not ask Andrés to repeat the completed checks.
