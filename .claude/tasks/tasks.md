@@ -155,7 +155,7 @@ Plan: `docs/plans/2026-10-10-1307-feat-daily-artwork-stories-plan.md`
 Plan: `docs/plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md`
 
 - [x] Read-only Sony KD-55XE8096 inventory and app preferences captured; no TV app or setting changes made by the agent.
-- [ ] U1 Baseline and recovery preparation documented; automated probes captured; physical acceptance remains unverified (no owner stopwatch/target-selection gate).
+- [ ] U1 Baseline and recovery preparation documented; automated probes captured; physical acceptance remains unverified (automated probes are the default; optional observer timing is not an owner gate).
 - [ ] U2 Trial and verify the ad-free launcher; include reported slow HDMI selection in performance comparisons.
 - [ ] U3 Perform measured selective cleanup; preserve used apps, casting and broadcast TV.
 - [ ] U4 Add and verify the read-only wallpaper delivery bridge.

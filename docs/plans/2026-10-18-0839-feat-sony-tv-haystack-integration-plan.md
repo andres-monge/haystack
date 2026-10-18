@@ -65,7 +65,7 @@ The viral debloat examples do not establish which Sony packages can safely be di
 ### Success Criteria
 
 Performance acceptance uses repeatable Home, app-grid, Settings and Inputs interactions, plus two representative household apps. Andres also reports slow HDMI channel selection: compare chooser-opening and source-selection-to-stable-picture/audio separately, preserving Pi HDMI 1 and broadcast.
-Record five comparable warm trials, report median and slowest, and report a post-restart trial separately.
+Default to five comparable bounded automated warm probes where practical, report median and slowest, and separate post-restart evidence. Observer timing is optional when available, never an owner prerequisite; unsupported probes remain labelled evidence gaps.
 Use repeatable engineering measurements for before/after comparisons; label Android activity timings separately from visible latency. Do not substitute a RAM percentage or reduced animation duration for faster navigation. On 18 October, Andres explicitly removed owner stopwatch trials and target selection as launch gates. Missing human-only observations remain explicit evidence gaps; used-app and Chromecast preservation remain mandatory.
 Repeat the same navigation comparisons with art enabled.
 R2–R10 and the relevant phase's physical checks must pass independently of the performance result.
@@ -220,7 +220,7 @@ Each U-ID is a phase boundary. Operational units produce a runbook and evidence 
 **Files:** Create `docs/tv-integration.md`; update `.gitignore` to exclude `tv-local/` before storing any local run evidence there. Keep private snapshots outside Git.
 **Approach:** Record the verified baseline above, preserve user preferences, capture exact settings/package states before touching them, and establish how to return to stock Home and Pi input. Select practical engineering comparisons without requiring owner stopwatch trials or timing-target selection. Do not claim a snapshot can recover lost app data or a boot loop.
 **Execution note:** Device timings and recovery readiness are the first proof; no production tests are needed for documentation alone.
-**Test scenarios:** Record five warm trials for Home, Settings, Inputs and two chosen app launches, plus one restart/wake sample. Record a ten-key D-pad traversal. Keep animation values fixed. Confirm casting, keyboard, audio and Pi input work before intervention.
+**Test scenarios:** Capture bounded automated Home, Settings, Inputs and two chosen app-launch probes, aiming for five comparable warm samples where practical; separate restart and wake technical checks. Attempt a bounded D-pad delivery probe only where reliable. Keep animation values fixed. Observer timing is optional, never owner stopwatch work or a preparation gate. Record visible focus, actual casting, keyboard, audio and Pi picture as explicit gaps until observed; automated success cannot establish these physical outcomes.
 **Verification:** Reproducible available baseline evidence and its limits are recorded, exact original states are available, and the household preservation list is unambiguous. Record unobserved physical acceptance separately; do not claim it passed. No app or package changes are required to finish baseline recording.
 **Rollback:** Disconnect ADB on the Mac; ask Andres to disable debugging when finished with the session. No TV rollback is needed for the read-only inventory.
 

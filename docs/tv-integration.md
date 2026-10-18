@@ -106,26 +106,28 @@ Android command semantics are documented in [PackageManager shell source](https:
 
 ## Repeatable timing and acceptance protocol
 
-Use the same remote, seat/distance, network, app versions, Home arrangement, animation state and start/end definitions for baseline, U2, each U3 batch and artwork-enabled comparison. Record date/time/timezone, observer, screen/source, warm-up, device uptime, versions and background playback/downloads. Keep the three animation keys absent throughout this comparison. Do not clear caches, force-stop apps or change background limits to manufacture a result.
+Use repeatable automated engineering probes as the default for baseline, U2, each U3 batch and artwork-enabled comparison. Keep the command, destination component, starting activity, network, app versions, Home arrangement, animation state and warm-up method comparable. Record date/time/timezone, device uptime, versions, background playback/downloads and the exact probe definition. Keep the three animation keys absent throughout this comparison. Do not clear caches, force-stop apps or change background limits to manufacture a result.
 
-For each flow, perform one unscored warm-up followed by five comparable warm trials. Use a stopwatch or live observer; no screen recording is authorized by default. Start at the physical button press and stop when the stated destination is visibly usable and accepts the next action. Record all five seconds, median and maximum, plus missed keys, loading delays and invalid trials with reasons. Replace invalid trials rather than silently excluding slow valid results. Startup command duration, `am -W` WaitTime and TotalTime are separate diagnostic metrics and do not measure physical remote-to-visible latency; TotalTime=0 on task reuse is not instant UI.
+Where practical, use one unscored warm-up followed by five bounded automated trials per comparable flow. Record every returned metric, its unit, median and maximum, plus timeouts, errors and invalid samples with reasons. Distinguish task reuse from startup and keep incompletely warmed series labelled. Do not silently exclude slow valid results. Host subprocess duration and Android `am -W` WaitTime/TotalTime describe different technical boundaries; none measures physical remote-to-visible latency. TotalTime=0 on task reuse is not instant UI. Unsupported or unreliable probes remain evidence gaps rather than a request for owner stopwatch work.
 
-| Flow | Fixed start → endpoint | Baseline visible samples / median / maximum |
+Observer timing is optional when an observer is already available and willing; it is never an owner prerequisite or launch gate. If collected, keep the remote, seat/distance and visible endpoint consistent, start at the physical button press and stop when the destination visibly accepts the next action. Label these samples separately from automated metrics. No screen recording is authorized by default.
+
+| Flow | Default automated comparison | Optional physical evidence / current gap |
 |---|---|---|
-| Home | Same chosen app screen, Home press → app menu usable | pending |
-| App grid | Same Home focus, agreed route → app grid usable | pending; exact route to record |
-| Settings | Same Home focus, agreed Settings route → menu usable | pending |
-| Inputs chooser | Same Home focus, Inputs button → chooser usable | pending |
-| HDMI selection | Same starting source, choose the same HDMI entry → stable picture and audio; record chooser time separately | pending; Andres reports this is slow |
-| Netflix | Same Home tile focus, Select → same profile/content landing usable | pending |
-| Current Max | Same Home tile focus, Select → same profile/content landing usable | pending; confirm current household app |
-| D-pad | Same Home focus, ten specified directional keys at one-second cadence → ten corresponding visible focus responses | pending; record exact directions and misses |
+| Home | Same direct Home component from the same starting app; report task-reuse/startup metrics | Remote Home press → usable app menu unverified |
+| App grid | Same bounded stock app-grid activity probe; verify returned activity where available | Visible grid presentation and remote route unverified |
+| Settings | Same Settings intent from Home | Remote route → usable menu unverified |
+| Inputs chooser | Same bounded Inputs activity from Home | Physical Inputs button → usable chooser unverified |
+| HDMI selection | Record technical source-switch evidence only if a safe, repeatable probe is available in an authorized phase; keep chooser metrics separate | Selection → stable picture/audio unverified; Andres reports this is slow |
+| Netflix | Same resolved activity and starting Home state; separate warm and post-restart samples | Content readiness and playback unverified |
+| Current Max | Same resolved candidate activity and starting Home state | Household app identity, content readiness and playback unverified |
+| D-pad | Bounded key-delivery probe only where reliable; record exact sequence and timeouts | Ten corresponding visible focus responses unverified; delivery alone is insufficient |
 
-App landing latency and time-to-first-playback are separate. After warm trials, start a familiar title in each representative app and have Andres confirm video/audio and volume/mute. Test physical Home/Back/Inputs and keyboard text entry without changing accounts or sharing search text in Git. Test a normal Chromecast start/stop from a household device and confirm return to TV control. Check broadcast and Pi HDMI 1, preserving previous input. An ADB activity success cannot substitute for any of these observations.
+Activity launch, app landing and first playback are separate boundaries. Record playback/audio, physical Home/Back/Inputs, keyboard, Chromecast start/stop, broadcast and Pi HDMI 1 observations when available during authorized checks, without changing accounts or publishing search text. These remain explicit evidence gaps until observed; do not make their collection an owner questionnaire or a prerequisite for independent U1 preparation. Preserved-app and Chromecast functionality remain mandatory product outcomes. ADB activity success or Cast discovery cannot establish playback, actual casting or visible responsiveness.
 
 Andres explicitly requested practical speed improvements on 18 October, especially Home navigation, launches of household apps, Chromecast and HDMI input selection, without stopwatch work or choosing numeric targets. Use the same engineering probes before/after each intervention, report median/maximum, and investigate regressions separately from improvements. Human-only observations are evidence gaps, not an owner questionnaire or a timing-target gate. Ad removal and RAM reduction alone do not close R1; activity timings cannot establish visible responsiveness.
 
-Record one post-restart sample separately from warm results, including restart-to-usable-Home and the first app launch. Record one standby/wake sample separately, including wake-to-usable-Home and remote/input/audio recovery. Do not mix cold, post-restart or wake numbers into warm medians. Restart and standby are different checks; if either cannot finish in the free-TV window, leave it pending.
+Keep automated post-restart and standby/wake probes separate from warm results, using explicit technical endpoints such as boot completion, resolved Home and first activity launch. Visible Home readiness and remote/input/audio recovery may be added as optional observer evidence when available; never infer them from technical endpoints. Do not mix cold, post-restart or wake numbers into warm medians. Restart and standby are different checks; unsupported or unfinished checks remain labelled gaps, with no owner stopwatch prerequisite.
 
 ## Automated U1 session: 18 October, from 08:52 Madrid
 
@@ -196,11 +198,13 @@ At session close the package-ID set still matched the original 198-package inven
 - [x] Original private configuration snapshot read; stock Home, selected settings and selected installed package states documented.
 - [x] Household preservation and U3-only removal scope recorded.
 - [x] `tv-local/` excluded before local follow-up evidence creation.
-- [ ] Five visible warm trials per flow; median/maximum and ten-key D-pad response check.
+- [x] Available bounded automated baseline samples, median/maximum and probe limitations recorded.
+- [ ] Optional observer evidence: visible latency and ten-key focus responses remain unverified; no owner timing task or preparation gate.
 - [x] Engineer-selected repeatable comparison method documented; no owner timing-target selection required.
 - [ ] Netflix/current-Max playback, physical remote/Back/Home, keyboard, volume/audio confirmed.
 - [ ] Chromecast start/stop, broadcast, Inputs and Pi HDMI 1 confirmed.
-- [ ] Separate restart and standby/wake samples; recovery readiness physically confirmed.
+- [x] Automated reboot completion and post-restart Home evidence recorded separately.
+- [ ] Standby/wake and physical recovery readiness remain unverified; not inferred from reboot evidence.
 - [x] Host ADB disconnected at session close.
 - [ ] TV-side debugging disabled by Andres when finished (unconfirmed).
 
