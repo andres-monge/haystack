@@ -6,3 +6,6 @@ dist/
 .gstack/
 
 .context/compound-engineering/
+
+# Private TV snapshots, change ledgers and timing evidence
+/tv-local/
