@@ -13,7 +13,7 @@ execution: code
 
 - **Objective:** The household can navigate the Sony TV quickly, use an ad-free Home, reduce identifiable unnecessary tracking, and see current Haystack artwork during native idle time.
 - **Means:** Use a free existing launcher, targeted cleanup/privacy configuration and a separate small native Haystack screensaver (KTD1–KTD7).
-- **Authority:** The user made dynamic Home artwork optional and a separate fullscreen viewer unnecessary if the native screensaver succeeds. The launcher choice below is a revised recommendation, not permission to install or resume the earlier trial. The heartbeat remains paused.
+- **Authority:** The user made dynamic Home artwork optional and a separate fullscreen viewer unnecessary if the native screensaver succeeds. The user accepted updating the plan around the Projectivy-free-first direction after the explicit FLauncher comparison; this is planning approval, not permission to install or resume the earlier trial. The heartbeat remains paused.
 - **Execution profile:** Implement one separately authorized unit at a time. Document-only planning does not authorize installations, live navigation, settings, cleanup or server deployment. Do not resume the earlier trial under its previous away-from-home authorization.
 - **Stop conditions:** Restore the affected trial on lost Home, Inputs, controls, audio, keyboard, a used app or casting. Stop on unknown dependencies, paid feature requirements or unsuccessful recovery.
 - **Ownership:** The implementer supplies measured evidence and exact recovery; the orchestrator reviews actual outcomes before reporting acceptance. Physical-only gaps remain explicit without making the owner operate a benchmark questionnaire.
@@ -23,6 +23,7 @@ execution: code
 ## Product Contract
 
 ### Summary
+
 Use an existing free ad-free app menu, measured Sony-specific cleanup and a separate Haystack native screensaver.
 Home can have a plain/default or manually chosen static background; automatically changing Home art is deferred.
 Keep Pi HDMI 1 operational. No custom launcher, wallpaper integration, standalone art viewer or new software purchase is required for this scope.
@@ -40,7 +41,7 @@ The previous recommendation introduced Projectivy without establishing free cust
 - Dynamic Haystack artwork behind the app menu is optional, and no separate fullscreen artwork mode is needed if the native screensaver succeeds (session-settled: user-directed — chosen over the three-surface design: artwork in the screensaver is enough). Governs R7–R11.
 - Review manufacturer telemetry and launcher analytics explicitly, without promising elimination of every streaming/Google tracking path. Governs R12.
 
-Product Contract preservation: R1–R6 and R10 remain; R7 is downgraded to a deferred enhancement, R8–R9 focus on the screensaver, and R11 excludes software fees for the remaining required features. R12 makes targeted privacy work explicit. The architectural preference remains proposed, not user-approved.
+Product Contract preservation: R1–R6 and R10 remain; R7 is downgraded to a deferred enhancement, R8–R9 focus on the screensaver, and R11 excludes software fees for the remaining required features. R12 makes targeted privacy work explicit. The existing-launcher/screensaver architecture and Projectivy-first planning preference are user-approved after comparison; live trials, permission grants and rollout remain separately authorized.
 
 ### Requirements
 
@@ -121,15 +122,15 @@ Compare complete workflows: either launcher plus the same reviewed cleanup and t
 
 **What changes the preference.** Prefer a separately approved FLauncher trial if required Projectivy controls need payment, physical settings interaction fails, its opt-outs cannot be set/persisted, or the user prioritizes auditability. The earlier injected-input failure did not establish physical-remote incompatibility. A shared Sony routing failure is not a reason to cycle through launchers automatically.
 
-The independent Claude Opus 5.5 low-effort comparison concerns this reduced architecture, not the earlier custom-three-surface plan. Candidate preference remains conditional on Sony evidence; no replacement Home is accepted today.
+The independent Claude Opus 5.5 low-effort comparison reached the Projectivy-free-first preference after two rounds for this reduced architecture, not the earlier custom-three-surface plan. Its external check was unavailable; the host verified the linked primary sources and the peer inspected local device evidence. Candidate preference remains conditional on Sony evidence; no replacement Home is accepted today.
 
 ### Key Technical Decisions
 
-- KTD1. **Gate the two independent components before full configuration or screensaver development.** U2 records two separate results: the mandatory Home/routing/control proof, and native dream capability. Failure of dream selection must not prevent testing Home; it leaves R8 unresolved. Test ordinary app mode before default routing. The live compatibility experiment has a total 30-minute budget, excluding necessary restoration. Attempt only a supported chooser and, if new evidence justifies it for this component, one preferred-Home setter; skip known-ineffective repetition. On budget exhaustion restore and report. A separately proposed accessibility trial is not an automatic extension. Implements R1–R2, R5–R8, R11–R12.
+- KTD1. **Gate the two independent components before full configuration or screensaver development.** U2 records two separate results: the mandatory Home/routing/control proof, and native dream capability through natural idle entry and remote exit with the minimal fixture. Failure of dream selection must not prevent testing Home; it leaves R8 unresolved. Test ordinary app mode before default routing. The live compatibility experiment has a total 30-minute budget, excluding necessary restoration. Attempt only a supported chooser and, if new evidence justifies it for this component, one preferred-Home setter; skip known-ineffective repetition. On budget exhaustion restore and report. A separately proposed accessibility trial is not an automatic extension. Implements R1–R2, R5–R8, R11–R12.
 - KTD2. **Preserve stock recovery.** Try supported Home selection with actual resolution/physical Home/Back evidence. A minimal dedicated Home accessibility interception may only be trialled if its precise behavior and permission are included in the next phase authorization; never silently grant access or remap volume. An interception with stock ad flashes or broken task routing fails R2. No stock disabling, root or launcher-manager installation is authorized. Implements R2, R5–R6.
 - KTD3. **Keep cleanup and privacy independent and attributable.** Use one to three positively identified packages per batch with exact enabled-state recovery; remove SkyShowtime only with reinstall availability and app-data loss understood. Compare against the accepted clean menu, not a mixed launcher/art/cleanup change. Implements R1, R3–R6, R12.
 - KTD4. **Reuse existing GET contracts.** `src/server/server.ts` already supplies allowlisted `/api/latest` metadata with a relative `imageUrl` and `/api/outputs/:id` image bytes; no wallpaper bridge or public filesystem route is initially needed. A fixture server supplies deterministic A/B/error cases without touching production outputs. Implements R9–R10.
-- KTD5. **Use an unchanged launcher and own only the dream.** Configure the selected free launcher as app-only, with default/plain background, household apps, Settings and Inputs reachable. No launcher fork, billing/premium feature or custom app-grid code. The proposed `android-tv/` Java app contains HaystackDreamService, ArtworkRepository and app-private durable cache; any settings activity only configures the dream and is not a separate art viewer. No analytics SDK, browser engine or permanent foreground service. Implements R3, R5, R7–R12.
+- KTD5. **Use Projectivy free first and own only the dream** (session-settled: user-approved — chosen over FLauncher-first and a custom launcher: recent maintenance favours Projectivy when dynamic Home wallpaper is optional; FLauncher retains an auditability advantage). Configure the selected free launcher as app-only, with default/plain background, household apps, Settings and Inputs reachable. No launcher fork, billing/premium feature or custom app-grid code. The proposed `android-tv/` Java app contains HaystackDreamService, ArtworkRepository and app-private durable cache; any settings activity only configures the dream and is not a separate art viewer. No analytics SDK, browser engine or permanent foreground service. Implements R3, R5, R7–R12.
 - KTD6. **Refresh only the visible screensaver.** Poll metadata every 60 seconds while dreaming, refresh on dream start and stop on detach; one shared in-flight fetch. Resolve image URLs against the configured Mac origin, reject foreign origins/redirects, configure Android cleartext HTTP only for the selected LAN host, and perform networking/decoding off the UI thread. Bound downloads to 32 MiB and 40 megapixels before sampled decoding to the 1080p UI; validate actual fixture/production formats against those caps. Persist candidate bytes and ID transactionally before publishing; cancellation, malformed bytes, 404 and decode failure keep the prior accepted image. Implements R1, R9–R10.
 - KTD7. **Use the actual dream lifecycle.** Register a DreamService using the framework binding permission and selection metadata; never ask for broad secure-settings authority. Prove selection, natural idle entry, input exit and restart persistence separately from forced preview. Do not emulate system idle by overlaying other apps or forcing HDMI switches. Implements R5, R8.
 
@@ -168,7 +169,7 @@ flowchart TB
   HomeProof[U2 bounded Home routing proof] --> HomeGate{Home and controls pass?}
   HomeGate -->|No| Restore[Restore and return user decision]
   HomeGate -->|Yes| Cleanup[U3 clean app menu and targeted cleanup/privacy]
-  DreamProof[U2 separate dream selection/preview proof] --> DreamGate{Sony accepts service?}
+  DreamProof[U2 dream selection, natural idle and remote-exit proof] --> DreamGate{Natural entry and exit pass?}
   DreamGate -->|No| Decide[Report R8 limitation for user decision]
   DreamGate -->|Yes| Delivery[U4 screensaver image cache and delivery]
   Delivery --> Idle[U6 natural idle and lifecycle acceptance]
@@ -185,6 +186,21 @@ A failed dream capability does not invalidate an independently successful Home r
 A failed default-Home route prevents an accepted ad-free Home: FLauncher and Projectivy do not automatically bypass the same Sony policy.
 Android build tools, minSdk/API compatibility, production image caps and signing reproducibility are checked locally before any installation. Keep private signing keys outside Git and record a stable public certificate fingerprint for updates.
 Do not start a platform rewrite or add another launcher after failure without presenting the new tradeoff.
+
+### Phase Boundaries and Next Handoff
+
+| Unit | Independently reviewable result | Live-system boundary |
+|---|---|---|
+| U1 | Reuse recorded baseline and prepare exact recovery; refresh actual state before mutation | Fresh TV inspection only in the authorized session |
+| U2 preparation | Rechecked launcher provenance/signature, free-feature checklist, precise routing proposal, signed minimal dream fixture and local checks | No ADB connection, TV install/configuration or live screen capture |
+| U2 live proof | Separate Home/control and natural-idle dream results; preview alone leaves the dream gate pending | Requires a new free-TV authorization; no new accessibility grant or stock disable |
+| U3 | Small measured cleanup/privacy batches with exact restore actions | Requires its own authorized live session |
+| U4 | Screensaver-only delivery/cache tested with fixtures | Local work; no production output changes or server deployment |
+| U6 | Native idle art, refresh, exit and playback protection established | Authorized TV session; preview is not natural-idle acceptance |
+| U7 | Evidence reconciled against R1–R12, remaining limits and recovery documented | No completion claim for missing physical evidence |
+
+The next implementation handoff should be **U2 preparation only**, reusing U1 evidence. Prepare one explicit Home-routing proposal from the saved failed-setter/stub-chooser findings before asking for live time. If no new supported route exists, return that limitation and any concrete separately authorized permission option; do not reinstall simply to repeat the same failure.
+Prepare the minimal DreamService fixture independently. If natural idle under unchanged settings cannot be observed inside the 30-minute experiment, leave the dream gate pending and propose a separately authorized idle observation window. Do not lengthen active experimentation or change power/idle settings to manufacture a pass. A routing blocker does not block local dream work, and a dream blocker does not erase a successful Home result. Stop each branch at its evidence boundary rather than treating the entire phase as either fully complete or wholly blocked.
 
 ### Effort and Maintenance Tradeoff
 
@@ -216,11 +232,12 @@ Use existing inventory and restoration work; do not repeat hours of exploration.
 
 ### U2. Prove free existing-launcher routing and independent dream capability
 
-**Requirements:** R1–R3, R5–R8, R11–R12. **Decisions:** KTD1–KTD2, KTD5, KTD7. **Depends on:** fresh U1 recovery and explicit new trial authorization.
-**Files:** `docs/tv-integration.md`, proposed `android-tv/` Gradle wrapper/build files, manifest, HaystackDreamService and fixture resources under `android-tv/app/src/main/`, `android-tv/README.md`. No HomeActivity, ArtActivity or app catalog is proposed.
-Reuse verified package evidence; recheck actual release/signature before installation. Try the chosen launcher as an ordinary app, then the finite supported Home route with physical Home/Back and Settings/Inputs recovery. Do not repeat known-ineffective setter attempts without new evidence, silently grant accessibility or run generic disable/remap scripts. Keep minimal setup and the shared 30-minute experiment budget; record any omitted restart/wake checks as pending.
-Separately build the smallest dream fixture compatible with API 28 and record Sony service selection/preview, even if Home fails. Neither proof substitutes for the other. Only after accepted Home proof configure app-only rows for all 13 used apps, all-app access, Settings/Inputs and launcher analytics/crash opt-outs. Verify free controls and persistence; no purchase.
-**Scenarios/verification:** Physical Home/Back/D-pad/volume, Settings/Inputs and keyboard, restart/wake persistence, no sponsored Home returns, all 13 app shortcuts, actual free-tier limits, analytics settings persisted, exact restoration. Use device evidence rather than re-testing an unchanged third-party app with a new unit suite. Proposed fixture test: `android-tv/app/src/androidTest/java/dev/haystack/tv/DreamFixtureTest.java`; preview does not prove natural idle. Local debug/release builds, lint and signatures apply to the new dream fixture only.
+**Requirements:** R1–R3, R5–R8, R11–R12. **Decisions:** KTD1–KTD2, KTD5, KTD7. **Depends on:** local preparation reuses recorded U1 evidence with no TV connection; live proof requires fresh U1 recovery and explicit new trial authorization.
+**Files:** `docs/tv-integration.md`, `android-tv/settings.gradle`, `android-tv/build.gradle`, `android-tv/gradle/wrapper/gradle-wrapper.properties`, `android-tv/app/build.gradle`, `android-tv/app/src/main/AndroidManifest.xml`, `android-tv/app/src/main/java/dev/haystack/tv/HaystackDreamService.java`, dream metadata and fixture resources, and `android-tv/README.md` (all native files are proposed additions). No HomeActivity, ArtActivity or app catalog is proposed.
+**Preparation:** Reuse verified package evidence; recheck the candidate release/signature and record the exact free app-only/default-background/Inputs/analytics controls to verify. Identify a justified routing attempt before requesting live time; the old successful-looking setter is not a new hypothesis. Build/sign the minimal dream fixture locally with no network client yet. Report local build/lint/emulator results and a concrete live test/recovery sheet. This preparation has no TV connection or mutation.
+**Live proof, separately authorized:** Recheck fresh state before installation. Try the chosen launcher as an ordinary app, then the finite supported Home route with physical Home/Back and Settings/Inputs recovery. Do not repeat known-ineffective setter attempts without new evidence, silently grant accessibility or run generic disable/remap scripts. Keep minimal setup and the shared 30-minute experiment budget; record any omitted restart/wake checks as pending.
+Install the locally prepared minimal dream fixture only within the authorized live proof and record Sony service selection/preview independently, even if Home fails. Establish natural idle entry and remote exit with the fixture before full U4 work; preview alone leaves that gate pending. Use the separately authorized observation window when the existing timer cannot fit KTD1's budget. Neither branch substitutes for the other. Only after accepted Home proof configure app-only rows for all 13 used apps, all-app access, Settings/Inputs and launcher analytics/crash opt-outs. Verify free controls and persistence; no purchase.
+**Scenarios/verification:** Physical Home/Back/D-pad/volume, Settings/Inputs and keyboard, restart/wake persistence, no sponsored Home returns, all 13 app shortcuts, actual free-tier limits, analytics settings persisted, exact restoration. Use device evidence rather than re-testing an unchanged third-party app with a new unit suite. Proposed fixture test: `android-tv/app/src/androidTest/java/dev/haystack/tv/DreamFixtureTest.java`; preview does not prove natural idle; natural entry/exit is the pre-U4 capability gate, and full refresh/offline/playback protection stays in U6. Local debug/release builds, lint and signatures apply to the new dream fixture only.
 
 ### U3. Perform measured selective cleanup and privacy configuration
 
@@ -231,10 +248,10 @@ Remove SkyShowtime with recovery prepared. Identify the actually used Max app, t
 
 ### U4. Prove existing API delivery and native cache
 
-**Requirements:** R9–R11. **Decisions:** KTD4, KTD6. **Depends on:** U2 dream capability; independent local fixture work may be prepared without a live rollout.
+**Requirements:** R9–R11. **Decisions:** KTD4, KTD6. **Depends on:** U2 natural-idle fixture entry and remote-exit proof before full cache implementation; only small independent local preparation may proceed while this gate is pending.
 **Proposed files:** `android-tv/app/src/main/java/dev/haystack/tv/ArtworkRepository.java`, `ArtworkCache.java`, Android network-security resource, native fixture tests; `android-tv/README.md`.
 Use existing latest/image GET endpoints, not a new bridge. Persist candidate image bytes and associated accepted ID safely in app-private storage; retain last-good bytes for the screensaver alone with one in-flight fetch.
-**Proposed tests:** `ArtworkRepositoryTest.java`, `ArtworkCacheTest.java` in the native unit-test directory; `ArtworkRecoveryTest.java` in the native instrumentation-test directory.
+**Proposed tests:** `android-tv/app/src/test/java/dev/haystack/tv/ArtworkRepositoryTest.java`, `android-tv/app/src/test/java/dev/haystack/tv/ArtworkCacheTest.java`, and `android-tv/app/src/androidTest/java/dev/haystack/tv/ArtworkRecoveryTest.java`.
 **Scenarios:** A→B success; B fails then succeeds with unchanged ID; empty latest; image purge404; offline cold start with/without cache; corrupt/truncated/oversized image; process death between writes; HTTP timeout; origin redirect rejection; duplicate starts, lifecycle cancellation and no polling after dream detach. Test PNG/JPEG/WebP from existing output patterns and sampled memory use.
 **Verification:** Controlled local fixtures establish state transitions and request counts; no generation, paid Renders, live output-store changes or server restart. Only change server code later if a concrete contract gap is demonstrated and approved.
 
@@ -245,7 +262,7 @@ The user made dynamic Home wallpaper optional and a separate fullscreen viewer u
 ### U6. Complete native idle artwork
 
 **Requirements:** R5, R8–R11. **Decisions:** KTD6–KTD7. **Depends on:** U2 dream capability and U4; no dependency on launcher selection or retired U5.
-**Proposed files:** HaystackDreamService and dream metadata in the native app, `DreamLifecycleTest.java` under native instrumentation tests, `docs/tv-integration.md`.
+**Proposed files:** `android-tv/app/src/main/java/dev/haystack/tv/HaystackDreamService.java`, `android-tv/app/src/main/res/xml/dream_info.xml`, `android-tv/app/src/androidTest/java/dev/haystack/tv/DreamLifecycleTest.java`, and `docs/tv-integration.md`.
 Use the proven selectable dream. Attach only during dreaming, release resources on stop, and retain existing timeout/power settings unless a specific change is authorized. A preview demonstrates rendering only; natural idle is a separate test.
 **Scenarios/verification:** AE3–AE5; native idle at Home, exit on remote, restart persistence, Mac offline, process restart and no polling after dream stops. Verify active DRM and cast playback are not interrupted; test HDMI idle separately and report any OEM limitation. No standalone install success closes this unit.
 
