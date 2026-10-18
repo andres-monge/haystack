@@ -157,7 +157,8 @@ Plan: `docs/plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md`
 - [x] Read-only Sony KD-55XE8096 inventory and app preferences captured; no TV app or setting changes made by the agent.
 - [ ] U1 Baseline and recovery preparation documented; automated probes captured; physical acceptance remains unverified (automated probes are the default; optional observer timing is not an owner gate).
 - [x] Historical U2 Projectivy preparation recorded; old trial ended; new free-tier recommendation under reduced scope remains unaccepted.
-- [ ] Revised U2 free existing-launcher routing and independent dream fixture: planning direction accepted; local preparation is the next handoff, live proof separately authorized; old Projectivy trial restored; no automatic resumption.
+- [x] Revised U2 local preparation: candidate release/signature rechecked, exact free-control checklist and Home-routing blocker/permission proposal documented, static native dream fixture built/signed and verified locally.
+- [ ] Revised U2 live proof: no accepted Home route under current permissions; independent Sony dream selection, natural idle and remote exit remain untested; separate free-TV authorization required, no automatic resumption.
 - [ ] U3 Perform measured selective cleanup and privacy configuration; preserve used apps, casting and broadcast TV.
 - [ ] U4 Verify existing read-only API delivery and native durable cache after natural-idle fixture entry/exit is proven; no new bridge initially required.
 - U5 Retired: dynamic Home artwork is optional/deferred; no custom launcher or standalone fullscreen viewer.
@@ -169,7 +170,8 @@ Plan: `docs/plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md`
 | Device inspection | complete; Android 9, 198 packages, about 2 GB RAM; ADB disconnected after inspection | 2026-10-18 |
 | U1 | documentation and automated baseline prepared; 13 household app activity launches, Cast discovery and reboot technical checks recorded; physical acceptance remains unverified (non-blocking preparation evidence gaps) | 2026-10-18 |
 | Historical U2 preparation | withdrawn; prior package inspection remains evidence only | 2026-10-18 |
-| U2 live trial | old trial restored and withdrawn; exact configuration equality recorded; revised existing-launcher plus screensaver plan updated by user request; U2 local preparation next, no new device work authorized | 2026-10-18 |
+| U2 local preparation | complete: minimal static DreamService; debug/release, four API-28/35 JVM cases, lint, API-28 signing, one API-31 ARM64 TV instrumentation case and emulator preview/input-exit passed; Home no-grant routing blocked and precise permission option documented | 2026-10-18 |
+| U2 live proof | pending; old trial restored/withdrawn; no TV connection or mutation during local preparation; Sony selection/natural idle/remote exit and Home/control acceptance require separate authorization | 2026-10-18 |
 | U3/U4/U6/U7 | not started; outside current authorization | 2026-10-18 |
 
 The latest reduced scope permits a plain/static Home, with hourly Haystack artwork required only in the native screensaver. Projectivy free is the accepted first-candidate planning direction after the updated comparison; FLauncher remains viable. No reinstallation, purchase, new accessibility/remapping grant or heartbeat activation is authorized.
