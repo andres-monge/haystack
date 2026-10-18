@@ -13,6 +13,7 @@ final class DreamArtworkController {
     private final Handler main = new Handler(Looper.getMainLooper());
     private FetchCancellation session;
     private ScheduledExecutorService worker;
+    private Artwork pending;
 
     DreamArtworkController(ArtworkRepository repository, Consumer<Artwork> display) {
         this.repository = repository;
@@ -34,10 +35,16 @@ final class DreamArtworkController {
             artwork.bitmap.recycle();
             return;
         }
+        main.removeCallbacksAndMessages(token);
+        if (pending != null) pending.bitmap.recycle();
+        pending = artwork;
         main.postAtTime(() -> {
             synchronized (DreamArtworkController.this) {
-                if (session == token) display.accept(artwork);
-                else artwork.bitmap.recycle();
+                if (session == token && pending != null) {
+                    Artwork latest = pending;
+                    pending = null;
+                    display.accept(latest);
+                }
             }
         }, token, android.os.SystemClock.uptimeMillis());
     }
@@ -48,6 +55,10 @@ final class DreamArtworkController {
         session = null;
         old.cancel();
         main.removeCallbacksAndMessages(old);
+        if (pending != null) {
+            pending.bitmap.recycle();
+            pending = null;
+        }
         worker.shutdownNow();
         worker = null;
     }
