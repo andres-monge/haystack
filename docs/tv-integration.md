@@ -1,10 +1,10 @@
 # Sony TV integration: baseline and recovery
 
-Status on 18 October 2026: **Projectivy Home and manual free setup accepted from Andrés's physical checks and confirmation, relayed by the parent chat. Andrés also accepts qualitative Home and HDMI responsiveness. The signed static Sony screensaver capability is accepted: normal selection, preview, natural idle entry and physical remote exit passed. Native v4 quality and physical exit are accepted; refresh, offline process recovery and restored-production device restart checks passed. Final Netflix/Cast playback acceptance remains pending. No numerical speedup is claimed.**
+Status on 18 October 2026: **Projectivy Home and manual free setup accepted from Andrés's physical checks and confirmation, relayed by the parent chat. Andrés also accepts qualitative Home and HDMI responsiveness. The signed static Sony screensaver capability is accepted: normal selection, preview, natural idle entry and physical remote exit passed. Native v4 quality and physical exit are accepted; refresh, offline process recovery and restored-production device restart checks passed. Netflix and actual phone-sent Cast six-minute playback checks passed by owner report. Scoped U6/U7 verification and handoff are complete, with the untested combinations recorded below. No numerical speedup is claimed.**
 
 The [revised proposal](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) keeps dynamic Home art optional, targeted cleanup/privacy separate, and native idle artwork independent. Following a new explicit free-TV authorization and disclosure of the accessibility service's broader window-content/key-filtering capability, Andrés installed Projectivy and enabled its own launcher override manually. Stock Home remains enabled. See [the current Home evidence](#accepted-home-and-manual-setup--18-october-2026) for the accepted checks and their source.
 
-The earlier restored trial and the subsequent local-preparation sections below are historical records. Their pending-Home statements describe those earlier stages; the current Home evidence supersedes them. Old commands and gate sheets do not authorize new actions. Preserve the successful manual override; missing screensaver proof is not a reason to roll it back. No purchase was made. U3 cleanup is deferred by the user’s scope decision. The later separately authorized Sony static-fixture result is recorded below; U4 local implementation is complete and the separately authorized U6 trial is in progress. The heartbeat remains off.
+The earlier restored trial and the subsequent local-preparation sections below are historical records. Their pending-Home statements describe those earlier stages; the current Home evidence supersedes them. Old commands and gate sheets do not authorize new actions. Preserve the successful manual override; missing screensaver proof is not a reason to roll it back. No purchase was made. U3 cleanup is deferred by the user’s scope decision. The later separately authorized Sony static-fixture result is recorded below; U4 local implementation and the separately authorized scoped U6/U7 verification are complete; the final matrix below defines their evidence limits. The heartbeat remains off.
 
 ## Evidence and scope
 
@@ -536,6 +536,41 @@ Post-reboot, the production dream entered naturally and displayed the current Ma
 | Online device restart | Changed kernel boot ID, ADB returned, settings/APK survived and natural artwork returned |
 | Offline device reboot | Not tested as a combined scenario; offline process and online device restart were separate |
 | New v4 standby/wake trial | Not repeated; earlier physical U2 evidence is separate |
-| Active Netflix DRM playback and actual Google Cast | Pending final owner picture/audio observations for at least six untouched minutes each |
+| Active Netflix DRM playback | Human six-minute pass: normal playback/audio and no screensaver; metadata corroborates 313.2 seconds of active advancing playback, not a host-observed six-minute window |
+| Actual Google Cast | Human phone-sent six-minute pass: normal casting/audio and no screensaver; first technical sample playing, final sample paused, no six-minute host playback claim |
 
 The heartbeat stays off. U3 cleanup remains deferred, and no manufacturer telemetry reduction is claimed. The accepted launcher usage OFF/crash ON preference was carried forward without changing Projectivy settings; those internal switches were not freshly read during the v4 playback preparation. Continue Watching repair remains unconfirmed and does not justify enabling unwanted recommendation rows.
+
+Final Netflix result: Andrés explicitly reported, “After 6 minutes: playback/audio normal, no screensaver.” Metadata samples showed Netflix active/playing with advancing position and no dream from 19:10:19 to 19:15:32 Madrid (313.2 seconds); the later sample found Netflix stopped and Projectivy foreground after the human check was complete. The six-minute duration and picture/audio result are human evidence, corroborated by the shorter sampled window. No screenshots or device inputs were taken during playback. Retained playback evidence contains technical fields only, with stream titles omitted.
+
+Final Cast result: in response to the phone-sent Chromecast instruction, Andrés reported, “After 6 minutes: casting/audio normal, no screensaver.” The 19:19:48 Madrid sample showed YouTube actively playing; at 19:25:01 it was paused, with no dream and the TV awake. The 312.8-second endpoint span does not establish continuous playback or a six-minute host observation. Actual phone casting, duration and picture/audio are established by the human response.
+
+
+## Final scoped acceptance and operation — 18 October 2026
+
+U6 and U7 are complete for the revised scope. Independent final evidence review reconciled the device receipts, source durability, reviewed builds and human playback reports. This is scoped acceptance: AE3’s combined offline device reboot was not executed; offline process startup and online device restart were verified separately. New v4 standby/wake and HDMI-idle activation were not verified. These remain explicit coverage limits, without a claim that every acceptance-example combination passed.
+
+| Requirement | Final evidence and boundary |
+|---|---|
+| R1 responsiveness | Andrés accepted Projectivy Home and HDMI selection as fast; no numerical speedup claimed |
+| R2 clean Home | Human accepted normal return paths, hidden unwanted rows and earlier reboot/wake persistence; streaming-app ads are outside this Home result |
+| R3 household apps/Cast | Earlier human confirmation of all 13 app entries; final Netflix and actual phone Cast six-minute picture/audio/no-screensaver passes; no exhaustive playback test of every app |
+| R4 cleanup | Deferred by the user; no package removal or manufacturer cleanup performed |
+| R5 shared functions | Earlier human controls, audio, keyboard, Inputs and Pi HDMI 1 confirmation; household dependencies preserved, no new v4 wake or universal HDMI-idle claim |
+| R6 recovery | Fresh change ledgers, retained stock Home/Backdrop and exact restoration of the trial-origin APK to production; full rollback of the accepted manual Home setup was not rehearsed |
+| R7 display scope | Plain Home accepted; dynamic Home and separate fullscreen viewer deferred; Pi HDMI 1 retained |
+| R8 native idle | Normal selection and natural entry, human quality/physical exit, online reboot persistence and final active-playback protection passed |
+| R9 refresh/cache | Same-ID error/retry visible within 49.7 seconds, offline new-process last-good recovery and stop-after-dismissal passed; local corruption/no-cache/atomic-recovery tests passed. Durable synced storage plus separate online reboot support restart durability; combined offline device reboot remains untested |
+| R10 production boundaries | TV performs presentation GETs only; generation, credentials, canonical art, continuity, schedules, retention and public notes unchanged |
+| R11 cost | Required Projectivy controls and custom screensaver used without purchase; existing generation costs unchanged |
+| R12 reporting | Latest accepted usage OFF/crash ON preserved; v4 did not freshly inspect internal toggles. No manufacturer telemetry reduction or network privacy audit claimed |
+
+For everyday use, Home opens Projectivy. Leave the TV idle at Home for the accepted five minutes to display Haystack; use the remote to exit. Playback protection passed for the observed Netflix and phone-Cast sessions. Inputs → HDMI 1 still opens the independent Pi display. No automatic input switching or display while the panel is off is promised.
+
+The Mac must remain awake and reachable at the configured LAN address for new artwork. The dream checks immediately on entry and every 60 seconds after an attempt completes; while unavailable, the last accepted image remains. With no valid cache, the built-in landscape appears. A stale image therefore need not mean the TV is broken: first check Mac availability and the existing server using its normal operating instructions. No extra Render is needed to test connectivity. The TV app never starts generation.
+
+The installed production app is version 4 (`0.4-pixels`), SHA-256 `a1c671a04545acbc1c845b644f5123db02b9093524ad81616426c1f8470b0dd2`, configured only for `http://192.168.0.20:4321`. Keep the stable signing key outside Git and follow [the build/signing instructions](../android-tv/README.md) for a future update; data-preserving updates must use that certificate. Verify origin, version, certificate and installed APK hash. A debug or test-origin APK is not a household update.
+
+For screensaver recovery, use Sony’s normal screensaver selector to choose the retained stock Backdrop. Keep the accepted five-minute timeout and sleep `-1` unless the owner requests a change; the original one-hour delay is historical recovery data. For Home recovery, use the exact fresh ledger procedure above rather than enabling every package or clearing app data. Existing stock Home, household apps and Pi remain available. No full firmware/account backup or boot-loop recovery is implied. Continue Watching restoration remains unconfirmed and separate from this handoff.
+
+The quality-correction record above preserves the reusable lesson: maximum-size checks missed undersampling, and software Canvas behavior missed physical half-pixel filtering. Regression checks now cover fitted detail and physical placement, with actual Sony acceptance recorded separately. Private keys, APKs, images and raw evidence remain outside Git. Owned fixture listeners are stopped; the default local release artifact matches the installed production hash. The heartbeat remains off.
