@@ -1,10 +1,10 @@
 # Sony TV integration: baseline and recovery
 
-Status on 18 October 2026: **Projectivy Home and manual free setup accepted from Andrés's physical checks and confirmation, relayed by the parent chat. Sony screensaver capability and measured speed improvement remain pending.**
+Status on 18 October 2026: **Projectivy Home and manual free setup accepted from Andrés's physical checks and confirmation, relayed by the parent chat. Andrés also accepts the qualitative performance outcome; Sony screensaver capability remains pending. No numerical speedup is claimed.**
 
 The [revised proposal](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) keeps dynamic Home art optional, targeted cleanup/privacy separate, and native idle artwork independent. Following a new explicit free-TV authorization and disclosure of the accessibility service's broader window-content/key-filtering capability, Andrés installed Projectivy and enabled its own launcher override manually. Stock Home remains enabled. See [the current Home evidence](#accepted-home-and-manual-setup--18-october-2026) for the accepted checks and their source.
 
-The earlier restored trial and the subsequent local-preparation sections below are historical records. Their pending-Home statements describe those earlier stages; the current Home evidence supersedes them. Old commands and gate sheets do not authorize new actions. Preserve the successful manual override; missing screensaver proof is not a reason to roll it back. No purchase was made. U3 cleanup and Sony screensaver work have not started; the heartbeat remains off.
+The earlier restored trial and the subsequent local-preparation sections below are historical records. Their pending-Home statements describe those earlier stages; the current Home evidence supersedes them. Old commands and gate sheets do not authorize new actions. Preserve the successful manual override; missing screensaver proof is not a reason to roll it back. No purchase was made. U3 cleanup is deferred by the user’s scope decision; Sony screensaver work has not started and the heartbeat remains off.
 
 ## Evidence and scope
 
@@ -397,6 +397,7 @@ The official API-28 Android TV system image is x86-only, so this Apple Silicon M
 | Settings → physical Home | In response to the explicit clean-return/no-stock-sponsored-flash question, Andrés reported: “Projectivy opens cleanly.” |
 | Netflix → physical Back/Exit | In response to opening Netflix and exiting it with Back/Exit, Andrés reported: “Returns cleanly to Projectivy.” |
 | Free launcher setup | Andrés explicitly confirmed Projectivy free setup covering all 13 household apps, Settings/Inputs access and hiding unwanted content rows. This confirms the reported required setup; individual preference values not reported separately are not invented. |
+| Responsiveness | Andrés describes Projectivy as “blisteringly fast”, exactly what he wanted, and says he is happy with current performance (parent relay, 18 October 2026). This is accepted qualitative human evidence, not a numerical benchmark or quantified HDMI gain. |
 | Launcher privacy configuration | Andrés confirmed usage reporting and crash reporting OFF. This is a configuration pass, not proof of no network tracking or manufacturer-telemetry cleanup. |
 | Persistence and household operation | Andrés confirmed restart/wake persistence, remote controls, app access, Chromecast and Pi HDMI 1. These passes are human-reported; no new automated playback, casting, restart, wake or input-switch probe was run to duplicate them. |
 
@@ -414,6 +415,22 @@ The app-private Override value **before** Andrés enabled it was not observed. H
 
 The **Home/setup branch is accepted on the stated human evidence**. U2 as a whole remains incomplete because Sony dream selection, natural idle entry and remote exit are not yet proven. Restart/wake confirmation above concerns the Home setup, not an uninstalled Haystack screensaver. The static fixture remains locally verified only; no screensaver installation, selection or timer change follows from this confirmation.
 
-No comparable before/after timing establishes a Home, app, Chromecast or HDMI speed improvement. Keep Inputs-menu opening separate from source-selection-to-stable-picture/audio; Pi HDMI 1 working does not supply those latency measurements. The fresh recovery plan is prepared, but exact rollback of this accepted manual setup was **not executed** and is not claimed. Full-project completion, U3 manufacturer cleanup, U4/U6 delivery/cache and broader unreported playback/broadcast details are not implied.
+Andrés’s qualitative performance acceptance meets the current responsiveness outcome; another owner benchmark is not a gate. No comparable before/after timing supplies a numerical Home, app, Chromecast or HDMI speedup. If numerical measurement is later requested, keep Inputs-menu opening separate from source-selection-to-stable-picture/audio; Pi HDMI 1 working does not supply those latency measurements. The fresh recovery plan is prepared, but exact rollback of this accepted manual setup was **not executed** and is not claimed. Full-project completion, U4/U6 delivery/cache and broader unreported playback/broadcast details are not implied. U3 manufacturer cleanup/privacy work is deferred by user decision and is no longer an acceptance blocker.
 
-The next substantive branch is bounded **local Aerial Views qualification** before full custom screensaver development. This evidence update does not start that work, adopt Aerial Views, authorize its TV installation, extend the Home experiment or turn the heartbeat on. Preserve the current working manual Projectivy override and do not ask Andrés to repeat the completed checks.
+On 18 October 2026 Andrés authorized bounded **local Aerial Views 1.8.5 qualification** before full custom screensaver development. It used only isolated fixtures and a disposable emulator and ended on a decisive ≤120-second freshness failure; it does not adopt Aerial Views, authorize its Sony installation, extend the Home experiment or turn the heartbeat on. Preserve the current working manual Projectivy override and do not ask Andrés to repeat the completed checks. See [the local qualification record](aerial-views-qualification.md).
+
+
+## U3 deferred by user decision — 18 October 2026
+
+After accepting Projectivy’s responsiveness as “blisteringly fast”, exactly what he wanted, Andrés said U3 was unnecessary. The parent chat relayed the scope decision and authorization to record it. Defer targeted package cleanup, SkyShowtime removal, legacy HBO/Max retirement, manufacturer privacy/telemetry changes and voice-search changes; none is required to close the revised scope. U3 is **deferred, not completed**. No package or manufacturer setting was changed to produce this decision, and no remaining household check is being assigned to the owner.
+
+Launcher usage/crash reporting OFF remains an accepted human-reported configuration pass. Manufacturer telemetry has not been reduced or audited; this limitation is explicit and is not silently counted as completed privacy work. Historical cleanup reasoning stays in the earlier dated proposal for traceability and is not an active instruction. Reopening U3 requires a new user scope decision.
+
+
+## Local screensaver qualification result — 18 October 2026
+
+Stock Aerial Views 1.8.5 is disqualified for the current refresh contract: both its updated unique-URL feed and changed fixed image alias kept showing the old images for 127.4 seconds during a single active dream with five-second photo dwell. Request logs show zero app requests after publication; the three successful host control requests are distinguished from app fetches. The parent reviewed the runtime result and old-image screenshot and accepted this local failure. See [the complete qualification record](aerial-views-qualification.md) for provenance, source facts, configuration and evidence.
+
+Same-ID/URL failure recovery and offline process/device restart are **NOT TESTED**, not failed: qualification stopped after the decisive freshness failure. The local emulator and fixture listener were stopped. No Aerial installation or screensaver/timer change occurred on the Sony, and the accepted Projectivy override remains untouched.
+
+The next remaining capability gate is a separately authorized Sony trial of the already prepared signed static DreamService fixture: normal service selection, natural idle entry and physical remote exit under unchanged policy. Preview alone is insufficient. Keep full U4 delivery/cache work behind that gate and a separate custom-fallback decision; do not repeat completed Home/household checks or reopen deferred U3 automatically.
