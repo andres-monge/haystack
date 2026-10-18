@@ -1,7 +1,7 @@
 # Sony TV integration: baseline and recovery
 
-Status on 18 October 2026: **U1 automated baseline prepared; U2 launcher preparation complete. Live U2 and physical acceptance remain pending.**
-The [implementation plan](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) governs the phase boundaries. The U2 live trial and U3–U7 have not started. No package, launcher, animation, idle or other TV setting has been changed by this work. Opening screens during U1 can change app/task state and navigation history.
+Status on 18 October 2026: **U2 live trial attempted and restored to stock; blocked on reliable settings control. U2 is not complete.**
+The [implementation plan](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) governs the phase boundaries. The U2 attempt below installed and then removed Projectivy and restored stock Home. No U3–U7 work has started; final settings/package restoration evidence is recorded below. Opening screens during U1 can change app/task state and navigation history.
 
 ## Evidence and scope
 
@@ -204,7 +204,8 @@ At session close the package-ID set still matched the original 198-package inven
 - [ ] Netflix/current-Max playback, physical remote/Back/Home, keyboard, volume/audio confirmed.
 - [ ] Chromecast start/stop, broadcast, Inputs and Pi HDMI 1 confirmed.
 - [x] Automated reboot completion and post-restart Home evidence recorded separately.
-- [ ] Standby/wake and physical recovery readiness remain unverified; not inferred from reboot evidence.
+- [x] Stock technical standby/wake observed during the restored U2 attempt: Asleep → Awake/display ON.
+- [ ] Physical remote/audio/recovery readiness remains unverified; not inferred from technical power states.
 - [x] Host ADB disconnected at session close.
 - [ ] TV-side debugging disabled by Andres when finished (unconfirmed).
 
@@ -214,7 +215,7 @@ Repository verification uses snapshot comparison, private-file boundary checks a
 
 ## U2 preparation: Projectivy launcher trial
 
-**Prepared on 18 October 2026; not installed, activated or accepted.** The TV is in use. This preparation made no ADB connection or TV action and changed no Haystack/Pi/router state. Live U2 work waits for explicit TV availability. Preparation can be complete independently of installation and physical acceptance; the preservation outcomes remain mandatory.
+**Preparation snapshot from 18 October 2026, before the live attempt below; not an acceptance claim.** At preparation time the TV was in use. That preparation made no ADB connection or TV action and changed no Haystack/Pi/router state. The subsequently authorized live attempt is recorded below. Preparation can be complete independently of installation and physical acceptance; the preservation outcomes remain mandatory.
 
 ### Official package and compatibility evidence
 
@@ -309,7 +310,47 @@ No owner stopwatch or target-selection questionnaire is required. Human-only obs
 - [x] Official Android signature verification passed for API 28; signer fingerprint and broader-check warnings recorded.
 - [x] Minimal app layout/static-control configuration, supported Home routes and exact-state recovery prepared.
 - [x] Premium requirement/advertised external price documented; no purchase made.
-- [ ] Installation, live layout configuration and Home routing: not performed; waiting for explicit TV availability.
+- [ ] Live U2 acceptance: initial installation attempted and removed after settings/routing blockers; no accepted replacement Home remains.
 - [ ] Clean Home/Back, app/playback/casting/controls/HDMI/restart/wake and physical recovery acceptance: unverified.
 
 Documentation verification uses package/API/signature evidence, source checks, scoped review, private-file exclusions and diff hygiene. No build, application tests or lint apply to this documentation-only preparation. The current home network has no extender; moving the laptop between rooms on the same Wi-Fi does not call for a router/Pi configuration change. Preserve its fixed private MAC, reserved `192.168.0.20` and LAN reachability as documented in the updated historical recovery guide.
+
+## U2 live attempt and stock restoration — 18 October 2026
+
+**Outcome: blocked, restored, not complete.** The free-TV authorization covered the live U2 trial; it did not authorize U3 cleanup, a purchase or stock-launcher disabling. ADB connected without a new physical authorization prompt. Fresh user-0 Home/package and full secure/system/global namespace snapshots were captured before installation. Private logs, focused screenshots and the mutation ledger are in ignored `tv-local/20261018-u2-live/`; no account/profile imagery, raw dumps or binaries are committed.
+
+### What was actually established
+
+- The verified 4.72/code97 APK installed successfully as a new package. Projectivy onboarding completed and a screenshot showed its ordinary Home activity with app/input/content rows and the default background. This was not a configured app-only/static-background trial or a default-Home acceptance result.
+- The supported `pm set-home-activity` call reported Success for Projectivy, but an immediate HOME resolution and an unqualified HOME launch still selected `com.google.android.tvlauncher/.MainActivity`. The setter was restored to the stock component. Sony resolved HOME_SETTINGS to its EmptyStubActivity, so no usable default-Home chooser was established.
+- Projectivy's settings sidepanel was present in window diagnostics and UI text. Repeated bounded settings-navigation attempts could not reliably enter and control the intended preferences: UIAutomation sometimes returned a null/underlying root, and injected events reached Sony TVX. The desired app rows/static background/override settings were not confirmed or accepted. Blind injection was stopped.
+- The settings window had the observed `LOCAL_FOCUS_MODE` flag. Android's [window API documentation](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_LOCAL_FOCUS_MODE) explains that such windows can use local input independently of ordinary window-manager dispatch. This is a possible automation limitation, not proof of physical-remote incompatibility or a 4.72 regression. Local APK inspection found no direct assignment of that flag and no mandatory missing extras for AppSettingsActivity.
+- Official 4.71 was inspected locally as a possible comparison: its release digest/signature matched, but SDK targets and sidepanel styles did not provide evidence for a focus fix. It was not installed. No downgrade, patched APK, root, launcher-manager app, stock disable, accessibility/notification grant or broad permission grant was used.
+
+The first ordinary Projectivy launch reported Android WaitTime 5,438 ms including onboarding; the attempted unqualified HOME launch after the ineffective setter reported 873 ms for the stock launcher. These are lifecycle diagnostics, not visible navigation timings. No accepted replacement Home exists to compare against U1's five-sample Home/app-launch baseline. The restored stock Inputs invocation reported one WaitTime sample of 603 ms; this post-wake/recovery sample is not comparable to U1's warmed median of 160 ms and does not establish an improvement or regression. HDMI selection-to-picture/audio latency was not measured.
+
+### Actual Cast attempt, without a playback claim
+
+A Mac sender used the existing BRAVIA receiver with a temporary LAN HTTP server serving only an owned, generated non-DRM color-pattern MP4 and quiet tone. The receiver connection and Default Media Receiver application were established, but both sampled media states remained IDLE at time zero, the fixture server received no media GET, and pause/stop requests timed out. A focused screenshot was black; no successful video/audio rendering or actual casting playback is claimed.
+
+Actual casting playback had never been verified in the original baseline, so this failure does **not** establish that Projectivy broke casting. No cast, network or receiver setting was changed to troubleshoot it. Explicit receiver quit then returned successfully; a fresh receiver status had app_id=None, session_id=None and no namespaces. The sender disconnected and its temporary server closed. No fixture server or Cast test session was left running.
+
+### Mutations and exact restoration evidence
+
+| Attempt / incidental effect | Restoration and observed proof |
+|---|---|
+| First-install Projectivy 4.72; ordinary app/onboarding/navigation | Newly installed package uninstalled with Success. Final package list exactly matches all 198 IDs from this session's fresh baseline; Projectivy `pm path` is empty. |
+| Preferred-Home setter attempted for Projectivy | Setter restored to stock; HOME resolves to stock, HOME launch and final window focus identify its MainActivity. Focused screenshots show usable stock Home and the Inputs chooser with Channels/HDMI 1–4 entries. |
+| UIAutomation inserted system.user_rotation=`0` where absent | Restored absence with Sony-supported `settings delete system user_rotation` in confirmed user-0 context. Final full namespace comparison is exact, including presence/literal values. |
+| Cast receiver/test fixture | Explicit quit verified no receiver app/session; sender and temporary fixture server closed. No successful playback or physical sound claim. |
+| Stock standby/wake recovery check | Sleep key produced mWakefulness=Asleep; wake key recovered Awake/display ON. Stock Home screenshot followed. This is technical stock recovery, not replacement-Home restart/wake persistence or physical remote/audio proof. |
+
+After restoring the incidental rotation key, **all** captured namespace entries matched the fresh pre-install baseline: 99 secure, 47 system and 141 global keys, with no presence/value differences. This includes accessibility_enabled=`0`, absent enabled_accessibility_services and the original animation/idle values. No notification-access grant changed. Stock package user-0 enabled state remained `0` (default), its thirteen explicit enabled-component overrides and one disabled AppLauncher override matched exactly. The final disabled-package inventory is empty. No unrelated package install/uninstall/disable was performed; per-package grants for all 198 apps were not independently snapshotted, so namespace/package comparisons are not a full account/app-data backup claim.
+
+Own temporary screenshot/XML files on the TV were removed after saving the evidence privately. Final screen is the **stock Home**, power is **Awake / display ON**, and no external HDMI picture is being claimed from that Home screen. A separate device screenshot confirms the Inputs chooser is available; HDMI/Pi picture/audio acceptance is still unverified. The remembered input/session diagnostics are retained privately rather than guessed from HW numbering. ADB disconnected at 10:41:58 Europe/Madrid. TV-side debugging-off remains unconfirmed; host disconnect does not disable it.
+
+### Minimal next step and remaining acceptance
+
+The next visit needs a person with the physical Sony remote to open Projectivy from its normal app entry after a fresh reinstall, then enter **Settings → Projectivy settings → General** and establish whether the intended menu actually accepts remote input. That specific control check is the blocker; an ADB injection failure does not answer it. If it works, continue the prepared minimal layout and separately recorded Home-override trial with fresh restore state, without disabling stock Home. If it fails physically too, record that device-level evidence before choosing another release or launcher route.
+
+No broad owner questionnaire, stopwatch work or timing-target selection is required. Clean default Home/Back, configured app shortcuts/static background, current Max verification, restart **and** standby/wake persistence under the replacement route, actual app/DRM/casting/audio/remote/keyboard operation and HDMI/Pi picture/latency remain unaccepted. U2 is unchecked; restoration success does not close its product requirements. U3 and all artwork work remain unstarted.
