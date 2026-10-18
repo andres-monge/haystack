@@ -34,6 +34,35 @@ public class ArtworkCacheTest {
             assertTrue(art.bitmap.getAllocationByteCount() <= 1920 * 1080 * 4);
         }
     }
+    @Test public void retainsFittedDetailWithoutUpscalingSmallImages() throws Exception {
+        for (var format : new Bitmap.CompressFormat[] {Bitmap.CompressFormat.PNG, Bitmap.CompressFormat.JPEG, Bitmap.CompressFormat.WEBP}) {
+            for (int[] size : new int[][] {{2148, 1000, 1920, 893}, {2048, 1136, 1920, 1065}, {3839, 2159, 1920, 1079},
+                    {8192, 512, 1920, 120}, {1136, 2048, 599, 1080}, {640, 360, 640, 360}}) {
+                var art = ArtworkDecoder.decode("detail", ArtworkRepositoryTest.image(format, Color.RED, size[0], size[1]));
+                assertEquals("Fitted width must preserve available detail", size[2], art.bitmap.getWidth());
+                assertEquals("Fitted height must preserve available detail", size[3], art.bitmap.getHeight());
+                assertTrue(art.bitmap.getAllocationByteCount() <= 1920 * 1080 * 4);
+                art.bitmap.recycle();
+            }
+        }
+    }
+    @Test public void filtersTheFinalDownscale() throws Exception {
+        Bitmap source = Bitmap.createBitmap(2048, 1136, Bitmap.Config.ARGB_8888);
+        int[] row = new int[2048];
+        for (int x = 0; x < row.length; x++) row[x] = x % 2 == 0 ? Color.BLACK : Color.WHITE;
+        for (int y = 0; y < source.getHeight(); y++) source.setPixels(row, 0, row.length, 0, y, row.length, 1);
+        var bytes = new java.io.ByteArrayOutputStream();
+        assertTrue(source.compress(Bitmap.CompressFormat.PNG, 100, bytes));
+        source.recycle();
+        var art = ArtworkDecoder.decode("stripes", bytes.toByteArray());
+        int blended = 0;
+        for (int x = 0; x < art.bitmap.getWidth(); x++) {
+            int red = Color.red(art.bitmap.getPixel(x, 100));
+            if (red > 0 && red < 255) blended++;
+        }
+        assertTrue("Downscaling must blend adjacent source pixels instead of nearest-neighbor aliasing", blended > 960);
+        art.bitmap.recycle();
+    }
     @Test public void rejectsTruncationOversizeAndOver40Megapixels() throws Exception {
         byte[] valid = ArtworkRepositoryTest.png(Color.RED);
         for (var format : new Bitmap.CompressFormat[] {Bitmap.CompressFormat.PNG, Bitmap.CompressFormat.JPEG, Bitmap.CompressFormat.WEBP}) {

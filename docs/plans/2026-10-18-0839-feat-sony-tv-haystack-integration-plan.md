@@ -277,6 +277,8 @@ The user made dynamic Home wallpaper optional and a separate fullscreen viewer u
 Use the proven selectable dream. Attach only during dreaming, release resources on stop, and retain existing timeout/power settings unless a specific change is authorized. A preview demonstrates rendering only; natural idle is a separate test.
 **Scenarios/verification:** AE3–AE5; native idle at Home, exit on remote, restart persistence, Mac offline, process restart and no polling after dream stops. Verify active DRM and cast playback are not interrupted; test HDMI idle separately and report any OEM limitation. No standalone install success closes this unit.
 
+U6 progress on 18 October: the separately authorized version-2 Sony update reached current production artwork through natural idle and physical remote exit passed. Image quality failed: 2048×1136 source pixels were undersampled to 1024×568. Subsequent lifecycle/playback tests are paused for the reviewed version-3 detail correction. Native API-28/35 regression and actual-source probes verify a local 1920×1065 fitted result; these do not establish corrected Sony acceptance. No isolated-origin APK has been installed. See the current U6 quality record in `docs/tv-integration.md`.
+
 ### U7. Review the full outcome and hand off
 
 **Requirements:** R1–R12 as revised by the 2026-10-18 user scope decision. **Depends on:** accepted Home and dream results from U2, plus the separately accepted screensaver delivery/lifecycle results from U4/U6 or an approved existing-client route. U3 is explicitly deferred and is not a dependency.

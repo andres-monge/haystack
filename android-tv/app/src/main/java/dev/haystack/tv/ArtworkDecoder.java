@@ -22,15 +22,30 @@ final class ArtworkDecoder {
                 (long) bounds.outWidth * bounds.outHeight > MAX_PIXELS) {
             throw new IOException("Image dimensions invalid or exceed 40 megapixels");
         }
+        int targetWidth = bounds.outWidth;
+        int targetHeight = bounds.outHeight;
+        int fitRatio = 1;
+        if (targetWidth > 1920 || targetHeight > 1080) {
+            if ((long) bounds.outWidth * 1080 >= (long) bounds.outHeight * 1920) {
+                targetWidth = 1920;
+                targetHeight = Math.max(1, (int) ((long) bounds.outHeight * 1920 / bounds.outWidth));
+                fitRatio = bounds.outWidth / 1920;
+            } else {
+                targetHeight = 1080;
+                targetWidth = Math.max(1, (int) ((long) bounds.outWidth * 1080 / bounds.outHeight));
+                fitRatio = bounds.outHeight / 1080;
+            }
+        }
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-        options.inSampleSize = 1;
-        while ((bounds.outWidth + options.inSampleSize - 1) / options.inSampleSize > 1920 ||
-                (bounds.outHeight + options.inSampleSize - 1) / options.inSampleSize > 1080) {
-            options.inSampleSize *= 2;
-        }
+        options.inSampleSize = Integer.highestOneBit(Math.max(1, fitRatio));
         Bitmap bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.length, options);
         if (bitmap == null) throw new IOException("Image decode failed");
+        if (bitmap.getWidth() != targetWidth || bitmap.getHeight() != targetHeight) {
+            Bitmap fitted = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true);
+            if (fitted != bitmap) bitmap.recycle();
+            bitmap = fitted;
+        }
         return new Artwork(id, bitmap);
     }
 
