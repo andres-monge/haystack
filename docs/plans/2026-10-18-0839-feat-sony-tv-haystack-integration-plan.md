@@ -279,6 +279,8 @@ Use the proven selectable dream. Attach only during dreaming, release resources 
 
 U6 progress on 18 October: the separately authorized version-2 Sony update reached current production artwork through natural idle and physical remote exit passed. Image quality failed: 2048×1136 source pixels were undersampled to 1024×568. Subsequent lifecycle/playback tests are paused for the reviewed version-3 detail correction. Native API-28/35 regression and actual-source probes verify a local 1920×1065 fitted result; these do not establish corrected Sony acceptance. No isolated-origin APK has been installed. See the current U6 quality record in `docs/tv-integration.md`.
 
+V3 follow-up: exact approved update, unchanged settings, natural current-art entry and local regression checks passed, but Andrés reported “better but still not crisp”; same-current-art Pi HDMI 1 was noticeably crisper. This is not quality acceptance. Bounded native/pixel comparison isolated an additional half-row blend consistent with FIT_CENTER translation y=7.5; local software Canvas itself snaps subpixels. A separately authorized version-4 integer-placement correction preserves fit/source/filtering and requires review plus physical acceptance. Other U6 trials remain paused.
+
 ### U7. Review the full outcome and hand off
 
 **Requirements:** R1–R12 as revised by the 2026-10-18 user scope decision. **Depends on:** accepted Home and dream results from U2, plus the separately accepted screensaver delivery/lifecycle results from U4/U6 or an approved existing-client route. U3 is explicitly deferred and is not a dependency.

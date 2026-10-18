@@ -12,7 +12,7 @@ public final class HaystackDreamService extends DreamService {
         super.onAttachedToWindow();
         setInteractive(false);
         setFullscreen(true);
-        ImageView artwork = new ImageView(this);
+        ImageView artwork = new ArtworkImageView(this);
         artwork.setBackgroundColor(Color.rgb(24, 42, 61));
         artwork.setImageResource(R.drawable.fixture_art);
         artwork.setContentDescription(getString(R.string.fixture_description));
