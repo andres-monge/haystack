@@ -156,7 +156,8 @@ Plan: `docs/plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md`
 
 - [x] Read-only Sony KD-55XE8096 inventory and app preferences captured; no TV app or setting changes made by the agent.
 - [ ] U1 Baseline and recovery preparation documented; automated probes captured; physical acceptance remains unverified (automated probes are the default; optional observer timing is not an owner gate).
-- [ ] U2 Trial and verify the ad-free launcher; include reported slow HDMI selection in performance comparisons.
+- [x] U2 preparation: official Projectivy APK compatibility/signature/provenance, minimal static layout, Home routes and recovery documented; no live TV actions.
+- [ ] U2 installation/trial/physical acceptance pending explicit TV availability; include slow HDMI selection in comparisons.
 - [ ] U3 Perform measured selective cleanup; preserve used apps, casting and broadcast TV.
 - [ ] U4 Add and verify the read-only wallpaper delivery bridge.
 - [ ] U5 Integrate current artwork behind the app menu.
@@ -167,4 +168,5 @@ Plan: `docs/plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md`
 |------|--------|------|
 | Device inspection | complete; Android 9, 198 packages, about 2 GB RAM; ADB disconnected after inspection | 2026-10-18 |
 | U1 | documentation and automated baseline prepared; 13 household app activity launches, Cast discovery and reboot technical checks recorded; physical acceptance remains unverified (non-blocking preparation evidence gaps) | 2026-10-18 |
-| U2–U7 | not started; outside current authorization | 2026-10-18 |
+| U2 preparation | complete; official 4.72 APK hash/signatures/API-28 candidate checked locally; installation and physical acceptance pending TV availability | 2026-10-18 |
+| U3–U7 | not started; outside current authorization | 2026-10-18 |

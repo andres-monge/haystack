@@ -1,7 +1,7 @@
 # Sony TV integration: baseline and recovery
 
-Status on 18 October 2026: **U1 documentation and automated baseline prepared; physical acceptance remains unverified.**
-The [implementation plan](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) governs the phase boundaries. U2–U7 have not started. No package, launcher, animation, idle or other TV setting has been changed by this work. Opening screens during U1 can change app/task state and navigation history.
+Status on 18 October 2026: **U1 automated baseline prepared; U2 launcher preparation complete. Live U2 and physical acceptance remain pending.**
+The [implementation plan](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) governs the phase boundaries. The U2 live trial and U3–U7 have not started. No package, launcher, animation, idle or other TV setting has been changed by this work. Opening screens during U1 can change app/task state and navigation history.
 
 ## Evidence and scope
 
@@ -211,3 +211,105 @@ At session close the package-ID set still matched the original 198-package inven
 U1 automated preparation may be assessed independently; the unchecked physical acceptance items remain unverified and must not be described as passed. Next live work needs an explicitly free-TV session. Physical observations remain unverified until available; do not require Andres to select timing targets or perform stopwatch trials. Andres additionally reports slow HDMI channel selection and requests improvement. Track chooser opening and source-to-stable-picture/audio separately, preserving HDMI 1/Pi and broadcast; do not infer switching latency from InputsPanelActivity timing. No U2 installation or setting change follows automatically from U1 preparation.
 
 Repository verification uses snapshot comparison, private-file boundary checks and diff hygiene. Application build, unit tests and lint are deliberately not run for this documentation/ignore-only change; they cannot verify TV behavior. Generation, credentials, scheduler, providers, server, Pi and daily-story/public-note behavior are untouched.
+
+## U2 preparation: Projectivy launcher trial
+
+**Prepared on 18 October 2026; not installed, activated or accepted.** The TV is in use. This preparation made no ADB connection or TV action and changed no Haystack/Pi/router state. Live U2 work waits for explicit TV availability. Preparation can be complete independently of installation and physical acceptance; the preservation outcomes remain mandatory.
+
+### Official package and compatibility evidence
+
+The [developer repository](https://github.com/spocky/miproja1) directs manual downloads to its own releases. The [official latest-release API](https://api.github.com/repos/spocky/miproja1/releases/latest) selected the stable [4.72 release](https://github.com/spocky/miproja1/releases/tag/4.72), published 3 October 2026 at 16:23:50 UTC, with prerelease=false and draft=false. This repository is a configuration/release/support repository, not a reproducible source build of the launcher.
+
+| Locally checked item | Result |
+|---|---|
+| Release asset | `ProjectivyLauncher-4.72-c97-xda-release.apk`, 11,432,750 bytes |
+| Download origin | Developer's GitHub release asset, not an APK mirror |
+| APK SHA-256 | `a312935837b7cf323880455c322f4c98060e3e37e8c6187963fb2c4764534aae` |
+| Integrity | Downloaded size and SHA-256 match the official release API; unchanged after inspection |
+| Package / version | `com.spocky.projengmenu`, versionName `4.72`, versionCode `97` |
+| Manifest SDK | minSdkVersion 23 (Android 6), targetSdkVersion 37; no maxSdkVersion |
+| Native code | Includes `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64` |
+| Device match | Saved Sony CPU snapshot reports ARMv7; API 28 exceeds manifest minimum 23 |
+| TV feature | Leanback required; touchscreen and Wi-Fi hardware optional in manifest; Ethernet is not excluded |
+| Home activity | `com.spocky.projengmenu/.ui.home.MainActivity`; exported and enabled; MAIN/HOME/DEFAULT and Leanback entry present |
+| Signer certificate SHA-256 | `f6697bf4082ee97511e4de07863193884a015b7ab5860430321bda1042b0aadd` |
+| Android 9 signature check | Official Android build-tools 36.0.0 `apksigner verify --verbose --print-certs --min-sdk-version 28 --max-sdk-version 28` exits 0; APK Signature Scheme v2 verifies; one RSA-2048 signer |
+| Broader signature check | Default `apksigner verify --verbose --print-certs` exits 0; v1 and v2 verify; warns about unsigned META-INF entries in JAR signing |
+
+Manifest parsing used Androguard 4.1.4 in a local isolated Python environment. Signature verification used Google's official build-tools JAR and a portable local Temurin runtime, not a system Java installation. Tool archives matched their upstream published checksums before extraction. No APK code was run on the Mac. There is no v3/v4 signature or verified SourceStamp in the verifier report. The GitHub commit's Verified badge is separate from APK signing. Matching the release hash and verifying the embedded signer establish this artifact's integrity/provenance chain; they are not a malware audit or an independent out-of-band authentication of the developer's signing key. The Google Play build's certificate was not obtained or compared.
+
+These checks establish an Android-9/ARMv7-compatible installation candidate, not successful operation on this Sony. Keep APK, tools, API metadata, decoded manifest/resources and verifier reports in ignored `tv-local/20261018-u2/`; none belongs in Git. If the asset changes before installation, recheck size, digest, manifest and signatures rather than trusting the filename. An alternative [official Google Play listing](https://play.google.com/store/apps/details?id=com.spocky.projengmenu) exists, but record the actually delivered version and signature if choosing that route; do not assume it is byte-identical to this APK.
+
+### Permissions and initial configuration
+
+The manifest requests network state/Internet, boot completion, wake/foreground execution, Android media/storage access, TV listings/EPG, launcher shortcuts, package-install/delete requests, billing, install-referrer and advertising/attribution identifiers. A permission declaration is not proof that it is granted or used. READ_EXTERNAL_STORAGE is capped at API 32; the newer media/advertising permission names do not establish an Android-9 grant. Manifest analytics/crash/performance collection defaults are false, but this is not a network-traffic audit.
+
+The optional services are `com.spocky.projengmenu.services.ProjectivyAccessibilityService` (system binding requires BIND_ACCESSIBILITY_SERVICE) and the notification-listener service. Those service binding permissions do not grant the app accessibility or notification access. Keep both user grants off initially. Do not use `adb install -g`, grant-all scripts, unknown-app installation permission, root, device-admin, secure-settings grants or package disable lists. Do not enter the launcher's engineering/root/firmware tools. Static app rows do not justify enabling these capabilities.
+
+Use this minimal proposed layout; it is a trial specification, not an imported Projectivy backup or a claim that these settings were applied:
+
+| Visible area | Initial contents |
+|---|---|
+| First app row | Netflix, Prime Video, YouTube, current Max candidate, Disney+, Apple TV |
+| Second app row | Spotify, Movistar+, Filmin, RTVE, Atresplayer, Crunchyroll, VLC |
+| System controls | Keep Settings, Inputs and the full Applications panel reachable; retain physical remote shortcuts |
+| Background | Static built-in/default image if available without purchase; otherwise `Launcher wallpaper` → `None` for a static control background |
+| Content rows | Hide recommendation/promotional/content channels inside Projectivy; keep only app rows for the first comparison |
+| Optional automation | Off: launcher override/accessibility, notification access, remote remapping, boot app/HDMI actions, CEC/power automation, ambient-mode shortcuts and wallpaper plugins |
+
+Use the package mapping in the U1 table for shortcuts. Keep both legacy HBO packages installed and available in the full Applications panel until household identification in U3. Hiding launcher content rows does not mean disabling the broadcast tuner, uninstalling apps or hiding access to household functions. Leave Android animation, sleep, screensaver and global system settings unchanged. Prefer default icons and layout sizes; do not add animated icons, video, changing Reddit/program artwork, custom providers or Haystack URLs during the trial. A static control background isolates launcher performance; custom Haystack art belongs to later phases.
+
+Exact labels found in the inspected APK's English/Spanish resources include `Change default launcher` / `Cambiar launcher por defecto`, `Override current launcher` / `Reemplazar el launcher actual`, `Launcher wallpaper` / `Fondo de pantalla del launcher`, and category `Visible`. Use the settings sections labelled `General` and `Appearance` to locate the relevant options, and category editing to set visibility/order. These labels are verified resources, not a physically checked Sony menu path or proof that every option is free. Record actual screen paths during the live trial instead of inventing a click sequence.
+
+The [developer's Play description](https://play.google.com/store/apps/details?id=com.spocky.projengmenu) identifies custom wallpaper and advanced icon customization as Premium features and describes accessibility as optional. The [developer's external Premium page](https://premium.projectivylauncher.com/) currently displays **€6.99**; release 4.72 supports an external licence in the GitHub build. The localized Play purchase price, tax/checkout terms and device allowance were not verified. No purchase is needed or authorized for the initial app-menu/static-control trial. If a requested static-image choice is paywalled, keep the static control background and record the gap; do not buy Premium or claim custom wallpaper is enabled.
+
+### Prepared installation and Home route (not executed)
+
+Once Andres confirms the TV is free, refresh the per-user/settings/package ledger described under recovery. Confirm stock Home still resolves to `com.google.android.tvlauncher/.MainActivity`, user 0 is intended, and the physical remote, Settings and Inputs recovery path are reachable. The original snapshot contains no Projectivy package; recheck before installing and preserve any subsequently existing installation/configuration. Do not uninstall or downgrade an unexpected version to force this recipe.
+
+Install only the inspected APK or the verified official Play version, then open Projectivy as an ordinary app while stock Home remains the default. For a first installation of the inspected APK, the prepared command from the repository root is:
+
+```sh
+# FUTURE LIVE U2 ONLY: not run during preparation; no automatic permission grants.
+adb -s 192.168.0.24:5555 install --user 0 tv-local/20261018-u2/ProjectivyLauncher-4.72-c97-xda-release.apk
+```
+
+Skip optional accessibility/notification onboarding requests, configure the minimal layout and confirm app/Settings/Inputs access before changing default Home. Prefer Projectivy's `Change default launcher` and Sony's supported Home/default-app chooser. The resource label does not establish that this Sony exposes that chooser. If the UI route is absent, the Sony's already-captured `pm help` supports the platform preferred-Home setter; it is an alternative to disabling stock Home:
+
+```sh
+# FUTURE LIVE U2 ONLY: choose this route only after recovery preparation and opening the app.
+adb -s 192.168.0.24:5555 shell pm set-home-activity --user 0 com.spocky.projengmenu/.ui.home.MainActivity
+# Then inspect the resolved default; success text alone is insufficient.
+adb -s 192.168.0.24:5555 shell cmd package resolve-activity --brief --user 0 -a android.intent.action.MAIN -c android.intent.category.HOME
+```
+
+Record the setter result and resolved component, then test physical Home and Back from apps. A direct component launch proves neither default routing nor persistent Home behaviour. Keep `Override current launcher` and accessibility off if supported Home selection works. Avoid modern `cmd role`/LauncherX recipes: this Sony is API 28 with Android TV Launcher, not the Google TV Streamer described in other reports.
+
+If supported Home selection fails, stop that attempt and record the failure. Only then consider the app's `Override current launcher` with its exact accessibility service as a separate intervention within the live U2 trial. Save the new launcher's override/remapping preferences and fresh secure-setting presence/value first; do not blindly replace the enabled-service list. The resource description warns that remapping can affect long-press volume; keep remapping off if the tested override works without it. Verify the actual route and volume/remote behaviour. Do not assume an accessibility interception is equivalent to a proper Home task or prevents stock-home ad flashes on Back, reboot or wake. Stock launcher disabling is not part of this initial recipe; if both routes fail, report the limitation before escalating. No launcher-manager app or disable command is prepared or installed.
+
+### Recovery and live acceptance still pending
+
+Restore only trial-owned changes using the fresh ledger. Turn off the trial's override and remove only its accessibility membership if those were enabled. The captured initial secure state was accessibility_enabled=`0` with enabled_accessibility_services absent; preserve any newer household state rather than overwriting it. Sony `settings delete/list` lacks `--user`, so use the validated owner-context procedure above. Stock package enabled state was `0` (default), its MainActivity component override explicitly enabled, with a separate disabled AppLauncher and thirteen enabled-component overrides. Do not reset the whole component list.
+
+Restore the stock preferred Home with `pm set-home-activity --user 0 com.google.android.tvlauncher/.MainActivity`; restore package/component enabled state only if this trial changed it. Resolve Home and verify physical Home/Settings/Inputs before removing a trial installation. Only uninstall `com.spocky.projengmenu` if the fresh ledger proves it was newly installed by this trial and stock recovery works; keep any pre-existing app/data intact. This is a prepared recovery sequence, not a verified physical rollback.
+
+Use the automated comparison protocol as the default, preserving the same app launch/return paths and metric definitions; substitute the verified new Home component and label that difference. Do not treat its faster activity response as proof of faster visible navigation. In the next authorized live session, record the following observed results or explicit gaps:
+
+- Ordinary Home and repeated Back exits from Netflix/current Max and other household apps; no sponsored rows or stock-home ad flash in normal return paths; all 13 app shortcuts remain accessible.
+- Settings and Inputs access, keyboard, physical remote/Bluetooth, short/long volume and playback/audio; actual Chromecast start/stop from a household sender, distinct from passive discovery.
+- Inputs chooser opening and HDMI-source selection → stable picture/audio separately, including Pi HDMI 1, return to the prior source and broadcast access. A shortcut may reduce menu steps; HDMI negotiation time is not established by activity timing and cannot be promised away by a launcher.
+- Restart and standby/wake independently: persistent clean Home, no lost shortcuts/control paths, no unexpected app/input launch and working recovery. Capture technical boot/Home resolution separately from any optional observer evidence.
+
+No owner stopwatch or target-selection questionnaire is required. Human-only observations are explicit gaps until available; app launch success cannot stand in for DRM playback, audio, actual casting or HDMI picture. U2's clean-Home and preserved-function acceptance remains pending until its live trial. Do not start U3 cleanup, artwork delivery or a custom launcher to bypass a failed trial.
+
+### U2 preparation ledger
+
+- [x] Official stable release and asset origin/size/digest checked locally.
+- [x] Manifest SDK/architecture/features, permissions, Home/service components and resource labels inspected.
+- [x] Official Android signature verification passed for API 28; signer fingerprint and broader-check warnings recorded.
+- [x] Minimal app layout/static-control configuration, supported Home routes and exact-state recovery prepared.
+- [x] Premium requirement/advertised external price documented; no purchase made.
+- [ ] Installation, live layout configuration and Home routing: not performed; waiting for explicit TV availability.
+- [ ] Clean Home/Back, app/playback/casting/controls/HDMI/restart/wake and physical recovery acceptance: unverified.
+
+Documentation verification uses package/API/signature evidence, source checks, scoped review, private-file exclusions and diff hygiene. No build, application tests or lint apply to this documentation-only preparation. The current home network has no extender; moving the laptop between rooms on the same Wi-Fi does not call for a router/Pi configuration change. Preserve its fixed private MAC, reserved `192.168.0.20` and LAN reachability as documented in the updated historical recovery guide.
