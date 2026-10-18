@@ -1,6 +1,6 @@
 {
   "id": "lake-landscape",
-  "artworkSource": "/Users/andresm/Downloads/lake.jpg",
+  "artworkSource": "/path/to/source/lake.jpg",
   "scenario": {
     "timestampLocal": "2026-09-15T07:47:49.919Z",
     "hour": 9,
@@ -9,7 +9,7 @@
   "prompt": "Seamlessly extend this artwork to a wide 16:9 landscape. The existing edges\nmust continue naturally with no visible seam — elements at the boundaries\n(trees, buildings, terrain) should flow uninterrupted into the new space.\nExpand by revealing more of the same scene, not by generating new disconnected\ncontent. Preserve the EXACT artistic style, medium, color palette, and lighting\nthroughout.",
   "model": "gpt-image-2.5-sunburst",
   "createdAt": "2026-09-15T07:47:49.919Z",
-  "outputPath": "/Users/andresm/Documents/Cursor Projects/haystack/artwork/lake-landscape.png",
+  "outputPath": "artwork/lake-landscape.png",
   "usageMetadata": {
     "promptTokenCount": 1615,
     "candidatesTokenCount": 367,

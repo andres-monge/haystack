@@ -1,6 +1,6 @@
 {
   "id": "france-landscape",
-  "artworkSource": "/Users/andresm/Downloads/france.jpg",
+  "artworkSource": "/path/to/source/france.jpg",
   "scenario": {
     "timestampLocal": "2026-09-15T07:46:55.437Z",
     "hour": 9,
@@ -9,7 +9,7 @@
   "prompt": "Seamlessly extend this artwork to a wide 16:9 landscape. The existing edges\nmust continue naturally with no visible seam — elements at the boundaries\n(trees, buildings, terrain) should flow uninterrupted into the new space.\nExpand by revealing more of the same scene, not by generating new disconnected\ncontent. Preserve the EXACT artistic style, medium, color palette, and lighting\nthroughout.",
   "model": "gpt-image-2.5-sunburst",
   "createdAt": "2026-09-15T07:46:55.437Z",
-  "outputPath": "/Users/andresm/Documents/Cursor Projects/haystack/artwork/france-landscape.png",
+  "outputPath": "artwork/france-landscape.png",
   "usageMetadata": {
     "promptTokenCount": 1627,
     "candidatesTokenCount": 367,
