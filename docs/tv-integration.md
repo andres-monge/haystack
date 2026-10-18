@@ -1,7 +1,8 @@
 # Sony TV integration: baseline and recovery
 
-Status on 18 October 2026: **U2 live trial attempted and restored to stock; blocked on reliable settings control. U2 is not complete.**
-The [implementation plan](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) governs the phase boundaries. The U2 attempt below installed and then removed Projectivy and restored stock Home. No U3–U7 work has started; final settings/package restoration evidence is recorded below. Opening screens during U1 can change app/task state and navigation history.
+Status on 18 October 2026: **Stock restored; no accepted replacement Home. Projectivy is withdrawn from the revised proposal.**
+The [revised proposal](plans/2026-10-18-0839-feat-sony-tv-haystack-integration-plan.md) requires free custom artwork and proposes a bounded native-client feasibility trial before further implementation. It is awaiting user review; prior away-from-home trial authorization does not authorize resuming it. The heartbeat is paused.
+The Projectivy sections below retain historical preparation and restoration evidence only. Their installation/configuration commands are inactive and must not be executed as current instructions. No purchase was made. U3–U7 remain unstarted.
 
 ## Evidence and scope
 
@@ -96,7 +97,7 @@ adb -s 192.168.0.24:5555 shell pm enable --user 0 com.google.android.tvlauncher/
 adb -s 192.168.0.24:5555 shell pm set-home-activity --user 0 com.google.android.tvlauncher/.MainActivity
 ```
 
-Verify Home resolution and physically press Home, Settings and Inputs before removing a trial launcher. The TV's `pm help` exposes `set-home-activity` and `default-state`; successful restoration has not been demonstrated. Do not disable stock Home before the replacement and recovery route work. If ADB is unavailable, use physical controls/default-app UI only when verified accessible; do not promise ADB recovery from a boot loop. Retain the stock launcher and Pi so a failed experiment does not require uninstalling household apps.
+Verify Home resolution and physically press Home, Settings and Inputs before removing a trial launcher. The TV's `pm help` exposes `set-home-activity` and `default-state`; the earlier trial demonstrated exact captured package/settings/component restoration and stock Home/Inputs screenshots. Physical remote, audio, HDMI/Pi picture and full household recovery remain unverified. Do not disable stock Home before the replacement and recovery route work. If ADB is unavailable, use physical controls/default-app UI only when verified accessible; do not promise ADB recovery from a boot loop. Retain the stock launcher and Pi so a failed experiment does not require uninstalling household apps.
 
 Pi fallback: physically open Inputs and select HDMI 1 using the Sony remote. Confirm the existing Haystack image and return to the previous viewing source. HDMI 1 is the documented Pi connection; its label/path and actual picture require physical confirmation. Do not guess an Android TV input ID from HW numbering. If the Pi image is stale, consult the [existing LAN recovery guide](solutions/integration-issues/raspberry-pi-kiosk-hardcoded-mac-ip.md); changing Pi/server/router state is outside U1.
 
@@ -213,7 +214,7 @@ U1 automated preparation may be assessed independently; the unchecked physical a
 
 Repository verification uses snapshot comparison, private-file boundary checks and diff hygiene. Application build, unit tests and lint are deliberately not run for this documentation/ignore-only change; they cannot verify TV behavior. Generation, credentials, scheduler, providers, server, Pi and daily-story/public-note behavior are untouched.
 
-## U2 preparation: Projectivy launcher trial
+## Historical U2 preparation: withdrawn Projectivy launcher trial
 
 **Preparation snapshot from 18 October 2026, before the live attempt below; not an acceptance claim.** At preparation time the TV was in use. That preparation made no ADB connection or TV action and changed no Haystack/Pi/router state. The subsequently authorized live attempt is recorded below. Preparation can be complete independently of installation and physical acceptance; the preservation outcomes remain mandatory.
 
@@ -264,56 +265,11 @@ Exact labels found in the inspected APK's English/Spanish resources include `Cha
 
 The [developer's Play description](https://play.google.com/store/apps/details?id=com.spocky.projengmenu) identifies custom wallpaper and advanced icon customization as Premium features and describes accessibility as optional. The [developer's external Premium page](https://premium.projectivylauncher.com/) currently displays **€6.99**; release 4.72 supports an external licence in the GitHub build. The localized Play purchase price, tax/checkout terms and device allowance were not verified. No purchase is needed or authorized for the initial app-menu/static-control trial. If a requested static-image choice is paywalled, keep the static control background and record the gap; do not buy Premium or claim custom wallpaper is enabled.
 
-### Prepared installation and Home route (not executed)
+### Historical routing and recovery preparation
 
-Once Andres confirms the TV is free, refresh the per-user/settings/package ledger described under recovery. Confirm stock Home still resolves to `com.google.android.tvlauncher/.MainActivity`, user 0 is intended, and the physical remote, Settings and Inputs recovery path are reachable. The original snapshot contains no Projectivy package; recheck before installing and preserve any subsequently existing installation/configuration. Do not uninstall or downgrade an unexpected version to force this recipe.
+The withdrawn recipe proposed opening Projectivy as an ordinary app, testing supported Home selection, then separately considering its accessibility override. Those instructions are no longer active and their executable installation/settings snippets have been removed. The actual trial below is the authoritative record of what ran and what was restored.
 
-Install only the inspected APK or the verified official Play version, then open Projectivy as an ordinary app while stock Home remains the default. For a first installation of the inspected APK, the prepared command from the repository root is:
-
-```sh
-# FUTURE LIVE U2 ONLY: not run during preparation; no automatic permission grants.
-adb -s 192.168.0.24:5555 install --user 0 tv-local/20261018-u2/ProjectivyLauncher-4.72-c97-xda-release.apk
-```
-
-Skip optional accessibility/notification onboarding requests, configure the minimal layout and confirm app/Settings/Inputs access before changing default Home. Prefer Projectivy's `Change default launcher` and Sony's supported Home/default-app chooser. The resource label does not establish that this Sony exposes that chooser. If the UI route is absent, the Sony's already-captured `pm help` supports the platform preferred-Home setter; it is an alternative to disabling stock Home:
-
-```sh
-# FUTURE LIVE U2 ONLY: choose this route only after recovery preparation and opening the app.
-adb -s 192.168.0.24:5555 shell pm set-home-activity --user 0 com.spocky.projengmenu/.ui.home.MainActivity
-# Then inspect the resolved default; success text alone is insufficient.
-adb -s 192.168.0.24:5555 shell cmd package resolve-activity --brief --user 0 -a android.intent.action.MAIN -c android.intent.category.HOME
-```
-
-Record the setter result and resolved component, then test physical Home and Back from apps. A direct component launch proves neither default routing nor persistent Home behaviour. Keep `Override current launcher` and accessibility off if supported Home selection works. Avoid modern `cmd role`/LauncherX recipes: this Sony is API 28 with Android TV Launcher, not the Google TV Streamer described in other reports.
-
-If supported Home selection fails, stop that attempt and record the failure. Only then consider the app's `Override current launcher` with its exact accessibility service as a separate intervention within the live U2 trial. Save the new launcher's override/remapping preferences and fresh secure-setting presence/value first; do not blindly replace the enabled-service list. The resource description warns that remapping can affect long-press volume; keep remapping off if the tested override works without it. Verify the actual route and volume/remote behaviour. Do not assume an accessibility interception is equivalent to a proper Home task or prevents stock-home ad flashes on Back, reboot or wake. Stock launcher disabling is not part of this initial recipe; if both routes fail, report the limitation before escalating. No launcher-manager app or disable command is prepared or installed.
-
-### Recovery and live acceptance still pending
-
-Restore only trial-owned changes using the fresh ledger. Turn off the trial's override and remove only its accessibility membership if those were enabled. The captured initial secure state was accessibility_enabled=`0` with enabled_accessibility_services absent; preserve any newer household state rather than overwriting it. Sony `settings delete/list` lacks `--user`, so use the validated owner-context procedure above. Stock package enabled state was `0` (default), its MainActivity component override explicitly enabled, with a separate disabled AppLauncher and thirteen enabled-component overrides. Do not reset the whole component list.
-
-Restore the stock preferred Home with `pm set-home-activity --user 0 com.google.android.tvlauncher/.MainActivity`; restore package/component enabled state only if this trial changed it. Resolve Home and verify physical Home/Settings/Inputs before removing a trial installation. Only uninstall `com.spocky.projengmenu` if the fresh ledger proves it was newly installed by this trial and stock recovery works; keep any pre-existing app/data intact. This is a prepared recovery sequence, not a verified physical rollback.
-
-Use the automated comparison protocol as the default, preserving the same app launch/return paths and metric definitions; substitute the verified new Home component and label that difference. Do not treat its faster activity response as proof of faster visible navigation. In the next authorized live session, record the following observed results or explicit gaps:
-
-- Ordinary Home and repeated Back exits from Netflix/current Max and other household apps; no sponsored rows or stock-home ad flash in normal return paths; all 13 app shortcuts remain accessible.
-- Settings and Inputs access, keyboard, physical remote/Bluetooth, short/long volume and playback/audio; actual Chromecast start/stop from a household sender, distinct from passive discovery.
-- Inputs chooser opening and HDMI-source selection → stable picture/audio separately, including Pi HDMI 1, return to the prior source and broadcast access. A shortcut may reduce menu steps; HDMI negotiation time is not established by activity timing and cannot be promised away by a launcher.
-- Restart and standby/wake independently: persistent clean Home, no lost shortcuts/control paths, no unexpected app/input launch and working recovery. Capture technical boot/Home resolution separately from any optional observer evidence.
-
-No owner stopwatch or target-selection questionnaire is required. Human-only observations are explicit gaps until available; app launch success cannot stand in for DRM playback, audio, actual casting or HDMI picture. U2's clean-Home and preserved-function acceptance remains pending until its live trial. Do not start U3 cleanup, artwork delivery or a custom launcher to bypass a failed trial.
-
-### U2 preparation ledger
-
-- [x] Official stable release and asset origin/size/digest checked locally.
-- [x] Manifest SDK/architecture/features, permissions, Home/service components and resource labels inspected.
-- [x] Official Android signature verification passed for API 28; signer fingerprint and broader-check warnings recorded.
-- [x] Minimal app layout/static-control configuration, supported Home routes and exact-state recovery prepared.
-- [x] Premium requirement/advertised external price documented; no purchase made.
-- [ ] Live U2 acceptance: initial installation attempted and removed after settings/routing blockers; no accepted replacement Home remains.
-- [ ] Clean Home/Back, app/playback/casting/controls/HDMI/restart/wake and physical recovery acceptance: unverified.
-
-Documentation verification uses package/API/signature evidence, source checks, scoped review, private-file exclusions and diff hygiene. No build, application tests or lint apply to this documentation-only preparation. The current home network has no extender; moving the laptop between rooms on the same Wi-Fi does not call for a router/Pi configuration change. Preserve its fixed private MAC, reserved `192.168.0.20` and LAN reachability as documented in the updated historical recovery guide.
+The inspected APK, signature and permission evidence above remain historical facts, not a reason to resume the candidate. No paid wallpaper option was purchased, no accessibility/notification grant was applied, and there is no accepted replacement Home.
 
 ## U2 live attempt and stock restoration — 18 October 2026
 
@@ -349,8 +305,8 @@ After restoring the incidental rotation key, **all** captured namespace entries 
 
 Own temporary screenshot/XML files on the TV were removed after saving the evidence privately. Final screen is the **stock Home**, power is **Awake / display ON**, and no external HDMI picture is being claimed from that Home screen. A separate device screenshot confirms the Inputs chooser is available; HDMI/Pi picture/audio acceptance is still unverified. The remembered input/session diagnostics are retained privately rather than guessed from HW numbering. ADB disconnected at 10:41:58 Europe/Madrid. TV-side debugging-off remains unconfirmed; host disconnect does not disable it.
 
-### Minimal next step and remaining acceptance
+### Revised next step and remaining acceptance
 
-The next visit needs a person with the physical Sony remote to open Projectivy from its normal app entry after a fresh reinstall, then enter **Settings → Projectivy settings → General** and establish whether the intended menu actually accepts remote input. That specific control check is the blocker; an ADB injection failure does not answer it. If it works, continue the prepared minimal layout and separately recorded Home-override trial with fresh restore state, without disabling stock Home. If it fails physically too, record that device-level evidence before choosing another release or launcher route.
+Do not reinstall Projectivy or resume its settings trial. The revised plan replaces that route with a free native-client proposal and a bounded Sony routing/fixture/dream compatibility gate. No live changes are authorized by the planning revision.
 
-No broad owner questionnaire, stopwatch work or timing-target selection is required. Clean default Home/Back, configured app shortcuts/static background, current Max verification, restart **and** standby/wake persistence under the replacement route, actual app/DRM/casting/audio/remote/keyboard operation and HDMI/Pi picture/latency remain unaccepted. U2 is unchecked; restoration success does not close its product requirements. U3 and all artwork work remain unstarted.
+Existing baseline and restore evidence can be reused, but refresh exact state before a future authorized trial. Clean default Home/Back, used apps, restart and standby/wake persistence, actual DRM/casting/audio/remote/keyboard operation and HDMI/Pi picture/latency remain unaccepted. Casting playback needs a successful current baseline before a later failure can be called a regression. U2 is unchecked; restoration success does not satisfy its product requirements. U3 and artwork work remain unstarted.

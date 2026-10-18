@@ -11,12 +11,12 @@ execution: code
 
 ## Goal Capsule
 
-- **Objective:** The household can navigate the Sony TV quickly, use an ad-free home screen, and enjoy current Haystack artwork without routinely switching inputs.
-- **Means:** A measured launcher trial, selective cleanup, then thin TV display clients (KTD1–KTD5).
-- **Authority:** Product Contract defines the outcome; Planning Contract defines implementation. Follow `AGENTS.md` for repository and live-system work.
-- **Execution profile:** Work one phase at a time. Complete its device checks and report results before starting another phase. The planning request authorizes inspection and this document, not app installation, removal, settings changes, server deployment or automatic execution of every unit.
-- **Stop conditions:** Restore the current phase on loss of Home, Inputs, remote, audio, keyboard, a preserved app or casting. Stop on uncertain package purpose rather than guessing.
-- **Ownership:** The implementing agent prepares changes and evidence; Andres performs physical TV acceptance and chooses the next phase. Verified repository changes follow the solo-project main workflow. Live rollout stays within the separately authorized phase.
+- **Objective:** The household can navigate the Sony TV quickly, use an ad-free Home, and see current Haystack artwork behind its apps or fullscreen without switching inputs.
+- **Means:** Prove Sony routing and display compatibility first, then build a small free native TV client using the supplied launcher source where useful (KTD1–KTD7).
+- **Authority:** This is a revised proposal for review, not approval of its recommended launcher architecture or permission to resume live implementation. The earlier Projectivy route is withdrawn. The heartbeat remains paused.
+- **Execution profile:** Implement one separately authorized unit at a time. Document-only planning does not authorize installations, live navigation, settings, cleanup or server deployment. Do not resume the earlier trial under its previous away-from-home authorization.
+- **Stop conditions:** Restore the affected trial on lost Home, Inputs, controls, audio, keyboard, a used app or casting. Stop on unknown dependencies, paid feature requirements or unsuccessful recovery.
+- **Ownership:** The implementer supplies measured evidence and exact recovery; the orchestrator reviews actual outcomes before reporting acceptance. Physical-only gaps remain explicit without making the owner operate a benchmark questionnaire.
 
 ---
 
@@ -24,296 +24,292 @@ execution: code
 
 ### Summary
 
-Replace the sponsored home experience with a simpler launcher, measure navigation improvements, and reduce unnecessary background work without losing household features.
-Then show the same latest Haystack Render behind the app menu, through a fullscreen entry, and during native TV idle time.
-Keep the existing Pi display on HDMI 1 as recovery and an alternative viewing path.
+Replace the sponsored Home with a fast app menu over the latest Haystack Render.
+A visible Haystack button opens the same artwork without the app menu; the native idle screensaver can show it where Sony permits third-party dreams.
+The Pi remains available on HDMI 1, with no new software purchase or subscription required for any of these display features.
 
 ### Problem Frame
 
-The household wants faster navigation and fewer home-screen advertisements on a Sony KD-55XE8096.
-Haystack currently requires selecting the Pi's HDMI input, separating artwork from everyday TV use.
-The viral debloat examples do not establish which Sony packages can safely be disabled or how this TV handles replacement launchers and screensavers.
+The Sony KD-55XE8096 has unwanted Home advertising and slow navigation, app launching and input selection.
+Haystack currently lives behind a separate HDMI input.
+The previous recommendation introduced Projectivy without establishing free custom-art support or reliable default-Home routing on this Sony; its live trial was restored and remains unaccepted.
 
 ### Key Decisions
 
-- **Performance and home ad removal are mandatory** (session-settled: user-directed — chosen over treating cleanup as an optional artwork enhancement: these are main goals). Governs R1, R2.
-- **Preserve household viewing and casting** (session-settled: user-directed — chosen over broad debloating: used apps and Chromecast must keep working). Governs R3–R5.
-- **Keep broadcast TV unless a separate decision changes scope** (session-settled: user-directed — chosen over removing unused-looking tuner services: any significant performance tradeoff must be discussed). Governs R5.
-- **Retain the Pi and prefer existing launcher capabilities** (session-settled: user-approved — chosen over immediately building a replacement launcher: phase-by-phase trials allow recovery and limit new software). Governs R6–R9.
+- Performance and Home ad removal are mandatory user requirements, not optional artwork improvements. Governs R1–R2.
+- Preserve household apps, Chromecast and broadcast TV; the user only approved removing SkyShowtime and conditionally retiring genuinely obsolete Max/HBO copies. Governs R3–R6.
+- Free custom imagery is required by the user's correction. Neither Projectivy nor a preference for existing launchers is a settled user choice. Governs R7–R11.
+
+Product Contract preservation: R1–R10 retain their core outcomes; R7–R9 clarify interaction and idle limits; R11 adds the explicit no-new-display-software-fees requirement. The earlier existing-launcher preference was incorrectly labelled user-approved and is removed. The native-client recommendation below is a proposal.
 
 ### Requirements
 
-**Navigation and advertising**
+**Speed and advertising**
 
-- R1. Improve measured everyday navigation, while keeping already-fast flows free of material regression. Use engineer-selected before/after comparisons focused on Home navigation, used-app launches, Chromecast and HDMI input selection; owner-selected latency targets are not required.
-- R2. Normal Home navigation must show an app menu without sponsored rows, including after restart and standby/wake. This requirement covers home-screen advertising, not advertisements inside streaming apps.
+- R1. Improve everyday Home navigation and used-app launch responsiveness without material regression to Chromecast or input switching; measure comparable before/after actions rather than RAM alone.
+- R2. Normal Home and return paths show no sponsored rows, including after restart and standby/wake; this excludes ads inside streaming apps.
 
-**Household functionality and cleanup**
+**Preservation and recovery**
 
-- R3. Preserve Netflix, Prime Video, YouTube, Spotify, Disney+, Apple TV, the current Max/HBO app, Movistar+, Filmin, RTVE, Atresplayer, Crunchyroll, VLC and Chromecast. Preserve other installed apps until their use is confirmed.
-- R4. Remove SkyShowtime in the authorized cleanup phase. Retire obsolete HBO/Max packages only after identifying and successfully opening the current household app. Voice-search components may be disabled when their dependencies are understood; this must not break casting or keyboard input.
-- R5. Preserve broadcast TV, HDMI input selection, Pi access, remote/Bluetooth, audio, keyboard, firmware updates, Google dependencies and DRM. A proposal to disable broadcast features requires measured evidence and a new user decision.
-- R6. Every TV change must have an exact restore action based on its initial state. Use disable-user for system packages, no root, bootloader unlock or firmware flashing. A package/settings snapshot is configuration evidence, not a complete backup of accounts or app data.
+- R3. Preserve Netflix, Prime Video, YouTube, Spotify, Disney+, Apple TV, current Max/HBO, Movistar+, Filmin, RTVE, Atresplayer, Crunchyroll, VLC and Chromecast; leave other unconfirmed apps intact.
+- R4. Remove SkyShowtime only in U3; retire obsolete HBO/Max packages only after the actual used app works and recovery is established. Unused voice search is a research candidate, not permission to disable shared dependencies.
+- R5. Preserve broadcast, HDMI/Inputs, Pi HDMI 1, remote/Bluetooth, audio, keyboard, updates, Google dependencies and DRM. Broadcast removal requires significant measured benefit and a separate decision.
+- R6. Every changed setting, package/component state and app installation has an exact restore action from a fresh initial-state ledger; no root, bootloader unlock or firmware flashing. Configuration snapshots are not full account/app-data backups.
 
-**Artwork delivery**
+**Artwork and cost**
 
-- R7. Show the newest successful Render as the launcher background and offer a clear fullscreen Haystack entry without requiring HDMI switching. Keep HDMI 1 usable.
-- R8. Provide Haystack as a selectable native screensaver for idle TV use if this Sony permits it. Test selection and activation before committing to custom screensaver development. Do not claim that the screensaver overlays all HDMI sources, overrides active playback or displays with the panel off.
-- R9. While an artwork surface is visible and the Mac is reachable, show a new successful Render within two minutes of availability. Retain last-good downloaded artwork during delivery failures, and retry a failed image even when its Render ID has not changed. A new owned viewer must retain last-good bytes across restart; external clients must demonstrate equivalent behavior or record the gap before acceptance.
-- R10. Keep generation, credentials, canonical artwork, D Continuity, daily-story schedules, retention and public-note contracts on their current paths. TV clients consume presentation data only and never trigger paid generation.
+- R7. Home shows current Haystack artwork behind the app menu, with an explicit Haystack action opening fullscreen art and Back returning to the menu; HDMI 1 remains an alternative.
+- R8. Offer a selectable native Haystack screensaver if Sony permits third-party DreamService selection and idle activation; report a failure as a limitation requiring a scope decision, not a completed screensaver. Do not interrupt playback, switch HDMI automatically or claim universal HDMI-idle activation or panel-off display.
+- R9. While a display surface is visible and the Mac is reachable, show a new successful Render within two minutes; retry failed downloads even if the Render ID is unchanged. Retain last-good bytes across network failures and restarts, with a harmless built-in background when no cache exists.
+- R10. Keep generation, credentials, canonical artwork, D Continuity, schedules, retention and public-note contracts unchanged; TV clients only read presentation data and never trigger generation.
+- R11. Home, arbitrary custom artwork, automatic refresh, fullscreen and screensaver must require no new paid licence, subscription or cloud-photo service; existing Haystack generation costs remain unchanged. Any candidate failing this requirement is rejected before installation.
 
-### Success Criteria
+### Key Flows and Acceptance Examples
 
-Performance acceptance uses repeatable Home, app-grid, Settings and Inputs interactions, plus two representative household apps. Andres also reports slow HDMI channel selection: compare chooser-opening and source-selection-to-stable-picture/audio separately, preserving Pi HDMI 1 and broadcast.
-Default to five comparable bounded automated warm probes where practical, report median and slowest, and separate post-restart evidence. Observer timing is optional when available, never an owner prerequisite; unsupported probes remain labelled evidence gaps.
-Use repeatable engineering measurements for before/after comparisons; label Android activity timings separately from visible latency. Do not substitute a RAM percentage or reduced animation duration for faster navigation. On 18 October, Andres explicitly removed owner stopwatch trials and target selection as launch gates. Missing human-only observations remain explicit evidence gaps; used-app and Chromecast preservation remain mandatory.
-Repeat the same navigation comparisons with art enabled.
-R2–R10 and the relevant phase's physical checks must pass independently of the performance result.
+- F1 / AE1. Home opens the app menu over Render A; select Netflix, return Home and use Back exit paths. Clean Home persists through restart and standby/wake. Covers R1–R3, R5.
+- F2 / AE2. From Home select Haystack: only artwork appears; Back restores the app menu and useful focus. Selecting HDMI 1 still shows the existing Pi. Covers R5, R7.
+- F3 / AE3. Render B appears on the server while Home/fullscreen/dream is visible; each surface displays B within two minutes. With the Mac asleep, A remains visible after process/device restart. Covers R7–R10.
+- F4 / AE4. B downloads unsuccessfully or is purged between metadata and fetch; A stays visible and B is retried without waiting for C. Corrupt bytes never replace the cache. Covers R9.
+- F5 / AE5. Sony enters the selected dream during a proven idle context; a remote action exits to usable controls. Streaming/casting playback and existing power policy are preserved. Covers R5, R8.
+- F6 / AE6. A cleanup batch breaks a preserved feature; restore only that batch's exact original states and recheck before proceeding. Covers R3–R6.
 
 ### Scope Boundaries
 
-In scope: TV inspection, launcher configuration, selected app/service cleanup, minimum read-only Haystack delivery additions, launcher wallpaper, fullscreen/idle artwork and recovery documentation.
+In scope: one Sony-specific native display client, ad-free Home routing, selective measured cleanup, read-only artwork delivery, fullscreen and native idle art, verification and recovery.
+A live HDMI video feed underneath a native app grid is not the proposed background: Home fetches the same Render over LAN. The Pi cannot directly launch Android Netflix or draw into Sony Home merely because it is connected by HDMI.
 
-Considered and not built:
-
-- A custom launcher: Projectivy is the first trial; reconsider only if its verified limitations prevent the agreed outcome.
-- Bulk debloat scripts or a generic package-scoring engine: one known TV does not justify automatic dependency guesses.
-- Blanket cache clearing, force-stopping all services, background-process limits or disabling updates: these do not establish durable responsiveness and can compromise household functions.
-- Router port forwarding, internet exposure, cloud-photo mirroring or credential provisioning on the TV: the existing LAN presentation boundary is sufficient.
-- Automatic HDMI switching whenever a Render arrives: this would interrupt viewing. CEC remains an optional user-triggered convenience.
-
-Deferred to follow-up work: fixing unrelated Pi kiosk behavior, running generation on the Pi, and changing artwork generation or story scheduling.
-
-### Acceptance Examples
-
-- AE1. After a TV restart, Home opens the clean menu, a preserved streaming app plays with audio, Inputs selects the Pi, and Chromecast still works. Covers R1–R3, R5.
-- AE2. A cleanup batch causes a keyboard or casting failure; restore that batch's initial states and repeat the failed action before proceeding. Covers R3, R5, R6.
-- AE3. A fixture changes from Render A to B while Home remains visible; the wallpaper changes within two minutes without opening settings. Covers R7, R9, R10.
-- AE4. Render B fails to download once; A stays visible and B is retried successfully without requiring Render C. Covers R9.
-- AE5. Idle art starts in the verified native-TV context; a remote action returns to usable controls, and active playback is not interrupted. Covers R8.
+Not included: automatic HDMI switching on image arrival; a generic launcher product; themes/store/accounts/plugins; Pi-side generation; paid launchers; blanket debloat lists; firmware work; arbitrary accessibility automation; changing schedules or fixing unrelated Pi kiosk code.
+Stock-launcher disabling is outside current authority. If a proper persistent Home cannot be established without it, restore and return a concrete escalation proposal rather than run disable commands from the supplied guides.
 
 ---
 
 ## Planning Contract
 
-### Verified Device Baseline
+### Verified Baseline and What Remains Unknown
 
-Read-only ADB inspection on 18 October 2026 confirmed the device at `192.168.0.24:5555` over Ethernet.
-The user identifies the retail model as KD-55XE8096; Android reports the generic model `BRAVIA 4K GB` and platform `BRAVIA_ATV2_EU`.
-Private raw inspection files are retained in the operator's Haystack TV-inspection folder, outside Git.
+The TV is Sony KD-55XE8096, Android 9/API 28, UI 1920×1080, about 1.9 GiB RAM; the original inventory contained 198 packages.
+Stock Home is `com.google.android.tvlauncher/.MainActivity`; Ethernet ADB was `192.168.0.24:5555` during inspection.
+The Mac serves the existing kiosk at `http://192.168.0.20:4321`; preserve its fixed private Wi-Fi identity/reservation. The extender no longer exists.
+Read `docs/tv-integration.md` for exact state and prior evidence rather than copying absent animation settings to literal 1.0.
 
-| Evidence | Observed value | Consequence |
-|---|---|---|
-| OS | Android 9, API 28; build suffix `672201` | Use legacy Sony ADB, not modern wireless-pairing assumptions |
-| Security patch | 2022-01-05 | Do not disable update components; verify full firmware before suggesting updates |
-| Physical RAM reported by kernel | 1,993,356 KiB, about 1.9 GiB | Keep artwork presentation lightweight |
-| Package inventory | 198 total, 178 system, 20 third-party; no disabled packages | No pre-existing cleanup was observed |
-| Launcher | `com.google.android.tvlauncher/.MainActivity` | This is the current Home component; do not copy Google TV LauncherX commands |
-| Launcher PSS, one snapshot | 170,109 KiB, about 166 MiB | A diagnostic baseline, not proof of causation or a guaranteed saving |
-| Data storage | 8.1 GiB partition, about 2.0 GiB available | Storage is not exhausted in this snapshot |
-| Android UI size | 1920×1080 | Start art decoding at the actual UI size; the panel itself is 4K |
-| Screensaver | Backdrop selected, enabled; Colors also registered | Framework support exists; custom-service selection remains untested |
-| Timers | screen-off value 3,600,000 ms; sleep timeout -1 | Preserve actual values; do not copy the five-minute sleep setting in social posts |
-| Accessibility | Disabled; no enabled services | A launcher accessibility override would be a new setting requiring rollback |
-| Animation scales | All three keys absent (`null`) | Rollback must remove newly set values rather than assume 1.0 |
+The Projectivy attempt proved ordinary installation, not accepted Home replacement: the preferred-Home setter returned success but HOME still resolved to stock. Injected settings input was unreliable; physical remote incompatibility was never established.
+Projectivy was removed and 198 package IDs, all 287 captured settings entries and stock component states matched the fresh trial baseline. Actual casting playback failed in a fixture attempt without an earlier successful playback baseline; this is not proof of a regression.
+No replacement Home, visible speed improvement, DRM/audio/cast acceptance or custom screensaver is established. Android activity timings and screenshots cannot establish all those outcomes.
 
-Installed HBO-related packages include `com.wbd.stream`, `com.hbo_android_tv` and `com.hbo.hbonow`.
-`com.wbd.stream` is version 7.13.1.2, last updated 9 October 2026, and was present in the process-memory snapshot.
-The other two packages are version 1.2.16 (updated August 2023) and 54.25.0 (updated May 2024), respectively.
-This makes `com.wbd.stream` the current-app candidate, but version recency and a loaded process do not replace the household playback check.
-`com.skyshowtime.skyshowtime.google` is the user-approved removal target.
-`tv.samba.ssm`, Sony promotions and recommendation packages are inspection candidates, not an approved disable list.
+### Alternatives and Source Evidence
+
+| Approach | Verified supplied capability | Missing for this request | Decision |
+|---|---|---|---|
+| Keep stock Home + Pi | Existing viewing and HDMI artwork path | Ad-free Home and integrated background | Recovery state; incomplete outcome |
+| FLauncher | GPLv3+ Flutter app grid, free manually chosen file wallpaper | Hourly LAN image fetch/cache and owned fullscreen/dream; Sony Home routing still unproven | Free static fallback for a separately agreed reduced scope |
+| Adapt tv-vibehack | MIT native Java app grid, minSdk 26/target 29 in inspected source | Source has no network client, hourly artwork, fullscreen art or DreamService; app/input shortcuts need adaptation | Recommended starting point after bounded compatibility proof |
+| Projectivy | Ordinary launcher trial installed then removed | Custom wallpaper is Premium; Home routing unaccepted | Excluded from this proposal |
+
+The [tv-vibehack manifest](https://github.com/Gathin23/tv-vibehack/blob/19f3c224fe68843cb2ff0df3157b81622bbe1266/launcher/app/src/main/AndroidManifest.xml) declares neither Internet access nor a dream service. Its [configuration](https://github.com/Gathin23/tv-vibehack/blob/19f3c224fe68843cb2ff0df3157b81622bbe1266/launcher/app/src/main/res/values/config.xml) contains Xiaomi/MediaTek defaults that require Sony adaptation.
+The tv-vibehack sample is reference code, not an install-and-finish solution or a Sony compatibility guarantee.
+Its bundled build/install script disables stock Home and its restore script writes animation defaults; neither may be executed.
+FLauncher's wallpaper is copied from a selected file into private storage; replacing a similarly named external file is not a verified refresh mechanism. Its ambient action starts the system screensaver, not an included Haystack dream.
+FLauncher also includes Firebase analytics/crash configuration; using an off-the-shelf package does not remove review or maintenance work.
+The tradeoff is explicit: a native client gives free control of artwork and interactions but creates a small Android codebase, signing key, SDK build and maintenance obligation. No performance gain is guaranteed by source size.
+
+### Why Recommend the Native Adaptation
+
+**Option A — keep stock Home and the Pi.** This has the lowest maintenance cost and preserves the working separation of TV apps and artwork. A user-triggered input shortcut could reduce steps, but this path leaves sponsored Home and cannot put the Pi's HDMI image behind Sony's native app menu. It is the recovery choice, not a solution to the full request.
+
+**Option B — use FLauncher and add artwork separately.** This provides a free app grid and manual wallpaper without writing that menu ourselves. To meet R7–R9 we would still need either a maintained FLauncher fork with image-fetch/cache integration plus fullscreen/dream code, or accept that the wallpaper stays manual while a companion app handles the other surfaces. A companion app alone has no verified way to refresh FLauncher's private wallpaper file. The full fork route is viable, but couples Flutter/Firebase maintenance to a native Android companion and remains subject to Sony Home routing. GPL compliance is manageable but must be respected if distributing a fork.
+
+**Option C — adapt the supplied native tv-vibehack launcher.** This starts with an app menu in the same platform as the required fullscreen and DreamService components. One cache can feed all three surfaces without an undocumented wallpaper handoff. It requires more new image-delivery code than a static FLauncher install, but avoids maintaining a Flutter fork plus a separate native integration. The recommendation concerns fit and code ownership, not a proven speed advantage. Keep the adaptation small and remove unsupported Xiaomi assumptions.
+
+**Option D — write an entirely new native launcher.** It offers the same control as C, but repeats app-grid and remote-focus work already available under MIT. Only take this route if source review reveals that adapting the sample costs more than replacing its small UI; do not grow a generic launcher framework.
+
+**Option E — Projectivy or another paid wallpaper extension.** This may reduce code ownership but conflicts with R11. No purchase or further trial is proposed, and a free install is not evidence of free required features.
+
+**Recommendation: C, conditional on the early compatibility gate.** The specific reason is that Home, fullscreen and native idle can share one small Android implementation and durable image cache. Neither C nor B is known to bypass Sony's Home policy; if U2 cannot establish acceptable Home and recovery within its bounded session, stop and explain the limitation before investing further. If the user chooses only a static free menu plus Pi art, B becomes the smaller solution, but that reduced outcome must be chosen explicitly rather than substituted for R7–R9.
 
 ### Key Technical Decisions
 
-- KTD1. **Compare one intervention at a time.** Test Projectivy alone, cleanup batches, then artwork against the same baseline. Keep animation changes separate so they cannot hide regressions. Implements R1, R2.
-- KTD2. **Try supported Home selection before disabling the stock launcher.** Install and open the replacement first, record the exact old component and override settings, and verify restoration. Stock-launcher disabling is an escalation within the launcher phase only after recovery works. Implements R2, R6.
-- KTD3. **Use an explicit per-package change ledger.** Capture user-0 enabled-setting values before each batch; restore default, enabled, disabled-user or absent settings exactly. Start with one to three positively identified packages per batch. Uninstall SkyShowtime only after confirming reinstall availability and accepting loss of local app state. Implements R3–R6.
-- KTD4. **Reuse existing presentation contracts.** A proposed `GET /api/wallpaper/current` streams the latest valid image with truthful MIME and `Cache-Control: no-store` for direct-image clients. Preserve `/api/latest` JSON and ID-based image URLs. Add the bridge only for the launcher integration, with the existing store and LAN mutation guards unchanged. Implements R7, R9, R10.
-- KTD5. **Escalate artwork integration only on observed failure.** Trial Projectivy's remote URL, then its existing Overflight custom image feed if necessary, then a small provider only if those fail freshness/recovery. Trial an Android-9-compatible existing fullscreen/screensaver viewer before introducing an owned Activity/DreamService. Implements R7–R9.
-- KTD6. **Keep the Mac as the sole artwork source.** Preserve its existing fixed network identity and reserved `192.168.0.20:4321` address. Do not replace this with mDNS, which has already failed on this LAN. Native Android clients need deliberate HTTP policy for that host; validate external apps' HTTP behavior on-device. Implements R9, R10.
-- KTD7. **Separate physical TV acceptance from server tests.** Use temporary fixture images and a separate local fixture server for failure cases; never create paid Renders, alter the live output store or change schedules to test a display. Device restarts, app launches and setting changes occur only in the authorized implementation phase. Implements R1–R10.
+- KTD1. **Gate the architecture before the build.** U2 records two separate results: the mandatory Home/routing/control proof, and native dream capability. Failure of dream selection must not prevent testing Home; it leaves R8 unresolved. Test ordinary app mode before default routing. The live compatibility experiment has a total 30-minute budget, excluding necessary restoration. Attempt only a supported chooser and, if new evidence justifies it for this component, one preferred-Home setter; skip known-ineffective repetition. On budget exhaustion restore and report. A separately proposed accessibility trial is not an automatic extension. Implements R1–R2, R5–R8, R11.
+- KTD2. **Preserve stock recovery.** Try supported Home selection with actual resolution/physical Home/Back evidence. A minimal dedicated Home accessibility interception may only be trialled if its precise behavior and permission are included in the next phase authorization; never silently grant access or remap volume. An interception with stock ad flashes or broken task routing fails R2. No stock disabling, root or launcher-manager installation is authorized. Implements R2, R5–R6.
+- KTD3. **Keep cleanup independent and attributable.** Use one to three positively identified packages per batch with exact enabled-state recovery; remove SkyShowtime only with reinstall availability and app-data loss understood. Compare against the accepted clean menu, not a mixed launcher/art/cleanup change. Implements R1, R3–R6.
+- KTD4. **Reuse existing GET contracts.** `src/server/server.ts` already supplies allowlisted `/api/latest` metadata with a relative `imageUrl` and `/api/outputs/:id` image bytes; no wallpaper bridge or public filesystem route is initially needed. A fixture server supplies deterministic A/B/error cases without touching production outputs. Implements R9–R10.
+- KTD5. **One native client, three display surfaces.** Propose `android-tv/`, a small Java Android app with HomeActivity, ArtActivity and HaystackDreamService sharing an ArtworkRepository and app-private durable cache. No browser engine, wallpaper-provider plugin, billing SDK, analytics or permanent foreground service. Adapt useful MIT layout code with attribution; resolve installed TV launch intents dynamically, keep all apps reachable, and verify Sony Settings/Inputs intents instead of copying Xiaomi ones. Implements R3, R5, R7–R11.
+- KTD6. **Refresh only visible surfaces.** Poll metadata every 60 seconds while any surface is visible, refresh on entry/resume and stop when hidden; one shared in-flight fetch. Resolve image URLs against the configured Mac origin, reject foreign origins/redirects, configure Android cleartext HTTP only for the selected LAN host, and perform networking/decoding off the UI thread. Bound downloads to 32 MiB and 40 megapixels before sampled decoding to the 1080p UI; validate actual fixture/production formats against those caps. Persist candidate bytes and ID transactionally before publishing; cancellation, malformed bytes, 404 and decode failure keep the prior accepted image. Implements R1, R9–R10.
+- KTD7. **Use the actual dream lifecycle.** Register a DreamService using the framework binding permission and selection metadata; never ask for broad secure-settings authority. Prove selection, natural idle entry, input exit and restart persistence separately from forced preview. Do not emulate system idle by overlaying other apps or forcing HDMI switches. Implements R5, R8.
 
 ### High-Level Technical Design
 
+These diagrams describe the proposed responsibilities, not existing shipped functionality.
+
 ```mermaid
 flowchart TB
-  Mac[Mac generation and committed OutputStore] --> API[Read-only presentation API]
+  Mac[Mac engine and committed OutputStore] --> API[Existing read-only metadata and image API]
   API --> Pi[Existing Pi kiosk on HDMI 1]
-  API --> Wallpaper[Projectivy wallpaper client]
-  API --> Viewer[Fullscreen and screensaver viewer]
-  Wallpaper --> Home[Apps over current artwork]
-  Viewer --> Art[Art without app menu]
+  API --> Repo[Native ArtworkRepository and durable cache]
+  Repo --> Home[HomeActivity: art plus app row]
+  Repo --> Full[ArtActivity: art only]
+  Repo --> Dream[HaystackDreamService: native idle art]
 ```
 
 ```mermaid
 sequenceDiagram
-  participant C as Visible TV client
-  participant S as Mac presentation API
-  participant D as Display and local cache
-  C->>S: Check current image or latest Render
-  S-->>C: Image bytes or metadata and versioned URL
-  C->>C: Download and decode candidate
-  alt Image valid
-    C->>D: Replace last-good image and accepted ID
-  else Fetch or decode fails
-    C->>D: Keep last-good image
-    C->>S: Retry on next visible refresh
+  participant Surface as Visible surface
+  participant Cache as Shared artwork repository
+  participant API as Mac API
+  Surface->>Cache: Attach; display cached image immediately
+  Cache->>API: GET latest, then candidate image
+  API-->>Cache: Metadata and bounded image bytes
+  alt Valid decoded candidate
+    Cache->>Cache: Durable atomic commit, then publish accepted ID
+    Cache-->>Surface: Render new image
+  else Failure or cancellation
+    Cache-->>Surface: Retain last-good image
+    Cache->>Cache: Retry on next visible poll even with unchanged ID
   end
 ```
 
 ```mermaid
-flowchart TB
-  Baseline[Inspect and time current TV] --> Launcher[Trial clean Home]
-  Launcher --> Gate{Navigation and recovery pass?}
-  Gate -->|No| Restore[Restore affected phase and stop]
-  Gate -->|Yes| Cleanup[Selective cleanup and repeat checks]
-  Cleanup --> Art[Wallpaper and fullscreen trial]
-  Art --> Ready{Existing tools meet display contract?}
-  Ready -->|Yes| Finish[Household acceptance and handoff]
-  Ready -->|No| Native[Small native viewer or provider]
-  Native --> Finish
+stateDiagram-v2
+  [*] --> Home
+  Home --> Streaming: App selection
+  Streaming --> Home: Home or verified exit path
+  Home --> Fullscreen: Haystack button
+  Fullscreen --> Home: Back
+  Home --> Dream: Native idle policy
+  Dream --> Home: Remote exit in tested Home context
+  Home --> HDMI: User selects input
+  HDMI --> Home: Home key
 ```
 
-### Assumptions and Execution Gates
+```mermaid
+flowchart TB
+  Proof[U2 fixture and routing proof] --> Gate{Home and controls pass?}
+  Gate -->|No| Restore[Restore; report unmet outcome]
+  Gate -->|Yes| Menu[Complete accepted app menu]
+  Menu --> Cleanup[U3 measured cleanup]
+  Menu --> Delivery[U4 API and cache tests]
+  Delivery --> Wallpaper[U5 live artwork and fullscreen]
+  Wallpaper --> Idle[U6 proven native idle support]
+  Cleanup --> Final[U7 full review and acceptance]
+  Idle --> Final
+```
 
-The TV is reachable and authorized for the completed inspection; debugging can be disabled between sessions.
-The next implementation launch is limited to the chosen phase, even if later phases have no code dependencies.
-No additional approval is required to draft documentation or local code within an authorized phase, but purchasing premium, installing TV apps and deploying a server change need that phase's authority.
+A shared native view fits the full image without an automatic crop; a small bottom app strip overlays Home, with a subtle contrast scrim and visible D-pad focus. The Haystack button opens art without app controls. Input selection remains explicit; no unconfirmed dedicated remote-button remapping is promised.
 
-The installed-app list does not establish account use or service dependencies.
-Package selection and the current HBO/Max app are resolved through user preferences, package metadata and a physical launch check.
-Unknown packages remain enabled.
+### Dependencies and Execution Gates
 
-Suggested performance and freshness bounds are planning defaults, with the two-minute display bound adopted by this plan.
-The baseline phase uses bounded automated measurements where practical; owner timing-target selection is not a launch gate. Missing physical observations prevent claims about visible latency, playback, casting or verified recovery, but do not block independent preparation.
+U2 is a bounded implementable feasibility unit; U3–U7 are conditional on its results and separate authority. No one is claiming end-to-end Sony support now. If routing fails, restore and let the user choose whether to pursue a separately specified escalation, accept a reduced scope or stop; no fallback installation or architecture change happens automatically.
+A failed dream capability does not invalidate an independently successful Home/fullscreen route, but R8 stays unresolved until the user accepts a limitation or another approach.
+A failed default-Home route prevents an accepted ad-free Home: FLauncher and a custom UI do not automatically bypass the same Sony policy.
+Android build tools, minSdk/API compatibility, production image caps and signing reproducibility are checked locally before any installation. Keep private signing keys outside Git and record a stable public certificate fingerprint for updates.
+Do not start a platform rewrite or add another launcher after failure without presenting the new tradeoff.
 
-The native screensaver branch is conditional on this TV exposing a working selectable third-party DreamService.
-Test this with an existing compatible service before building custom code; if blocked, keep fullscreen and Pi art usable and return the screensaver limitation for a user decision.
+### Effort and Maintenance Tradeoff
+
+These are rough engineering planning allowances, not elapsed-time or delivery promises; the Android toolchain has not yet been built in this repository.
+Allow 2–4 hours for source adaptation, local SDK/build/signing setup and the minimal fixture app, then at most the 30-minute live experiment in KTD1 plus whatever time safe restoration requires. Do not build the full client while that gate is unresolved.
+If it passes, allow roughly 1–3 additional engineering days for the menu, shared delivery/cache, fullscreen/dream lifecycle and automated checks, plus a separate household verification window. Re-estimate from the working stub before authorizing those units; package cleanup time depends on demonstrated dependencies.
+There are no new display-software licence fees, but the project owns the signing key, reproducible build, occasional Android/build-tool compatibility updates and fixes if a TV firmware or Haystack API change breaks the client. A free static FLauncher install needs less custom development if the user explicitly prefers the reduced outcome.
 
 ### Sources and Existing Patterns
 
-- `src/server/server.ts`: allowlisted presentation metadata, `/api/latest`, `/api/outputs/:id`, and loopback-only mutation boundary.
-- `src/storage/output-store.ts`: latest valid committed output and purge behavior; ID URLs are not permanent archives.
-- `public/kiosk.html`: thin polling client and crossfade. Its accepted-ID-before-load behavior has a retry gap; new clients must satisfy AE4 rather than copy it.
-- `tests/server/server.test.ts` and `tests/storage/output-store.test.ts`: presentation, MIME, retention and LAN-boundary test patterns.
-- `docs/solutions/integration-issues/raspberry-pi-kiosk-hardcoded-mac-ip.md`: preserve the fixed private Wi-Fi identity and DHCP reservation.
-- [Sony exact-model specifications](https://www.sony.co.uk/electronics/support/televisions-projectors-lcd-tvs-android-/kd-55xe8096/specifications): LCD, 2017 model, Android TV and HDMI-CEC support.
-- [Sony downloads](https://www.sony.co.uk/electronics/support/televisions-projectors-lcd-tvs-android-/kd-55xe8096/downloads): v6.7220 listed at research time; the photo alone is not firmware verification.
-- [Projectivy releases](https://github.com/spocky/miproja1/releases): 4.72 was current during research; use a stable Android-9-compatible release, record actual version and premium terms.
-- [Wallpaper-provider API](https://github.com/spocky/projectivy-plugin-wallpaper-provider): wallpaper timing and item-cache TTL are separate controls.
-- [Overflight](https://github.com/spocky/projectivy-plugin-wallpaper-overflight): JSON/M3U image feeds, not a screensaver.
-- [Android DreamService](https://developer.android.com/reference/android/service/dreams/DreamService) and [network security configuration](https://developer.android.com/privacy-and-security/security-config): service lifecycle and cleartext HTTP policy.
-- [ADB](https://developer.android.com/tools/adb), [UAD-ng](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation/wiki), [Cobanov](https://tv.cobanov.dev/) and [tv-vibehack](https://github.com/Gathin23/tv-vibehack): operational references; their example package lists are not Sony approvals.
+- [tv-vibehack source at 19f3c224fe68843cb2ff0df3157b81622bbe1266](https://github.com/Gathin23/tv-vibehack/tree/19f3c224fe68843cb2ff0df3157b81622bbe1266): MIT native Java sample; its bundled Outfit font has a separate SIL OFL notice. Preserve applicable notices when copying selected files.
+- [FLauncher official source at 4930cd738a5ab32967953fe8b12790bc4b452872](https://gitlab.com/flauncher/flauncher/-/tree/4930cd738a5ab32967953fe8b12790bc4b452872): GPLv3+ Flutter launcher; candidate comparison only, no GPL source is proposed for copying into the MIT-derived client.
+- [Cobanov guide](https://tv.cobanov.dev/): FLauncher and conservative non-root cleanup inspiration; its generic launcher-disable/cache/animation recipe is not a Sony runbook.
+- [Original UAD](https://github.com/0x192/universal-android-debloater): package-description research only, never a blanket approved list.
+- [Android TV app setup](https://developer.android.com/training/tv/get-started/create), [DreamService](https://developer.android.com/reference/android/service/dreams/DreamService), [network security configuration](https://developer.android.com/privacy-and-security/security-config): platform contracts, not device acceptance.
+- `src/server/server.ts`: `toPresentationMetadata`, GET latest/image routes and loopback-only mutations; `src/storage/output-store.ts`: validated committed-image resolution and purge races.
+- `public/kiosk.html`: 60-second polling precedent; do not copy its accepted-ID-before-image-load retry gap or assume durable offline caching exists there.
+- `tests/server/server.test.ts`, `tests/storage/output-store.test.ts`: MIME, metadata allowlist, traversal, empty/latest and LAN permission tests.
+- `docs/solutions/integration-issues/raspberry-pi-kiosk-hardcoded-mac-ip.md`, `CONCEPTS.md`: fixed LAN identity and Render/Kiosk vocabulary.
 
 ---
 
 ## Implementation Units
 
-Each U-ID is a phase boundary. Operational units produce a runbook and evidence rather than inventing application code or unit tests for manual TV actions.
+### U1. Reuse baseline and refresh exact recovery before a new trial
 
-### U1. Complete baseline and recovery preparation
+**Requirements:** R1, R3, R5–R6. **Files:** `docs/tv-integration.md`, `.claude/tasks/tasks.md`; private evidence under ignored `tv-local/`.
+Use existing inventory and restoration work; do not repeat hours of exploration. At the next authorized live session record fresh settings presence/values, package/component enabled states, preferred Home, dream selection and installed trial apps. Re-establish current casting playback before attributing a later failure to the trial.
+**Verification:** Record what is observed vs missing; do not claim that prior package/settings equality verifies audio, DRM or HDMI picture. No new feature tests apply to this documentation/evidence unit.
 
-**Goal:** Turn the completed read-only inspection into an actionable device profile and repeatable comparison.
-**Requirements:** R1, R3–R6, R10.
-**Dependencies:** None; inspection is complete, timed baseline and recovery confirmation remain.
-**Files:** Create `docs/tv-integration.md`; update `.gitignore` to exclude `tv-local/` before storing any local run evidence there. Keep private snapshots outside Git.
-**Approach:** Record the verified baseline above, preserve user preferences, capture exact settings/package states before touching them, and establish how to return to stock Home and Pi input. Select practical engineering comparisons without requiring owner stopwatch trials or timing-target selection. Do not claim a snapshot can recover lost app data or a boot loop.
-**Execution note:** Device timings and recovery readiness are the first proof; no production tests are needed for documentation alone.
-**Test scenarios:** Capture bounded automated Home, Settings, Inputs and two chosen app-launch probes, aiming for five comparable warm samples where practical; separate restart and wake technical checks. Attempt a bounded D-pad delivery probe only where reliable. Keep animation values fixed. Observer timing is optional, never owner stopwatch work or a preparation gate. Record visible focus, actual casting, keyboard, audio and Pi picture as explicit gaps until observed; automated success cannot establish these physical outcomes.
-**Verification:** Reproducible available baseline evidence and its limits are recorded, exact original states are available, and the household preservation list is unambiguous. Record unobserved physical acceptance separately; do not claim it passed. No app or package changes are required to finish baseline recording.
-**Rollback:** Disconnect ADB on the Mac; ask Andres to disable debugging when finished with the session. No TV rollback is needed for the read-only inventory.
+### U2. Prove Sony compatibility, then complete the clean app menu
 
-### U2. Deliver and measure the ad-free launcher
+**Requirements:** R1–R3, R5–R8, R11. **Decisions:** KTD1–KTD2, KTD5, KTD7. **Depends on:** fresh U1 recovery and explicit authorization of the revised trial.
+**Proposed files:** `android-tv/settings.gradle`, `android-tv/build.gradle`, `android-tv/app/build.gradle`, `android-tv/app/src/main/AndroidManifest.xml`, Java sources under `android-tv/app/src/main/java/dev/haystack/tv/`, resources, `android-tv/THIRD_PARTY_NOTICES.md`, `android-tv/README.md`, `docs/tv-integration.md`.
+First build only the smallest inspectable app with fixture wallpaper, a few launchable TV-app entries, Settings/Inputs, fullscreen and a minimal dream. Pin the upstream source commit, retain MIT notices, use a distinct package `dev.haystack.tv`, establish minSdk 26/API-28 compatibility and verify release signatures locally. Exclude upstream install/restore/debloat scripts.
+During the KTD1-bounded live session, first prove physical remote controls and fixture display, then supported Home routing. Test Home/Back, restart and standby/wake before developing the full menu. Record dream selection/preview as a separate capability result; a rejected dream does not block gathering the Home result, but R8 remains unresolved. Natural idle acceptance belongs to U6. If routing needs accessibility, present the exact proposed service before enabling it; if still blocked, restore and report the blocker rather than leave a novelty app installed as completion.
+Only after the Home gate passes and any failed dream capability has been returned for a user scope decision, finish configurable order for all 13 preserved apps, an all-apps route, Haystack, Settings and Inputs. Keep stock recovery reachable. No art network integration or cleanup yet.
+**Proposed tests:** `android-tv/app/src/test/java/dev/haystack/tv/AppCatalogTest.java`; `android-tv/app/src/androidTest/java/dev/haystack/tv/HomeNavigationTest.java`.
+**Scenarios:** Installed/absent/renamed app fallback; current Max vs old copies; D-pad focus and Back return; no accidental launch while moving focus; missing or rejected Sony input intent still leaves physical Inputs/Settings reachable; fullscreen/dream exits; repeated Home/app exit with no stock ad flash; stock restoration after each routing attempt.
+**Verification:** Build/lint/unit tests plus API-28 emulator interaction; actual Sony routing/restart/wake/controls and dream capability are separate live evidence. All-app launch success is not DRM playback acceptance. Record the gate before completing the menu.
 
-**Goal:** Make normal Home ad-free while preserving recovery and household controls.
-**Requirements:** R1–R3, R5, R6; AE1.
-**Dependencies:** U1.
-**Files:** Update `docs/tv-integration.md`; local-only launcher settings and timing evidence in `tv-local/`.
-**Approach:** Follow KTD1–KTD2. Install the verified stable Projectivy version, start with a static background and household app shortcuts, then set the supported Home/default/override route. Test whether accessibility override is needed instead of enabling it by default. Do not purchase premium until the required feature and price are known.
-**Test scenarios:** Home and Back from two apps; Settings and Inputs; Pi HDMI; keyboard, volume/audio, cast start/stop; five comparable warm timings; restart and standby/wake. Verify no stock-home ad flash in ordinary return paths and no lost remote shortcuts.
-**Verification:** AE1 passes and R1 comparisons demonstrate improvement without material regression, or the measured remaining gap is explicitly carried into U3. Ad removal alone does not close R1.
-**Rollback:** Restore exact Home component and override/accessibility values, verify stock Home and Inputs, then remove the trial launcher only when restoration works.
+### U3. Perform measured selective cleanup
 
-### U3. Perform selective cleanup without losing viewing features
+**Requirements:** R1, R3–R6. **Decision:** KTD3. **Depends on:** accepted U2 Home or a separately approved cleanup-only route.
+**Files:** `docs/tv-integration.md`, `.claude/tasks/tasks.md`; private per-change ledger.
+Remove SkyShowtime with recovery prepared. Identify the actually used Max app, then retire legacy copies only if proven unused. Research voice-search, Sony promotions and Samba components independently; do not equate a package description with a safe disable decision.
+**Scenarios/verification:** Compare each small batch against U2; verify app access, casting, keyboard, controls and inputs before retaining it. Restore a failing batch to exact initial states. No invented unit test mirrors a package command; use device evidence. Do not retain speculative disabled services as a claimed performance improvement.
 
-**Goal:** Remove SkyShowtime and demonstrated unnecessary background work, then verify speed and stability.
-**Requirements:** R1, R3–R6; AE2.
-**Dependencies:** U2.
-**Files:** Update `docs/tv-integration.md`; private package-state ledger and measurements in `tv-local/`.
-**Approach:** Follow KTD3. Confirm the current HBO/Max package through metadata and a household launch before retiring duplicates. Treat voice search, Sony promotions, Samba and recommendations as separately researched candidates. Preserve broadcast and casting. Record the expected benefit of each batch and compare it with the U2 state; do not retain a change solely because its package name looks unnecessary.
-**Test scenarios:** AE2; original-state restoration of one changed package and one absent setting; current Max playback after duplicate retirement; casting and broadcast checks; U2 control checks after each batch; final restart/wake and normal viewing session. Separate any approved animation trial from package changes.
-**Verification:** SkyShowtime is removed as requested, preserved apps work, and final navigation meets R1. If measured gains are inadequate, report the limitation and propose a bounded next decision rather than disabling progressively less-understood services.
-**Rollback:** Restore the last batch first and retest the failing function. Reinstall SkyShowtime through its confirmed source if requested; any account/login state must be restored by the user.
+### U4. Prove existing API delivery and native cache
 
-### U4. Add the minimum read-only wallpaper delivery bridge
+**Requirements:** R9–R11. **Decisions:** KTD4, KTD6. **Depends on:** U2 device fit; independent local fixture work may be prepared without a live rollout.
+**Proposed files:** `android-tv/app/src/main/java/dev/haystack/tv/ArtworkRepository.java`, `ArtworkCache.java`, Android network-security resource, native fixture tests; `android-tv/README.md`.
+Use existing latest/image GET endpoints, not a new bridge. Persist candidate image bytes and associated accepted ID safely in app-private storage; ensure concurrent Home/fullscreen/dream attachments share one cache and fetch.
+**Proposed tests:** `ArtworkRepositoryTest.java`, `ArtworkCacheTest.java` in the native unit-test directory; `ArtworkRecoveryTest.java` in the native instrumentation-test directory.
+**Scenarios:** A→B success; B fails then succeeds with unchanged ID; empty latest; image purge404; offline cold start with/without cache; corrupt/truncated/oversized image; process death between writes; HTTP timeout; origin redirect rejection; overlapping surfaces and cancellation. Test PNG/JPEG/WebP from existing output patterns and sampled memory use.
+**Verification:** Controlled local fixtures establish state transitions and request counts; no generation, paid Renders, live output-store changes or server restart. Only change server code later if a concrete contract gap is demonstrated and approved.
 
-**Goal:** Give direct-image wallpaper clients a current-image URL without changing generation behavior.
-**Requirements:** R7, R9, R10.
-**Dependencies:** U3, including its household checks and report. Live activation belongs to the separately authorized artwork phase.
-**Files:** Modify `src/server/server.ts` and `tests/server/server.test.ts`; update `docs/tv-integration.md`.
-**Approach:** Implement KTD4 using existing OutputStore resolution and stream handling. The endpoint returns bytes, not a metadata JSON document or a public filesystem mount. Keep generic errors and truthful MIME. Handle a purge race as a controlled failure. Avoid a conversion subsystem unless the TV demonstrates a format/size problem.
-**Test scenarios:** Empty store; newest valid output switches after a second save; real PNG/JPEG/WebP bytes and MIME; no-store policy; corrupt/missing newest output and purge race; generic failures without local paths; LAN GET allowed while paid mutation remains rejected. Use temporary fixture storage.
-**Verification:** Focused server/storage coverage and build pass. Existing presentation contracts remain unchanged. No paid generation or resident server restart is needed for local proof.
-**Rollback:** Remove the configured TV URL and revert the bridge deployment; existing kiosk and ID-image routes remain usable.
+### U5. Integrate current artwork behind Home and fullscreen
 
-### U5. Show current artwork behind the app menu
+**Requirements:** R1–R3, R5, R7, R9–R11. **Decisions:** KTD5–KTD6. **Depends on:** accepted U2 and verified U4.
+**Proposed files:** HomeActivity, ArtActivity and shared artwork view under the native Java/resources tree; native instrumentation tests; `docs/tv-integration.md`.
+Attach the shared cache to visible Home/fullscreen only. Preserve contrast, useful focus and a clear art-only entry. Use fixtures first, then read production presentation endpoints during an authorized session.
+**Proposed tests:** `ArtworkSurfaceTest.java` under the native instrumentation-test directory.
+**Scenarios/verification:** AE2–AE4 on both surfaces; switching between them retains the same last-good image; app-menu input stays responsive while fetch/decoding runs; art updates within two minutes; Home speed comparison with artwork on vs fixture background. Reconfirm all household shortcuts and HDMI 1 access.
 
-**Goal:** Meet R7 and R9 with the least additional software.
-**Requirements:** R1, R7, R9, R10; AE3, AE4.
-**Dependencies:** U3, U4.
-**Files:** Update `docs/tv-integration.md`; if required, add the Overflight image-list adapter and tests in `src/server/server.ts` and `tests/server/server.test.ts`. A custom provider, only if justified, belongs under `android-tv/` with provider tests alongside its sources.
-**Approach:** Apply KTD5 in order. Start with the raw URL and fixture images. If unchanged-URL caching fails, test an Overflight feed with absolute ID-based image URLs. If that fails, build a single-item provider using the existing JSON presentation API and explicit item-cache expiry. Record why each escalation was needed before building it. Test external apps' HTTP policy and cache behavior rather than assuming response headers force refresh.
-**Test scenarios:** AE3 and AE4; remain on Home across two updates; leave/return to Home; Mac unavailable; cold start with saved art; corrupt image; old output purged; return after standby. Compare navigation timings with art enabled and verify crop on the 1080p UI.
-**Verification:** New artwork visibly arrives inside R9's bound and does not erase responsiveness gains. Offline behavior is demonstrated; do not silently accept a blank background as success.
-**Rollback:** Restore the known static wallpaper and provider settings. Remove only the integration installed in this phase; retain clean Home and completed cleanup.
+### U6. Complete native idle artwork
 
-### U6. Deliver fullscreen and idle artwork
+**Requirements:** R5, R8–R11. **Decisions:** KTD6–KTD7. **Depends on:** U2 dream capability and U4; integrate the same accepted cache from U5.
+**Proposed files:** HaystackDreamService and dream metadata in the native app, `DreamLifecycleTest.java` under native instrumentation tests, `docs/tv-integration.md`.
+Use the proven selectable dream. Attach only during dreaming, release resources on stop, and retain existing timeout/power settings unless a specific change is authorized. A preview demonstrates rendering only; natural idle is a separate test.
+**Scenarios/verification:** AE3–AE5; native idle at Home, exit on remote, restart persistence, Mac offline, process restart and no polling after dream stops. Verify active DRM and cast playback are not interrupted; test HDMI idle separately and report any OEM limitation. No standalone install success closes this unit.
 
-**Goal:** Offer a Haystack tile and a verified native idle-art path.
-**Requirements:** R1, R7–R10; AE4, AE5.
-**Dependencies:** U5.
-**Files:** Update `docs/tv-integration.md`. If an existing viewer meets the contract, no Android code is needed. Otherwise create an isolated Gradle application under `android-tv/` with `AndroidManifest.xml`, a shared image repository/cache, fullscreen Activity, DreamService, network-security configuration, JVM cache tests and device lifecycle tests.
-**Approach:** Trial an existing Android-9-compatible URL/fullscreen/screensaver viewer only after verifying its documented capabilities, permissions and source. Use the unchanged kiosk URL for fullscreen trials where supported. Verify a third-party screensaver can be selected and started before custom development. For owned code use native image display, a common last-good file cache and the allowlisted API; no engine imports, background generation or continuous polling while hidden. Fetch/decode off the main thread and release lifecycle work on exit. Keep last-good bytes until the new image is valid.
-**Test scenarios:** Tile opens fullscreen without input switching; Back/Home exits; AE4 and AE5; select/start screensaver; idle from Home; paused and active playback; HDMI context; standby/wake; cold offline launch with and without a cache; relative URL resolution and host-scoped HTTP; PNG/JPEG/WebP and actual production dimensions; lifecycle cancellation and bounded bitmap memory.
-**Verification:** Activity and screensaver behavior are observed independently. Record supported contexts and exact idle/sleep settings. If the Sony blocks third-party screensavers, stop that branch and obtain a decision on the documented limitation; fullscreen alone is partial delivery.
-**Rollback:** Restore Backdrop and original timers, remove the viewer/provider if installed, and confirm Home and Pi display still work.
+### U7. Review the full outcome and hand off
 
-### U7. Household acceptance and operational handoff
-
-**Goal:** Leave a documented, usable system after ordinary viewing and a recovery rehearsal.
-**Requirements:** R1–R10.
-**Dependencies:** U6, or an explicit user decision accepting a documented screensaver limitation.
-**Files:** Finalize `docs/tv-integration.md`, relevant `AGENTS.md` operating notes, and `.claude/tasks/tasks.md` phase progress. Do not place execution checkboxes in this plan.
-**Approach:** Record installed versions, retained/changed packages, the final Home route, artwork sources, observed screen contexts and restore procedure. Confirm current Pi URL and fixed Mac address. Test CEC only as a separately selected convenience; no unsolicited source switching. Remove failed-experiment code and installations after confirming the accepted path.
-**Test scenarios:** Normal household session; restart and standby/wake; current artwork change; Mac sleep/network loss/recovery; cleanup rollback rehearsal using a harmless already-approved change; debug-off reconnection rejection; Pi fallback.
-**Verification:** Product acceptance and R1 metrics are recorded, restore evidence is complete, ADB host is disconnected, and Andres has disabled debugging on the TV after the session. Disabling TV debugging is a user action, not something inferred from host disconnection.
+**Requirements:** R1–R11. **Depends on:** accepted outcomes from U2–U6, with any scope limitation explicitly resolved.
+**Files:** `docs/tv-integration.md`, `.claude/tasks/tasks.md`, `android-tv/README.md`; update `AGENTS.md` only with verified operating instructions.
+Review source, actual device state, signed build and evidence against the contract. Record install/update/recovery procedures, public signing certificate, offline behavior and Mac sleep dependency. Private keys, APKs, account images and raw dumps remain outside Git.
+**Verification:** The matrix below must distinguish pass, fail and not verified. Remove abandoned trial code and stale recipes. Provide a household-readable result without requiring an owner stopwatch exercise.
 
 ---
 
 ## Verification Contract
 
-| Phase | Proof | Exit condition |
+| Area | Required evidence | Insufficient substitute |
 |---|---|---|
-| U1 | Recorded on-device baseline and recovery states | Available automated baseline captured; physical gaps explicit; no owner target-selection gate |
-| U2 | Physical control/stream/cast checks and timings | Clean Home survives restart/wake; no core regression |
-| U3 | Per-batch state ledger and before/after evidence | R1, R3–R6 pass; no speculative bulk disable |
-| U4 | `npm run build`; focused Vitest server/storage run; `npm run test:run` for shared-server changes | New route and existing LAN boundaries pass |
-| U5 | Fixture server, two changed images and offline recovery on physical TV | AE3, AE4 and art-enabled navigation pass |
-| U6 | Installed-viewer checks or owned Android JVM/device tests | Fullscreen and selected screensaver lifecycle pass separately |
-| U7 | Ordinary viewing and restart/network/recovery rehearsal | All accepted outcomes and exact rollback documented |
+| Cost and provenance | Source audit: no billing/paywall dependency in any required display mode; upstream revision/license and public signer recorded | Free initial installation |
+| Home | Actual Home and repeated app exit paths, reboot and standby/wake; clean menu and preserved focus | Setter success or direct activity launch |
+| Performance | Five comparable warm probes where practical, median and slowest; visible frame-ready/navigation evidence and post-restart separate | RAM percentage, animation reduction or Android WaitTime alone |
+| Apps and Chromecast | All 13 app entries launch; representative DRM playback/audio and an actual cast start/play/stop before and after | Package present, Cast discovery or receiver connection |
+| Hardware paths | Physical D-pad/Back/Home/volume, keyboard, broadcast, Inputs and Pi HDMI picture/audio | Screenshot of an input list |
+| Artwork | A→B within two minutes, retry same failed ID, corrupt-image rejection, offline restart cache on all three surfaces | A static wallpaper once |
+| Idle | Actual selection, natural idle entry, exit, restart/wake persistence and playback protection | Forced preview or DreamService registration |
+| Recovery | Fresh ledger and exact restoration of trial-owned key presence/values, package/component states, Home/dream/accessibility selection | Generic enable-everything command |
 
-No application tests were run as part of writing this plan.
-U1 now records bounded Android activity timings in docs/tv-integration.md; visible remote-to-ready latency and playback/casting acceptance remain unverified. The memory snapshot is not a speed benchmark.
-The repository has a lint script but no verified lint configuration in this planning run; do not describe lint as passed without running a working configuration during code implementation.
-Android build/test commands are recorded when the owned-app branch pins its actual SDK/Gradle toolchain; no Android tooling currently exists in this repository.
+R1 compares identical interactions and separately measures Inputs chooser-open vs source-selection-to-stable-picture/audio. Record visible timings when automation can reliably observe the actual frames; otherwise label the evidence gap rather than asking the owner to run a benchmark.
+A provisional engineering target for the proposed Home is warm return within one second and visible D-pad focus movement within 100 ms, measured over the same five probes; these are validation targets to test, not achieved or user-promised performance.
+Report absolute and relative measurements for each used app; an unchanged already-fast app is acceptable, while a slower flow needs investigation. HDMI negotiation and streaming-service latency may remain outside launcher control.
+Missing physical observations do not prevent independent local work, but do prevent claims of end-to-end household preservation or complete U7 acceptance.
+
+For native code, provide a pinned Gradle wrapper and run `./gradlew :app:assembleDebug :app:assembleRelease :app:testDebugUnitTest :app:lint` from `android-tv/`; verify release signature and run `./gradlew :app:connectedDebugAndroidTest` on the appropriate test target. Provision signing outside Git. The wrapper/test modules are planned additions, not present commands today.
+For any actual TypeScript/server change, run `npm run build` and `npm run test:run` plus focused server/storage tests; do not change server code merely to create work. This proposal changes documentation only and does not require application tests.
 
 ---
 
 ## Definition of Done
 
-Every accepted implementation phase has its evidence and restore action recorded in `docs/tv-integration.md`, with progress tracked in `.claude/tasks/tasks.md`.
-The final system meets R1–R10, or a specific unmet outcome is returned for a user decision and is not marked complete.
-No preserved household function regresses, and artwork uses the same committed Renders as the Pi without extra generation.
-Local code passes the applicable Verification Contract before deployment.
-Abandoned experimental code and installations are removed, private snapshots remain outside Git, and no broad debugging access is left enabled after handoff.
+A phase is accepted only for the behavior its evidence establishes; unresolved items remain explicitly unchecked in `.claude/tasks/tasks.md`.
+The full outcome requires R1–R11, including free custom imagery, clean persistent Home, cache/retry behavior, preserved everyday functions and a supported native idle route or a user-approved limitation.
+A reduced fallback of FLauncher plus Pi is not presented as meeting the integrated-art requirements.
+The TV retains usable stock recovery, no trial installs or unrelated service changes remain, and maintained source/build/signing instructions are reproducible.
+The final report names remaining limitations without claiming a speed gain or physical behavior that was never observed.
