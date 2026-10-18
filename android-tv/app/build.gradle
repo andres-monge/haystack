@@ -1,5 +1,31 @@
 plugins { id 'com.android.application' }
 
+def haystackOrigin = providers.gradleProperty('haystackOrigin').getOrElse('http://192.168.0.20:4321')
+def selectedOrigin = new URI(haystackOrigin)
+def host = selectedOrigin.host
+def octets = host?.split('\\.')
+def numeric = octets?.size() == 4 && octets.every { it ==~ /[0-9]{1,3}/ && it.toInteger() <= 255 }
+def lan = numeric && (octets[0] in ['10', '127'] ||
+    (octets[0] == '192' && octets[1] == '168') ||
+    (octets[0] == '172' && octets[1].toInteger() in 16..31))
+if (selectedOrigin.scheme != 'http' || !lan || selectedOrigin.rawAuthority != host + ':' + selectedOrigin.port ||
+        selectedOrigin.port < 1 || selectedOrigin.port > 65535 || selectedOrigin.path != '' ||
+        selectedOrigin.rawQuery != null || selectedOrigin.rawFragment != null) {
+    throw new GradleException('haystackOrigin must be http://<private-or-loopback-IPv4>:<port>, without a path')
+}
+def hostPolicy = layout.buildDirectory.dir('generated/haystackPolicy')
+tasks.register('generateHaystackNetworkPolicy') {
+    inputs.property('origin', haystackOrigin)
+    outputs.dir(hostPolicy)
+    doLast {
+        def policy = hostPolicy.get().file('xml/network_security_config.xml').asFile
+        policy.parentFile.mkdirs()
+        policy.text = '<network-security-config><base-config cleartextTrafficPermitted="false" />' +
+            '<domain-config cleartextTrafficPermitted="true"><domain includeSubdomains="false">' +
+            host + '</domain></domain-config></network-security-config>'
+    }
+}
+
 android {
     namespace 'dev.haystack.tv'
     compileSdk 35
@@ -7,8 +33,9 @@ android {
         applicationId 'dev.haystack.tv'
         minSdk 28
         targetSdk 35
-        versionCode 1
-        versionName '0.1-fixture'
+        versionCode 2
+        versionName '0.2-artwork'
+        buildConfigField 'String', 'HAYSTACK_ORIGIN', '"' + haystackOrigin + '"'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
     compileOptions {
@@ -28,6 +55,8 @@ android {
         }
         buildTypes.release.signingConfig signingConfigs.release
     }
+    buildFeatures.buildConfig = true
+    sourceSets.main.res.srcDir(hostPolicy)
     testOptions.unitTests.includeAndroidResources = true
 }
 
@@ -37,3 +66,5 @@ dependencies {
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
 }
+
+tasks.named('preBuild').configure { dependsOn 'generateHaystackNetworkPolicy' }

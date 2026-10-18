@@ -27,7 +27,7 @@ public class DreamFixtureTest {
         PackageInfo info = pm.getPackageInfo(context.getPackageName(),
                 PackageManager.GET_SERVICES | PackageManager.GET_ACTIVITIES | PackageManager.GET_PERMISSIONS);
         assertNull(info.activities);
-        assertNull(info.requestedPermissions);
+        assertArrayEquals(new String[] {Manifest.permission.INTERNET}, info.requestedPermissions);
         assertEquals(1, info.services.length);
         ServiceInfo service = info.services[0];
         assertEquals("dev.haystack.tv.HaystackDreamService", service.name);

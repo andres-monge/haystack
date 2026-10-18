@@ -1,4 +1,5 @@
 <resources>
-    <string name="app_name">Haystack · static fixture</string>
+    <string name="app_name">Haystack</string>
     <string name="fixture_description">Static Haystack test artwork: dusk over layered hills.</string>
+    <string name="artwork_description">Latest Haystack artwork.</string>
 </resources>

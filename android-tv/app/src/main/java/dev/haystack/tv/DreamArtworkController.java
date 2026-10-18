@@ -1,0 +1,54 @@
+package dev.haystack.tv;
+
+import android.os.Handler;
+import android.os.Looper;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
+
+final class DreamArtworkController {
+    private final ArtworkRepository repository;
+    private final Consumer<Artwork> display;
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private FetchCancellation session;
+    private ScheduledExecutorService worker;
+
+    DreamArtworkController(ArtworkRepository repository, Consumer<Artwork> display) {
+        this.repository = repository;
+        this.display = display;
+    }
+
+    synchronized void start() {
+        if (session != null) return;
+        FetchCancellation token = new FetchCancellation();
+        session = token;
+        worker = Executors.newSingleThreadScheduledExecutor();
+        worker.execute(() -> publish(token, repository.loadCached()));
+        worker.scheduleWithFixedDelay(() -> publish(token, repository.refresh(token)), 0, 60, TimeUnit.SECONDS);
+    }
+
+    private synchronized void publish(FetchCancellation token, Artwork artwork) {
+        if (artwork == null) return;
+        if (session != token) {
+            artwork.bitmap.recycle();
+            return;
+        }
+        main.postAtTime(() -> {
+            synchronized (DreamArtworkController.this) {
+                if (session == token) display.accept(artwork);
+                else artwork.bitmap.recycle();
+            }
+        }, token, android.os.SystemClock.uptimeMillis());
+    }
+
+    synchronized void stop() {
+        if (session == null) return;
+        FetchCancellation old = session;
+        session = null;
+        old.cancel();
+        main.removeCallbacksAndMessages(old);
+        worker.shutdownNow();
+        worker = null;
+    }
+}
