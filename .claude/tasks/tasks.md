@@ -202,3 +202,8 @@ Fresh owner authorization reopened targeted TV testing for a smooth transition l
 - [x] Final normal-UI inspection found Continue Watching already populated (six cards, three progress bars), master channels and override on, usage off/crash on, and only TV apps/Continue Watching/Inputs rows. No preferences changed or title launched; the cause of the prior absence is unknown.
 
 Final retained production: v5 (`0.5-crossfade`), SHA-256 `2ecf42870e216c191d0036e77a6188f41104602ecdea5b989cd24736068585bc`, stable certificate and origin 4321, five-minute delay and sleep `-1`. Owned fixture and watchdog exited; ADB disconnected. The owner subsequently reported turning the TV off; final documentation used saved evidence only. Optional Home UI opacity 100% was documented but not applied. Source implementation is committed as `17d27d6`.
+
+### Source-style fidelity follow-up — 20 October 2026
+
+- [x] Compare current Sunburst prompting, explicit source-style matching, and restrained staging through isolated pipeline generations; retain original, prompts and metadata for visual review.
+- [x] Apply owner-selected B source-style priority to scheduled story rendering, preserving current staging and making the original authoritative over continuity-frame style; build and all 662 tests pass. See `docs/daily-stories.md` for visual evidence and validation limits.

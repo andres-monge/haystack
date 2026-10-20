@@ -19,5 +19,9 @@ export function composeScenePrompt(story: DailyStory, scene: StoryScene, scenari
     'Make poses, props and relationships legible to someone who missed earlier scenes. Do not add future entrances, plot developments, captions or written explanations.',
     `Current physical conditions: ${describeScenario(scenario)}`,
     'Current physical conditions are authoritative over any weather, time or lighting mentioned in scene data. Apply them to lighting, atmosphere and staging while preserving the scene intent and daily character identities. Use the supplied solar visual target for sky, exposure and light direction; physical solar phase overrides clock-based assumptions.',
+    'SOURCE STYLE — HIGHEST VISUAL PRIORITY:',
+    'Image 1 alone defines the rendering technique for every part of the output. Match its texture, edge treatment, palette relationships, surface detail and level of abstraction at the same apparent resolution. Preserve those qualities through lighting changes. If the original uses granular, pixel-like clusters, stepped edges and simplified shapes, retain them; if it uses painted brushwork or another technique, retain that technique instead.',
+    'Render all added people, faces, hair, clothing, animals and props using that same visual grammar and level of abstraction, as though they were made by the original artist in the original artwork. Do not introduce smooth cartoon characters, detailed comic-book faces, clean vector outlines, glossy gradients or a separate storybook illustration style unless those qualities are already present in Image 1. Do not merely pixelate or apply a filter over an otherwise differently rendered addition. When narrative detail conflicts with the source technique, simplify the detail and preserve the technique.',
+    'Any continuity image may guide character identity and visible state only; it must never override Image 1’s style.',
   ].join('\n');
 }
