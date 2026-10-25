@@ -214,6 +214,6 @@ Final retained production: v5 (`0.5-crossfade`), SHA-256 `2ecf42870e216c191d0036
 - [x] Revoke unused user-0 microphone permission from Google voice search, YouTube, RTVE and Play Store; verify active runtime-grant readbacks and record exact per-package restore actions.
 - [x] Change Google's Usage & Diagnostics from on to off through Sony's normal UI; verify unchecked switch and the sole settings delta `global.multi_cb=0`. Observe Google Assistant off without an additional toggle.
 - [x] Inspect the TV's advertising controls without resetting or deleting its identifier; keep ad-debug logging off.
-- [ ] Await owner's specific advertising-ID deletion decision. No separate personalization-off switch is exposed in this installation; the old ID cannot be restored after deletion.
+- [x] Record owner's decision to retain the advertising ID after discussing the tradeoffs; no deletion/reset or further TV changes are pending. Microphone restrictions and Usage & Diagnostics off remain in place.
 
 No package removal, account-history change, location-permission change, new grant, network/DNS configuration or Haystack/Projectivy change is included. See `docs/tv-integration.md` for evidence boundaries and recovery; private UI and identifier evidence remain ignored under `tv-local/20261025-privacy-hardening/`.
