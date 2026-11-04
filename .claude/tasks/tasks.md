@@ -229,3 +229,14 @@ No package removal, account-history change, location-permission change, new gran
 | Work | Status | Date |
 |------|--------|------|
 | Story recovery and adults-only rule | implemented and live; fourteen-scene story and new image verified; upstream reason for historical timeouts remains unknown because prior diagnostics were discarded | 2026-11-04 |
+
+
+### Controlled writer diagnosis follow-up — 4 November 2026
+
+- [x] Run three isolated full-story probes with identical input, including two with the resident server's runtime environment; retain sanitized event telemetry without touching live stories or public notes.
+- [x] Reproduce healthy primary responses exceeding the old 150-second allowance: validated completions at 146.2, 218.1 and 166.9 seconds; all fit the deployed 300-second allowance.
+- [x] Add an accelerated-clock regression that exhausts the former shared budget but completes under the current default; build and all 666 tests pass.
+
+| Work | Status | Date |
+|------|--------|------|
+| Writer deadline diagnosis | reproduced and fix verified for healthy slow responses; separate historical 08:00 generic failure remains unclassified | 2026-11-04 |

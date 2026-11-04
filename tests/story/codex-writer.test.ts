@@ -68,6 +68,19 @@ describe("local subscription writer", () => {
     await expect(new CodexStoryWriter({executable,timeoutMs:1200}).write(request)).rejects.toThrow('writer_timeout');
     expect(Date.now()-started).toBeLessThan(1800);
   });
+  it("lets a healthy 218-second primary finish instead of exhausting the former budget", async () => {
+    // Replay the measured production latency at 100x speed, including deadline accounting.
+    const realNow = Date.now.bind(Date);
+    const realTimer = globalThis.setTimeout;
+    const started = realNow();
+    vi.spyOn(Date, "now").mockImplementation(() => started + (realNow() - started) * 100);
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(((callback, delay, ...args) =>
+      realTimer(callback, delay && delay > 100_000 ? delay / 100 : delay, ...args)
+    ) as typeof setTimeout);
+    const {executable} = fixture(`const fs=require('node:fs');const a=process.argv;setTimeout(()=>{fs.writeFileSync(a[a.indexOf('-o')+1],JSON.stringify({model:a[a.indexOf('--model')+1]}));},2180);`);
+    await expect(new CodexStoryWriter({executable,timeoutMs:300_000}).write(request)).rejects.toThrow('writer_timeout');
+    await expect(new CodexStoryWriter({executable}).write(request)).resolves.toEqual({model:'gpt-6.1-sol'});
+  }, 10_000);
   it("records transport evidence and duration without exposing child diagnostics", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => {});
     const {executable} = fixture(`process.stderr.write('stream disconnected: secret credential');setInterval(()=>{},1000);`);
