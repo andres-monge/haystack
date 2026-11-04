@@ -77,6 +77,7 @@ export class DailyStoryPreparer {
       if (store.loadFailure(date) && !retryFailed) return null;
       // Journal before any awaited preparation or writer work: restart never silently retries an interrupted attempt.
       store.recordFailure(date, 'preparation_interrupted');
+      let stage = 'original_snapshot';
       try {
         let original = await store.loadOriginal(date);
         if (!original) {
@@ -84,12 +85,18 @@ export class DailyStoryPreparer {
           if (!selected) throw new Error('No daily artwork');
           original = await store.snapshotOriginal(date, fs.readFileSync(selected));
         }
+        stage = 'forecast_fetch';
         const forecast = await this.weather.getForecast(location.lat, location.lon, location.timezone);
+        stage = 'forecast_validation';
         const hourly = validatedForecast(forecast.hourly, date);
         const identity = { id: randomUUID(), date, timezone: location.timezone, artworkHash: original.sha256, createdAt: now.toISOString() };
+        stage = 'recent_summaries';
         const recentStories = await store.recentSummaries(14);
+        stage = 'writer';
         const proposal = await writer.write({ imagePath: original.path, schema: STORY_JSON_SCHEMA, prompt: buildWriterPrompt({ identity, hours: this.hours, forecast: hourly, recentStories }) });
+        stage = 'story_validation';
         const story = validateStory(proposal, { ...identity, hours: this.hours });
+        stage = 'story_commit';
         const result = await store.commit(story, this.hours);
         store.clearFailure(date);
         return result;
@@ -97,7 +104,7 @@ export class DailyStoryPreparer {
         // A competing committed artifact is authoritative, and failure text must not leak child credentials or paths.
         const committedAfterFailure = await store.load(date);
         if (committedAfterFailure) { store.clearFailure(date); return committedAfterFailure; }
-        const failureCode = error instanceof StoryWriterError ? error.code : 'preparation_failed';
+        const failureCode = error instanceof StoryWriterError ? error.code : `${stage}_failed`;
         store.recordFailure(date, failureCode);
         console.warn(`[${new Date().toISOString()}] Daily story preparation failed: ${failureCode}`);
         return null;

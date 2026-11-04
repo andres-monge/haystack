@@ -5,7 +5,7 @@ import * as path from "node:path";
 
 export interface WriterRequest { prompt: string; imagePath: string; schema: unknown }
 export interface StoryWriter { write(request: WriterRequest): Promise<unknown> }
-type WriterFailureCode = "writer_capacity" | "writer_timeout" | "writer_output_limit" | "writer_spawn" | "writer_exit" | "writer_json";
+type WriterFailureCode = "writer_capacity" | "writer_timeout" | "writer_output_limit" | "writer_spawn" | "writer_exit" | "writer_json" | "writer_output_missing";
 export class StoryWriterError extends Error {
   constructor(readonly code: WriterFailureCode) { super(code); this.name = "StoryWriterError"; }
 }
@@ -38,7 +38,7 @@ export class CodexStoryWriter implements StoryWriter {
     const output = path.join(dir, "response.json");
     const schema = path.join(dir, "schema.json");
     fs.writeFileSync(schema, JSON.stringify(request.schema), { mode: 0o600 });
-    const timeoutMs = this.options.timeoutMs ?? 300_000;
+    const timeoutMs = this.options.timeoutMs ?? 600_000;
     const deadline = Date.now() + timeoutMs;
     let count = 0;
     const models = ["gpt-6.1-sol", "gpt-6-sol"];
@@ -59,6 +59,8 @@ export class CodexStoryWriter implements StoryWriter {
           "-C", dir, "--image", request.imagePath,
           "--output-schema", schema, "-o", output, "--color", "never", "-",
         ];
+        const attemptStarted = Date.now();
+        console.log(`[${new Date().toISOString()}] Story writer started: ${model}`);
         try {
           await new Promise<void>((resolve, reject) => {
             const child = spawn(executable, argv, {
@@ -67,6 +69,7 @@ export class CodexStoryWriter implements StoryWriter {
             });
             let failure: WriterFailureCode | undefined;
             let stderrTail = "";
+            let diagnostic: "none" | "transport" | "rate_limit" | "authentication" = "none";
             const terminate = (code: WriterFailureCode) => {
               if (failure) return;
               failure = code;
@@ -86,14 +89,18 @@ export class CodexStoryWriter implements StoryWriter {
             child.stderr.on("data", (chunk: Buffer) => {
               capture(chunk);
               // Retain only a bounded in-memory window; never expose raw child diagnostics.
-              const diagnostic = stderrTail + chunk.toString();
-              if (/ERROR:\s*Selected model is at capacity/i.test(diagnostic)) terminate("writer_capacity");
-              stderrTail = diagnostic.slice(-1024);
+              const text = stderrTail + chunk.toString();
+              if (/ERROR:\s*Selected model is at capacity/i.test(text)) terminate("writer_capacity");
+              if (/reconnect|stream.*disconnect|connection.*(?:failed|closed)|request.*(?:failed|timed out)/i.test(text)) diagnostic = "transport";
+              if (/rate.?limit|too many requests|usage limit/i.test(text)) diagnostic = "rate_limit";
+              if (/unauthorized|authentication.*failed|token.*expired/i.test(text)) diagnostic = "authentication";
+              stderrTail = text.slice(-1024);
             });
             child.stdin.on("error", () => { /* exit/error handler owns outcome */ });
             child.once("error", () => { clearTimeout(timer); reject(new StoryWriterError("writer_spawn")); });
             child.once("close", code => {
               clearTimeout(timer);
+              console.log(`[${new Date().toISOString()}] Story writer attempt: ${JSON.stringify({ model, durationMs: Date.now() - attemptStarted, outcome: failure ?? (code === 0 ? "completed" : "writer_exit"), exitCode: code, diagnostic })}`);
               if (failure || code !== 0) reject(new StoryWriterError(failure ?? "writer_exit"));
               else resolve();
             });
@@ -106,6 +113,7 @@ export class CodexStoryWriter implements StoryWriter {
           }
           throw error;
         }
+        if (!fs.existsSync(output)) throw new StoryWriterError("writer_output_missing");
         if (fs.statSync(output).size > limit) throw new StoryWriterError("writer_output_limit");
         try { return JSON.parse(fs.readFileSync(output, "utf8")) as unknown; }
         catch { throw new StoryWriterError("writer_json"); }

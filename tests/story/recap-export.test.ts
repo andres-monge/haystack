@@ -27,7 +27,7 @@ it('publishes ready trailer-only then committed gaps, excluding private and futu
   const {store,s,outputs,vault,meta} = await fixture();
   let target = await exportRecap(store,s.date,vault,outputs);
   const header = `---\nschema_version: 1\ndate: "2026-10-10"\nstory_id: "story-2026-10-10"\nartwork_id: "${s.artworkHash}"\nready: true\nupdated_at: "2026-10-10T12:30:00.000Z"\n`;
-  expect(readFileSync(target,'utf8')).toBe(`${header}latest_scene_hour: null\n---\n\nUna niña prepara una sorpresa alegre entre las flores.\n`);
+  expect(readFileSync(target,'utf8')).toBe(`${header}latest_scene_hour: null\n---\n\nUna mujer adulta prepara una sorpresa alegre entre las flores.\n`);
   await outputs.save(await image('blue'),meta('r9',9));
   target = await exportRecap(store,s.date,vault,outputs);
   expect(readFileSync(target,'utf8')).toContain('## 09:00');
@@ -35,7 +35,7 @@ it('publishes ready trailer-only then committed gaps, excluding private and futu
   await outputs.save(await image('green'),meta('z11',11));
   await exportRecap(store,s.date,vault,outputs);
   const note=readFileSync(target,'utf8');
-  expect(note).toBe(`${header}latest_scene_hour: 11\n---\n\nUna niña prepara una sorpresa alegre entre las flores.\n\n## 09:00\n\nLa maceta sigue junto a la puerta.\n\nAna cuida el jardín a las 9.\n\n## 11:00\n\nLa maceta sigue junto a la puerta.\n\nFUTURE_ACTION\n`);
+  expect(note).toBe(`${header}latest_scene_hour: 11\n---\n\nUna mujer adulta prepara una sorpresa alegre entre las flores.\n\n## 09:00\n\nLa maceta sigue junto a la puerta.\n\nAna cuida el jardín a las 9.\n\n## 11:00\n\nLa maceta sigue junto a la puerta.\n\nFUTURE_ACTION\n`);
   expect(readdirSync(join(vault,'Haystack'))).toEqual(['TV Story So Far.md']);
 });
 it('rejects copied identities and future-hour commits permanently, including after recovery',async()=>{

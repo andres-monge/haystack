@@ -55,7 +55,7 @@ describe('daily preparation', () => {
     const valid = write.getMockImplementation()!;
     write.mockImplementationOnce(async () => { expect(store.loadFailure(date)?.error).toBe('preparation_interrupted'); throw new Error('secret provider credential'); });
     expect(await new DailyStoryPreparer(config).prepare({ now })).toBeNull();
-    expect(store.loadFailure(date)?.error).toBe('preparation_failed');
+    expect(store.loadFailure(date)?.error).toBe('writer_failed');
     const frozen = await store.loadOriginal(date);
     fs.writeFileSync(path.join(config.imageDir, 'art.png'), await image('blue'));
     expect(await new DailyStoryPreparer(config).prepare({ now })).toBeNull(); expect(write).toHaveBeenCalledTimes(1);
@@ -67,6 +67,7 @@ describe('daily preparation', () => {
     const { store, config, write } = await setup(); const valid = write.getMockImplementation()!;
     write.mockImplementation(async req => ({ ...await valid(req), [key]: 'changed' }));
     expect(await new DailyStoryPreparer(config).prepare({ now })).toBeNull(); expect(await store.load(date)).toBeNull();
+    expect(store.loadFailure(date)?.error).toBe('story_validation_failed');
   });
   it('persists a safe writer failure code instead of discarding the cause', async () => {
     const {store,config,write}=await setup();
@@ -81,6 +82,14 @@ describe('daily preparation', () => {
     if (kind === 'nonfinite') forecast.hourly[10].windSpeed = NaN;
     getForecast.mockResolvedValue(forecast);
     expect(await new DailyStoryPreparer(config).prepare({ now })).toBeNull(); expect(write).not.toHaveBeenCalled();
+    expect(config.store.loadFailure(date)?.error).toBe('forecast_validation_failed');
+  });
+  it('identifies forecast transport failures without persisting raw diagnostics', async () => {
+    const { store, config, getForecast, write } = await setup();
+    getForecast.mockRejectedValue(new Error('secret provider credential'));
+    expect(await new DailyStoryPreparer(config).prepare({now})).toBeNull();
+    expect(store.loadFailure(date)?.error).toBe('forecast_fetch_failed');
+    expect(write).not.toHaveBeenCalled();
   });
   it('respects a filesystem preparation owner without starting or journaling a second attempt', async () => {
     const { store, config, write } = await setup();
@@ -105,6 +114,7 @@ describe('daily preparation', () => {
     expect(data.forecast).toHaveLength(24);
     expect(data.hours).toEqual([9, 10, 11]);
     expect(request.prompt).toContain('spoiler-free Spanish sentence');
+    expect(request.prompt).toContain('Every human character must be unambiguously an adult (18 or older)');
   });
   it('suppresses persisted interrupted attempt and prepares all hours with no active window', async () => {
     const { store, config, write } = await setup(); store.recordFailure(date, 'preparation_interrupted');

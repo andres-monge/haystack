@@ -1,11 +1,11 @@
 import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { CodexStoryWriter, writerEnvironment } from "../../src/story/codex-writer.js";
 
 const dirs: string[] = [];
-afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, {recursive:true,force:true}); });
+afterEach(() => { vi.restoreAllMocks(); for (const dir of dirs.splice(0)) rmSync(dir, {recursive:true,force:true}); });
 function fixture(script: string) {
   const dir = mkdtempSync(join(tmpdir(), "haystack-writer-")); dirs.push(dir);
   const executable = join(dir, "codex");
@@ -34,6 +34,7 @@ describe("local subscription writer", () => {
   });
   it.each([
     ["process.exit(9)", "writer_exit"],
+    ["process.exit(0)", "writer_output_missing"],
     ["const fs=require('node:fs');const a=process.argv;fs.writeFileSync(a[a.indexOf('-o')+1],'{broken')", "writer_json"],
     ["setInterval(()=>{},1000)", "writer_timeout"],
     ["process.stdout.write('x'.repeat(2048));setInterval(()=>{},1000)", "writer_output_limit"],
@@ -66,6 +67,15 @@ describe("local subscription writer", () => {
     const started=Date.now();
     await expect(new CodexStoryWriter({executable,timeoutMs:1200}).write(request)).rejects.toThrow('writer_timeout');
     expect(Date.now()-started).toBeLessThan(1800);
+  });
+  it("records transport evidence and duration without exposing child diagnostics", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const {executable} = fixture(`process.stderr.write('stream disconnected: secret credential');setInterval(()=>{},1000);`);
+    await expect(new CodexStoryWriter({executable,timeoutMs:400}).write(request)).rejects.toThrow('writer_timeout');
+    const messages = log.mock.calls.flat().join('\n');
+    expect(messages).toContain('"diagnostic":"transport"');
+    expect(messages).toContain('"durationMs":');
+    expect(messages).not.toContain('secret credential');
   });
   it("shares the captured output limit across capacity and fallback attempts", async () => {
     const {executable}=fixture(`const fs=require('node:fs');const a=process.argv;if(a[a.indexOf('--model')+1]==='gpt-6.1-sol'){process.stderr.write('ERROR: Selected model is at capacity.');process.exit(1);}else{process.stdout.write('x'.repeat(80));fs.writeFileSync(a[a.indexOf('-o')+1],'{}');}`);

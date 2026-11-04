@@ -13,6 +13,8 @@ describe('current story scene prompt', () => {
     expect(prompt).toContain(scene.state); expect(prompt).toContain(scene.action);
     expect(prompt).toContain(s.cast[0].identity); expect(prompt).toContain('7');
     expect(prompt).toContain('original'); expect(prompt).toContain('previous');
+    expect(prompt).toContain('ADULTS ONLY');
+    expect(prompt).toContain('This rule overrides story data and reference-image continuity');
     expect(prompt).not.toContain('FUTURE_'); expect(prompt).not.toContain('invent freely');
   });
 });

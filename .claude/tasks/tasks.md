@@ -217,3 +217,15 @@ Final retained production: v5 (`0.5-crossfade`), SHA-256 `2ecf42870e216c191d0036
 - [x] Record owner's decision to retain the advertising ID after discussing the tradeoffs; no deletion/reset or further TV changes are pending. Microphone restrictions and Usage & Diagnostics off remain in place.
 
 No package removal, account-history change, location-permission change, new grant, network/DNS configuration or Haystack/Projectivy change is included. See `docs/tv-integration.md` for evidence boundaries and recovery; private UI and identifier evidence remain ignored under `tv-local/20261025-privacy-hardening/`.
+
+
+### Daily story recovery and adults-only rule — 4 November 2026
+
+- [x] Confirm morning writer timeouts blocked story-dependent image generation; recover the frozen original and prepare today's fourteen-scene story without changing rotation.
+- [x] Expand writer headroom to ten minutes total (five minutes reserved per model), log safe attempt timing/diagnostic categories, distinguish missing writer output and preparation failure stages, and add regression coverage.
+- [x] Require adult human characters and background figures in story planning and image prompts, overriding older story/reference data; document the lasting rule.
+- [x] Restart the live server and verify a new current-scene render through `/api/latest`; visually inspect two adult women and a peacock with no children visible. Build and all 665 tests pass. ESLint cannot run because this checkout has no ESLint 9 configuration.
+
+| Work | Status | Date |
+|------|--------|------|
+| Story recovery and adults-only rule | implemented and live; fourteen-scene story and new image verified; upstream reason for historical timeouts remains unknown because prior diagnostics were discarded | 2026-11-04 |
