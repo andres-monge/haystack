@@ -240,3 +240,16 @@ No package removal, account-history change, location-permission change, new gran
 | Work | Status | Date |
 |------|--------|------|
 | Writer deadline diagnosis | reproduced and fix verified for healthy slow responses; separate historical 08:00 generic failure remains unclassified | 2026-11-04 |
+
+
+### OpenAI image model upgrade — 5 November 2026
+
+- [x] Upgrade the production OpenAI default to `gpt-image-2.6-sunburst`, retaining medium quality, existing sizing and provider fallbacks; update adapter expectations and active project documentation.
+- [x] Build and all 666 tests pass. ESLint remains blocked by the checkout's missing ESLint 9 configuration. No paid comparison or manual generation was run.
+- [x] Restart the resident server; verify a new process, healthy scheduler and ready current story. Existing displayed output remains from 2.5 until the next successful generation; 2.6 visual quality and actual cost have not been measured.
+
+Code review: skipped (mechanical diff) — model-version substitution with matching existing test expectations and documentation.
+
+| Work | Status | Date |
+|------|--------|------|
+| OpenAI image model upgrade | 2.6 Sunburst configured and server restarted; first live 2.6 render pending | 2026-11-05 |
